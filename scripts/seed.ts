@@ -136,12 +136,14 @@ async function ensureSuperAdmin(email: string, password: string, roleId: number)
     .from("profiles")
     .select("id")
     .eq("email", email)
-    .single();
+    .maybeSingle();
 
   if (existingProfile) {
     console.log(`Super Admin ${email} already exists`);
     return;
   }
+
+  let authUserId: string;
 
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
@@ -150,13 +152,34 @@ async function ensureSuperAdmin(email: string, password: string, roleId: number)
     user_metadata: { full_name: "Super Admin" },
   });
 
-  if (authError) {
+  if (authError && authError.message?.includes("already been registered")) {
+    const { data: users } = await supabase.auth.admin.listUsers();
+    const existing = users?.users?.find(u => u.email === email);
+    if (!existing) {
+      console.error(`Auth user ${email} exists but could not be found in list`);
+      process.exit(1);
+    }
+    authUserId = existing.id;
+  } else if (authError) {
     console.error("Failed to create auth user:", authError.message);
     process.exit(1);
+  } else {
+    authUserId = authUser.user.id;
+  }
+
+  const { data: profileById } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", authUserId)
+    .maybeSingle();
+
+  if (profileById) {
+    console.log(`Super Admin ${email} already exists`);
+    return;
   }
 
   const { error: profileError } = await supabase.from("profiles").insert({
-    id: authUser.user.id,
+    id: authUserId,
     email,
     full_name: "Super Admin",
     role: "superadmin",
@@ -164,7 +187,6 @@ async function ensureSuperAdmin(email: string, password: string, roleId: number)
   });
 
   if (profileError) {
-    await supabase.auth.admin.deleteUser(authUser.user.id);
     console.error("Failed to create profile:", profileError.message);
     process.exit(1);
   }
@@ -191,10 +213,12 @@ async function main() {
 
   await ensureStoreManager("storemanager@test.com", "Manager@123", storeId, managerRoleId);
   await ensureSuperAdmin("superadmin@test.com", "Admin@123", superAdminRole.id);
+  await ensureSuperAdmin("admin@freshcart.com", "admin123", superAdminRole.id);
 
   console.log("\nDone. Test credentials:");
-  console.log("  Super Admin:  superadmin@test.com / Admin@123");
-  console.log("  Store Manager: storemanager@test.com / Manager@123");
+  console.log("  Super Admin:  superadmin@test.com     / Admin@123");
+  console.log("  Super Admin:  admin@freshcart.com     / admin123");
+  console.log("  Store Manager: storemanager@test.com  / Manager@123");
 }
 
 main().catch((err) => {
