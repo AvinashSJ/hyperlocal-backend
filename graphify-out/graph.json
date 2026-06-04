@@ -1,0 +1,1421 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "id": "src_app_admin_banners_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L1",
+      "community": 0,
+      "norm_label": "getBanners"
+    },
+    {
+      "id": "src_app_admin_banners_actions_ts_getbanners",
+      "label": "getBanners",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L0",
+      "community": 0,
+      "norm_label": "getBanners"
+    },
+    {
+      "id": "src_app_admin_banners_actions_ts_createbanner",
+      "label": "createBanner",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L0",
+      "community": 0,
+      "norm_label": "createBanner"
+    },
+    {
+      "id": "src_app_admin_banners_actions_ts_updatebanner",
+      "label": "updateBanner",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L0",
+      "community": 0,
+      "norm_label": "updateBanner"
+    },
+    {
+      "id": "src_app_admin_banners_actions_ts_deletebanner",
+      "label": "deleteBanner",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L0",
+      "community": 0,
+      "norm_label": "deleteBanner"
+    },
+    {
+      "id": "src_app_admin_banners_actions_ts_reorderbanners",
+      "label": "reorderBanners",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L0",
+      "community": 0,
+      "norm_label": "reorderBanners"
+    },
+    {
+      "id": "src_app_admin_banners_actions_ts_bannerinput",
+      "label": "BannerInput",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/actions.ts",
+      "source_location": "L0",
+      "community": 0,
+      "norm_label": "BannerInput"
+    },
+    {
+      "id": "src_app_admin_banners_bannerform_tsx",
+      "label": "BannerForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/banners/BannerForm.tsx",
+      "source_location": "L1",
+      "community": 1,
+      "norm_label": "BannerForm"
+    },
+    {
+      "id": "src_app_admin_banners_bannerform_tsx_bannerform",
+      "label": "BannerForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/BannerForm.tsx",
+      "source_location": "L0",
+      "community": 1,
+      "norm_label": "BannerForm"
+    },
+    {
+      "id": "src_app_admin_banners_bannerform_tsx_banner",
+      "label": "Banner",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/BannerForm.tsx",
+      "source_location": "L0",
+      "community": 1,
+      "norm_label": "Banner"
+    },
+    {
+      "id": "src_app_admin_banners_bannersclient_tsx",
+      "label": "BannersClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/banners/BannersClient.tsx",
+      "source_location": "L1",
+      "community": 1,
+      "norm_label": "BannersClient"
+    },
+    {
+      "id": "src_app_admin_banners_bannersclient_tsx_bannersclient",
+      "label": "BannersClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/BannersClient.tsx",
+      "source_location": "L0",
+      "community": 1,
+      "norm_label": "BannersClient"
+    },
+    {
+      "id": "src_app_admin_banners_bannersclient_tsx_banner",
+      "label": "Banner",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/BannersClient.tsx",
+      "source_location": "L0",
+      "community": 1,
+      "norm_label": "Banner"
+    },
+    {
+      "id": "src_app_admin_banners_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/banners/page.tsx",
+      "source_location": "L1",
+      "community": 1,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_banners_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/page.tsx",
+      "source_location": "L0",
+      "community": 1,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_categories_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L1",
+      "community": 2,
+      "norm_label": "createCategory"
+    },
+    {
+      "id": "src_app_admin_categories_actions_ts_createcategory",
+      "label": "createCategory",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "createCategory"
+    },
+    {
+      "id": "src_app_admin_categories_actions_ts_updatecategory",
+      "label": "updateCategory",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "updateCategory"
+    },
+    {
+      "id": "src_app_admin_categories_actions_ts_deletecategory",
+      "label": "deleteCategory",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "deleteCategory"
+    },
+    {
+      "id": "src_app_admin_categories_categoriesclient_tsx",
+      "label": "CategoriesClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/categories/CategoriesClient.tsx",
+      "source_location": "L1",
+      "community": 2,
+      "norm_label": "CategoriesClient"
+    },
+    {
+      "id": "src_app_admin_categories_categoriesclient_tsx_categoriesclient",
+      "label": "CategoriesClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoriesClient.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "CategoriesClient"
+    },
+    {
+      "id": "src_app_admin_categories_categoriesclient_tsx_category",
+      "label": "Category",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoriesClient.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_categories_categoryform_tsx",
+      "label": "CategoryForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/categories/CategoryForm.tsx",
+      "source_location": "L1",
+      "community": 2,
+      "norm_label": "CategoryForm"
+    },
+    {
+      "id": "src_app_admin_categories_categoryform_tsx_categoryform",
+      "label": "CategoryForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoryForm.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "CategoryForm"
+    },
+    {
+      "id": "src_app_admin_categories_categoryform_tsx_category",
+      "label": "Category",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoryForm.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_categories_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/categories/page.tsx",
+      "source_location": "L1",
+      "community": 2,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_categories_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/page.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_categories_page_tsx_categoryrow",
+      "label": "CategoryRow",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/page.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "CategoryRow"
+    },
+    {
+      "id": "src_app_admin_customers_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/customers/page.tsx",
+      "source_location": "L1",
+      "community": 3,
+      "norm_label": "CustomersPage"
+    },
+    {
+      "id": "src_app_admin_customers_page_tsx_customerspage",
+      "label": "CustomersPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/customers/page.tsx",
+      "source_location": "L0",
+      "community": 3,
+      "norm_label": "CustomersPage"
+    },
+    {
+      "id": "src_app_admin_dashboard_dashboardclient_tsx",
+      "label": "DashboardClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "DashboardClient"
+    },
+    {
+      "id": "src_app_admin_dashboard_dashboardclient_tsx_dashboardclient",
+      "label": "DashboardClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "DashboardClient"
+    },
+    {
+      "id": "src_app_admin_dashboard_dashboardclient_tsx_monthlydata",
+      "label": "MonthlyData",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "MonthlyData"
+    },
+    {
+      "id": "src_app_admin_dashboard_dashboardclient_tsx_lowstockitem",
+      "label": "LowStockItem",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "LowStockItem"
+    },
+    {
+      "id": "src_app_admin_dashboard_dashboardclient_tsx_stats",
+      "label": "Stats",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "Stats"
+    },
+    {
+      "id": "src_app_admin_dashboard_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/dashboard/page.tsx",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_dashboard_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/page.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-slots/page.tsx",
+      "source_location": "L1",
+      "community": 5,
+      "norm_label": "DeliverySlotsPage"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_page_tsx_deliveryslotspage",
+      "label": "DeliverySlotsPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/page.tsx",
+      "source_location": "L0",
+      "community": 5,
+      "norm_label": "DeliverySlotsPage"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-zones/page.tsx",
+      "source_location": "L1",
+      "community": 6,
+      "norm_label": "DeliveryZonesPage"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_page_tsx_deliveryzonespage",
+      "label": "DeliveryZonesPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/page.tsx",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "DeliveryZonesPage"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/gst-numbers/page.tsx",
+      "source_location": "L1",
+      "community": 7,
+      "norm_label": "GSTNumbersPage"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_page_tsx_gstnumberspage",
+      "label": "GSTNumbersPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/page.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "GSTNumbersPage"
+    },
+    {
+      "id": "src_app_admin_inventory_log_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/inventory-log/page.tsx",
+      "source_location": "L1",
+      "community": 8,
+      "norm_label": "InventoryLogPage"
+    },
+    {
+      "id": "src_app_admin_inventory_log_page_tsx_inventorylogpage",
+      "label": "InventoryLogPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/inventory-log/page.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "InventoryLogPage"
+    },
+    {
+      "id": "src_app_admin_invoices_id_invoicedetailclient_tsx",
+      "label": "InvoiceDetailClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/[id]/InvoiceDetailClient.tsx",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "InvoiceDetailClient"
+    },
+    {
+      "id": "src_app_admin_invoices_id_invoicedetailclient_tsx_invoicedetailclient",
+      "label": "InvoiceDetailClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/[id]/InvoiceDetailClient.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "InvoiceDetailClient"
+    },
+    {
+      "id": "src_app_admin_invoices_id_invoicepdf_tsx",
+      "label": "InvoicePDF.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/[id]/InvoicePDF.tsx",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "InvoicePDF"
+    },
+    {
+      "id": "src_app_admin_invoices_id_invoicepdf_tsx_invoicepdf",
+      "label": "InvoicePDF",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/[id]/InvoicePDF.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "InvoicePDF"
+    },
+    {
+      "id": "src_app_admin_invoices_id_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/[id]/page.tsx",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_invoices_id_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/[id]/page.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L1",
+      "community": 10,
+      "norm_label": "getInvoices"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts_getinvoices",
+      "label": "getInvoices",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "getInvoices"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts_getinvoice",
+      "label": "getInvoice",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "getInvoice"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts_generateinvoice",
+      "label": "generateInvoice",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "generateInvoice"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts_invoicerow",
+      "label": "InvoiceRow",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "InvoiceRow"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts_invoicelistitem",
+      "label": "InvoiceListItem",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "InvoiceListItem"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_ts_invoicedetail",
+      "label": "InvoiceDetail",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "InvoiceDetail"
+    },
+    {
+      "id": "src_app_admin_invoices_invoicesclient_tsx",
+      "label": "InvoicesClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/InvoicesClient.tsx",
+      "source_location": "L1",
+      "community": 10,
+      "norm_label": "InvoicesClient"
+    },
+    {
+      "id": "src_app_admin_invoices_invoicesclient_tsx_invoicesclient",
+      "label": "InvoicesClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/InvoicesClient.tsx",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "InvoicesClient"
+    },
+    {
+      "id": "src_app_admin_invoices_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/page.tsx",
+      "source_location": "L1",
+      "community": 10,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_invoices_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/page.tsx",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_layout_tsx",
+      "label": "layout.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/layout.tsx",
+      "source_location": "L1",
+      "community": 11,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_layout_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/layout.tsx",
+      "source_location": "L0",
+      "community": 11,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_notifications_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/notifications/page.tsx",
+      "source_location": "L1",
+      "community": 12,
+      "norm_label": "NotificationsPage"
+    },
+    {
+      "id": "src_app_admin_notifications_page_tsx_notificationspage",
+      "label": "NotificationsPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/page.tsx",
+      "source_location": "L0",
+      "community": 12,
+      "norm_label": "NotificationsPage"
+    },
+    {
+      "id": "src_app_admin_orders_id_orderdetailclient_tsx",
+      "label": "OrderDetailClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
+      "source_location": "L1",
+      "community": 13,
+      "norm_label": "OrderDetailClient"
+    },
+    {
+      "id": "src_app_admin_orders_id_orderdetailclient_tsx_orderdetailclient",
+      "label": "OrderDetailClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
+      "source_location": "L0",
+      "community": 13,
+      "norm_label": "OrderDetailClient"
+    },
+    {
+      "id": "src_app_admin_orders_id_orderdetailclient_tsx_paymentstatus",
+      "label": "PaymentStatus",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
+      "source_location": "L0",
+      "community": 13,
+      "norm_label": "PaymentStatus"
+    },
+    {
+      "id": "src_app_admin_orders_id_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/orders/[id]/page.tsx",
+      "source_location": "L1",
+      "community": 13,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_orders_id_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/[id]/page.tsx",
+      "source_location": "L0",
+      "community": 13,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "getOrders"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts_getorders",
+      "label": "getOrders",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "getOrders"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts_getorder",
+      "label": "getOrder",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "getOrder"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts_updateorderstatus",
+      "label": "updateOrderStatus",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "updateOrderStatus"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts_updatepaymentstatus",
+      "label": "updatePaymentStatus",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "updatePaymentStatus"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts_deleteorder",
+      "label": "deleteOrder",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "deleteOrder"
+    },
+    {
+      "id": "src_app_admin_orders_actions_ts_orderstatus",
+      "label": "OrderStatus",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "OrderStatus"
+    },
+    {
+      "id": "src_app_admin_orders_ordersclient_tsx",
+      "label": "OrdersClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/orders/OrdersClient.tsx",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "OrdersClient"
+    },
+    {
+      "id": "src_app_admin_orders_ordersclient_tsx_ordersclient",
+      "label": "OrdersClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/OrdersClient.tsx",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "OrdersClient"
+    },
+    {
+      "id": "src_app_admin_orders_ordersclient_tsx_paymentstatus",
+      "label": "PaymentStatus",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/OrdersClient.tsx",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "PaymentStatus"
+    },
+    {
+      "id": "src_app_admin_orders_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/orders/page.tsx",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_orders_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/page.tsx",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/page.tsx",
+      "source_location": "L1",
+      "community": 11,
+      "norm_label": "AdminPage"
+    },
+    {
+      "id": "src_app_admin_page_tsx_adminpage",
+      "label": "AdminPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/page.tsx",
+      "source_location": "L0",
+      "community": 11,
+      "norm_label": "AdminPage"
+    },
+    {
+      "id": "src_app_admin_products_id_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/[id]/page.tsx",
+      "source_location": "L1",
+      "community": 15,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_id_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/[id]/page.tsx",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_id_page_tsx_props",
+      "label": "Props",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/[id]/page.tsx",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "Props"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L1",
+      "community": 16,
+      "norm_label": "createProduct"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts_createproduct",
+      "label": "createProduct",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "createProduct"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts_updateproduct",
+      "label": "updateProduct",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "updateProduct"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts_deleteproduct",
+      "label": "deleteProduct",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "deleteProduct"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts_variantinput",
+      "label": "VariantInput",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "VariantInput"
+    },
+    {
+      "id": "src_app_admin_products_new_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/new/page.tsx",
+      "source_location": "L1",
+      "community": 17,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_new_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/new/page.tsx",
+      "source_location": "L0",
+      "community": 17,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/page.tsx",
+      "source_location": "L1",
+      "community": 16,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/page.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_productform_tsx",
+      "label": "ProductForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/ProductForm.tsx",
+      "source_location": "L1",
+      "community": 16,
+      "norm_label": "ProductForm"
+    },
+    {
+      "id": "src_app_admin_products_productform_tsx_productform",
+      "label": "ProductForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "ProductForm"
+    },
+    {
+      "id": "src_app_admin_products_productform_tsx_product",
+      "label": "Product",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "Product"
+    },
+    {
+      "id": "src_app_admin_products_productform_tsx_productvariant",
+      "label": "ProductVariant",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "ProductVariant"
+    },
+    {
+      "id": "src_app_admin_products_productform_tsx_productimage",
+      "label": "ProductImage",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "ProductImage"
+    },
+    {
+      "id": "src_app_admin_products_productform_tsx_category",
+      "label": "Category",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_tsx",
+      "label": "ProductsClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/ProductsClient.tsx",
+      "source_location": "L1",
+      "community": 16,
+      "norm_label": "ProductsClient"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_tsx_productsclient",
+      "label": "ProductsClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductsClient.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "ProductsClient"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_tsx_product",
+      "label": "Product",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductsClient.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "Product"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_tsx_category",
+      "label": "Category",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductsClient.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_tsx",
+      "label": "VariantEditor.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/VariantEditor.tsx",
+      "source_location": "L1",
+      "community": 16,
+      "norm_label": "VariantEditor"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_tsx_varianteditor",
+      "label": "VariantEditor",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/VariantEditor.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "VariantEditor"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_tsx_variant",
+      "label": "Variant",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/VariantEditor.tsx",
+      "source_location": "L0",
+      "community": 16,
+      "norm_label": "Variant"
+    },
+    {
+      "id": "src_app_admin_roles_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/roles/page.tsx",
+      "source_location": "L1",
+      "community": 18,
+      "norm_label": "RolesPage"
+    },
+    {
+      "id": "src_app_admin_roles_page_tsx_rolespage",
+      "label": "RolesPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/page.tsx",
+      "source_location": "L0",
+      "community": 18,
+      "norm_label": "RolesPage"
+    },
+    {
+      "id": "src_app_admin_settings_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/settings/page.tsx",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "SettingsPage"
+    },
+    {
+      "id": "src_app_admin_settings_page_tsx_settingspage",
+      "label": "SettingsPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/page.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "SettingsPage"
+    },
+    {
+      "id": "src_app_admin_users_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/users/page.tsx",
+      "source_location": "L1",
+      "community": 20,
+      "norm_label": "UsersPage"
+    },
+    {
+      "id": "src_app_admin_users_page_tsx_userspage",
+      "label": "UsersPage",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/page.tsx",
+      "source_location": "L0",
+      "community": 20,
+      "norm_label": "UsersPage"
+    },
+    {
+      "id": "src_app_auth_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/auth/actions.ts",
+      "source_location": "L1",
+      "community": 21,
+      "norm_label": "signIn"
+    },
+    {
+      "id": "src_app_auth_actions_ts_signin",
+      "label": "signIn",
+      "file_type": "export",
+      "source_file": "app/auth/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "signIn"
+    },
+    {
+      "id": "src_app_auth_actions_ts_signout",
+      "label": "signOut",
+      "file_type": "export",
+      "source_file": "app/auth/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "signOut"
+    },
+    {
+      "id": "src_app_auth_login_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/auth/login/page.tsx",
+      "source_location": "L1",
+      "community": 22,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_auth_login_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/auth/login/page.tsx",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_auth_login_page_tsx_loginpageprops",
+      "label": "LoginPageProps",
+      "file_type": "export",
+      "source_file": "app/auth/login/page.tsx",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "LoginPageProps"
+    },
+    {
+      "id": "src_app_layout_tsx",
+      "label": "layout.tsx",
+      "file_type": "server_component",
+      "source_file": "app/layout.tsx",
+      "source_location": "L1",
+      "community": 23,
+      "norm_label": "RootLayout"
+    },
+    {
+      "id": "src_app_layout_tsx_rootlayout",
+      "label": "RootLayout",
+      "file_type": "export",
+      "source_file": "app/layout.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "RootLayout"
+    },
+    {
+      "id": "src_app_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/page.tsx",
+      "source_location": "L1",
+      "community": 23,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/page.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_storeprovider_tsx",
+      "label": "StoreProvider.tsx",
+      "file_type": "server_component",
+      "source_file": "app/StoreProvider.tsx",
+      "source_location": "L1",
+      "community": 23,
+      "norm_label": "StoreProvider"
+    },
+    {
+      "id": "src_app_storeprovider_tsx_storeprovider",
+      "label": "StoreProvider",
+      "file_type": "export",
+      "source_file": "app/StoreProvider.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "StoreProvider"
+    },
+    {
+      "id": "src_components_bootstrapclient_tsx",
+      "label": "BootstrapClient.tsx",
+      "file_type": "server_component",
+      "source_file": "components/BootstrapClient.tsx",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "BootstrapClient"
+    },
+    {
+      "id": "src_components_bootstrapclient_tsx_bootstrapclient",
+      "label": "BootstrapClient",
+      "file_type": "export",
+      "source_file": "components/BootstrapClient.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "BootstrapClient"
+    },
+    {
+      "id": "src_components_masterlayout_tsx",
+      "label": "MasterLayout.tsx",
+      "file_type": "server_component",
+      "source_file": "components/MasterLayout.tsx",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "MasterLayout"
+    },
+    {
+      "id": "src_components_masterlayout_tsx_masterlayout",
+      "label": "MasterLayout",
+      "file_type": "export",
+      "source_file": "components/MasterLayout.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "MasterLayout"
+    },
+    {
+      "id": "src_components_masterlayout_tsx_navitem",
+      "label": "NavItem",
+      "file_type": "export",
+      "source_file": "components/MasterLayout.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "NavItem"
+    },
+    {
+      "id": "src_components_placeholderpage_tsx",
+      "label": "PlaceholderPage.tsx",
+      "file_type": "server_component",
+      "source_file": "components/PlaceholderPage.tsx",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "PlaceholderPage"
+    },
+    {
+      "id": "src_components_placeholderpage_tsx_placeholderpage",
+      "label": "PlaceholderPage",
+      "file_type": "export",
+      "source_file": "components/PlaceholderPage.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "PlaceholderPage"
+    },
+    {
+      "id": "src_lib_redux_api_baseapi_ts",
+      "label": "baseApi.ts",
+      "file_type": "server_component",
+      "source_file": "lib/redux/api/baseApi.ts",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "baseApi"
+    },
+    {
+      "id": "src_lib_redux_hooks_ts",
+      "label": "hooks.ts",
+      "file_type": "server_component",
+      "source_file": "lib/redux/hooks.ts",
+      "source_location": "L1",
+      "community": 26,
+      "norm_label": "hooks"
+    },
+    {
+      "id": "src_lib_redux_store_ts",
+      "label": "store.ts",
+      "file_type": "server_component",
+      "source_file": "lib/redux/store.ts",
+      "source_location": "L1",
+      "community": 26,
+      "norm_label": "AppStore"
+    },
+    {
+      "id": "src_lib_redux_store_ts_appstore",
+      "label": "AppStore",
+      "file_type": "export",
+      "source_file": "lib/redux/store.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "AppStore"
+    },
+    {
+      "id": "src_lib_redux_store_ts_rootstate",
+      "label": "RootState",
+      "file_type": "export",
+      "source_file": "lib/redux/store.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "RootState"
+    },
+    {
+      "id": "src_lib_redux_store_ts_appdispatch",
+      "label": "AppDispatch",
+      "file_type": "export",
+      "source_file": "lib/redux/store.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "AppDispatch"
+    },
+    {
+      "id": "src_lib_supabase_admin_ts",
+      "label": "admin.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/admin.ts",
+      "source_location": "L1",
+      "community": 27,
+      "norm_label": "createAdminClient"
+    },
+    {
+      "id": "src_lib_supabase_admin_ts_createadminclient",
+      "label": "createAdminClient",
+      "file_type": "export",
+      "source_file": "lib/supabase/admin.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "createAdminClient"
+    },
+    {
+      "id": "src_lib_supabase_client_ts",
+      "label": "client.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/client.ts",
+      "source_location": "L1",
+      "community": 27,
+      "norm_label": "createClient"
+    },
+    {
+      "id": "src_lib_supabase_client_ts_createclient",
+      "label": "createClient",
+      "file_type": "export",
+      "source_file": "lib/supabase/client.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "createClient"
+    },
+    {
+      "id": "src_lib_supabase_middleware_ts",
+      "label": "middleware.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/middleware.ts",
+      "source_location": "L1",
+      "community": 27,
+      "norm_label": "updateSession"
+    },
+    {
+      "id": "src_lib_supabase_middleware_ts_updatesession",
+      "label": "updateSession",
+      "file_type": "export",
+      "source_file": "lib/supabase/middleware.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "updateSession"
+    },
+    {
+      "id": "src_lib_supabase_middleware_ts_nextrequest",
+      "label": "NextRequest",
+      "file_type": "export",
+      "source_file": "lib/supabase/middleware.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "NextRequest"
+    },
+    {
+      "id": "src_lib_supabase_server_ts",
+      "label": "server.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L1",
+      "community": 27,
+      "norm_label": "createClient"
+    },
+    {
+      "id": "src_lib_supabase_server_ts_createclient",
+      "label": "createClient",
+      "file_type": "export",
+      "source_file": "lib/supabase/server.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "createClient"
+    },
+    {
+      "id": "src_lib_types_supabase_ts",
+      "label": "supabase.ts",
+      "file_type": "server_component",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L1",
+      "community": 28,
+      "norm_label": "Profile"
+    },
+    {
+      "id": "src_lib_types_supabase_ts_profile",
+      "label": "Profile",
+      "file_type": "export",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "Profile"
+    },
+    {
+      "id": "src_lib_types_supabase_ts_store",
+      "label": "Store",
+      "file_type": "export",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "Store"
+    },
+    {
+      "id": "src_lib_types_supabase_ts_category",
+      "label": "Category",
+      "file_type": "export",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "Category"
+    },
+    {
+      "id": "src_lib_types_supabase_ts_product",
+      "label": "Product",
+      "file_type": "export",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "Product"
+    },
+    {
+      "id": "src_lib_types_supabase_ts_productvariant",
+      "label": "ProductVariant",
+      "file_type": "export",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "ProductVariant"
+    },
+    {
+      "id": "src_lib_types_supabase_ts_productimage",
+      "label": "ProductImage",
+      "file_type": "export",
+      "source_file": "lib/types/supabase.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "ProductImage"
+    }
+  ],
+  "edges": []
+}

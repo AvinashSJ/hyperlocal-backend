@@ -1,26 +1,135 @@
 @import "tailwindcss";
+@import "bootstrap/dist/css/bootstrap.min.css";
+@import "datatables.net-dt/css/dataTables.dataTables.css";
+@import "react-toastify/dist/ReactToastify.css";
+@import "flatpickr/dist/flatpickr.min.css";
+@import "../assets/css/remixicon.css";
 
 :root {
-  --background: #ffffff;
+  --background: #f8f9fa;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  z-index: 1040;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  color: #495057;
+  text-decoration: none;
+  font-size: 0.875rem;
+  border: none;
+  background: transparent;
+  width: 100%;
+  cursor: pointer;
+}
+
+.sidebar-nav-item:hover {
+  background: rgba(13, 110, 253, 0.05);
+  color: #0d6efd;
+}
+
+.sidebar-nav-item.active {
+  background: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+  font-weight: 600;
+}
+
+.sidebar-sub-item {
+  display: block;
+  padding: 0.3rem 1rem 0.3rem 2.5rem;
+  color: #6c757d;
+  text-decoration: none;
+  font-size: 0.85rem;
+  border-radius: 0.25rem;
+}
+
+.sidebar-sub-item:hover,
+.sidebar-sub-item.active {
+  background: rgba(13, 110, 253, 0.1);
+  color: #0d6efd;
+  font-weight: 500;
+}
+
+/* Stat cards */
+.stat-card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+/* Tables */
+.table th {
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #6c757d;
+}
+
+.table > :not(caption) > * > * {
+  vertical-align: middle;
+}
+
+/* Badges */
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* Cards */
+.card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card-title {
+  font-size: 0.95rem;
+}
+
+/* Alerts */
+.alert {
+  border: none;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  z-index: 1040;
+}
+
+/* Loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+/* Small text */
+.text-xs {
+  font-size: 0.75rem;
 }

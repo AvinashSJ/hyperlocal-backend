@@ -1,0 +1,161 @@
+{
+  "communities": {
+    "0": [
+      "getBanners",
+      "createBanner",
+      "updateBanner",
+      "deleteBanner",
+      "reorderBanners",
+      "BannerInput"
+    ],
+    "1": [
+      "BannerForm",
+      "Banner",
+      "BannersClient",
+      "async"
+    ],
+    "2": [
+      "createCategory",
+      "updateCategory",
+      "deleteCategory",
+      "CategoriesClient",
+      "Category",
+      "CategoryForm",
+      "async",
+      "CategoryRow"
+    ],
+    "3": [
+      "CustomersPage"
+    ],
+    "4": [
+      "DashboardClient",
+      "MonthlyData",
+      "LowStockItem",
+      "Stats",
+      "async"
+    ],
+    "5": [
+      "DeliverySlotsPage"
+    ],
+    "6": [
+      "DeliveryZonesPage"
+    ],
+    "7": [
+      "GSTNumbersPage"
+    ],
+    "8": [
+      "InventoryLogPage"
+    ],
+    "9": [
+      "InvoiceDetailClient",
+      "InvoicePDF",
+      "async"
+    ],
+    "10": [
+      "getInvoices",
+      "getInvoice",
+      "generateInvoice",
+      "InvoiceRow",
+      "InvoiceListItem",
+      "InvoiceDetail",
+      "InvoicesClient",
+      "async"
+    ],
+    "11": [
+      "async",
+      "AdminPage"
+    ],
+    "12": [
+      "NotificationsPage"
+    ],
+    "13": [
+      "OrderDetailClient",
+      "PaymentStatus",
+      "async"
+    ],
+    "14": [
+      "getOrders",
+      "getOrder",
+      "updateOrderStatus",
+      "updatePaymentStatus",
+      "deleteOrder",
+      "OrderStatus",
+      "OrdersClient",
+      "PaymentStatus",
+      "async"
+    ],
+    "15": [
+      "async",
+      "Props"
+    ],
+    "16": [
+      "createProduct",
+      "updateProduct",
+      "deleteProduct",
+      "VariantInput",
+      "async",
+      "ProductForm",
+      "Product",
+      "ProductVariant",
+      "ProductImage",
+      "Category",
+      "ProductsClient",
+      "VariantEditor",
+      "Variant"
+    ],
+    "17": [
+      "async"
+    ],
+    "18": [
+      "RolesPage"
+    ],
+    "19": [
+      "SettingsPage"
+    ],
+    "20": [
+      "UsersPage"
+    ],
+    "21": [
+      "signIn",
+      "signOut"
+    ],
+    "22": [
+      "async",
+      "LoginPageProps"
+    ],
+    "23": [
+      "RootLayout",
+      "async",
+      "StoreProvider"
+    ],
+    "24": [
+      "BootstrapClient",
+      "MasterLayout",
+      "NavItem",
+      "PlaceholderPage"
+    ],
+    "25": [
+      "baseApi"
+    ],
+    "26": [
+      "hooks",
+      "AppStore",
+      "RootState",
+      "AppDispatch"
+    ],
+    "27": [
+      "createAdminClient",
+      "createClient",
+      "updateSession",
+      "NextRequest"
+    ],
+    "28": [
+      "Profile",
+      "Store",
+      "Category",
+      "Product",
+      "ProductVariant",
+      "ProductImage"
+    ]
+  }
+}
