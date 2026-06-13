@@ -2,10 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
-import { toast } from "react-toastify";
-import { deleteStore, getStoreRelations } from "./actions";
 import type { StoreRow } from "./actions";
 
 function Modal({
@@ -45,18 +42,13 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-const DELETABLE_CUTOFF = Date.now() - 90 * 24 * 60 * 60 * 1000;
-
 type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
 };
 
 export default function StoresClient({ stores, actionPerms }: { stores: StoreRow[]; actionPerms?: ActionPermissions }) {
-  const router = useRouter();
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<StoreRow | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
-  const [relations, setRelations] = useState<{ zones: number; gstNumbers: number } | null>(null);
 
   const filtered = useMemo(() => {
     if (!search) return stores;
@@ -71,33 +63,6 @@ export default function StoresClient({ stores, actionPerms }: { stores: StoreRow
   }, [stores, search]);
 
   const openView = useCallback((store: StoreRow) => setViewing(store), []);
-
-  const openDelete = useCallback(async (id: string) => {
-    try {
-      const rels = await getStoreRelations(id);
-      setRelations(rels);
-      setDeleting(id);
-    } catch {
-      toast.error("Failed to check store relations");
-    }
-  }, []);
-
-  const confirmDelete = useCallback(async () => {
-    if (!deleting) return;
-    try {
-      await deleteStore(deleting);
-      toast.success("Store deleted");
-      setDeleting(null);
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete store");
-    }
-  }, [deleting, router]);
-
-  const isDeletable = (store: StoreRow) => {
-    if (store.is_active) return false;
-    return new Date(store.updated_at).getTime() < DELETABLE_CUTOFF;
-  };
 
   return (
     <div>
@@ -170,11 +135,6 @@ export default function StoresClient({ stores, actionPerms }: { stores: StoreRow
                         <Icon icon="ri:pencil-line" width={15} />
                       </Link>
                     )}
-                    {actionPerms?.canDelete && isDeletable(store) && (
-                      <button className="btn btn-sm btn-outline-danger" title="Delete" onClick={() => openDelete(store.id)}>
-                        <Icon icon="ri:delete-bin-6-line" width={15} />
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -219,22 +179,6 @@ export default function StoresClient({ stores, actionPerms }: { stores: StoreRow
         </Modal>
       )}
 
-      {deleting && (
-        <Modal title="Confirm Delete" onClose={() => { setDeleting(null); setRelations(null); }}>
-          <p>Are you sure you want to delete this store?</p>
-          {relations && (
-            <ul className="mb-3">
-              {relations.zones > 0 && <li>{relations.zones} delivery zone{relations.zones !== 1 ? "s" : ""} will be deleted</li>}
-              {relations.gstNumbers > 0 && <li>{relations.gstNumbers} GST number{relations.gstNumbers !== 1 ? "s" : ""} will be deleted</li>}
-            </ul>
-          )}
-          <p className="text-muted small mb-0">This action cannot be undone.</p>
-          <div className="d-flex gap-2 justify-content-end mt-3">
-            <button className="btn btn-outline-secondary" onClick={() => { setDeleting(null); setRelations(null); }}>Cancel</button>
-            <button className="btn btn-danger" onClick={confirmDelete}>Delete Store</button>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }

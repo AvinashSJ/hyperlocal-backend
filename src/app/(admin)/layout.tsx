@@ -52,7 +52,8 @@ export default async function AdminLayout({
     }
   }
 
-  const isStoreScoped = !!(storeId && role !== "Super Admin");
+  const isSuperAdmin = role === "Super Admin";
+  const isStoreScoped = !!(storeId && !isSuperAdmin);
 
   return (
     <MasterLayout
@@ -60,6 +61,7 @@ export default async function AdminLayout({
       permissions={permissions}
       storeId={storeId}
       isStoreScoped={isStoreScoped}
+      isSuperAdmin={isSuperAdmin}
       onSignOut={signOut}
     >
       {children}

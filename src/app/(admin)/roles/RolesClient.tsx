@@ -51,6 +51,20 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
 
+  const handleDelete = async (id: number) => {
+    const fd = new FormData();
+    fd.set("id", String(id));
+    setDeleting(id);
+    try {
+      await deleteRole(fd);
+      router.refresh();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to delete role");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
   const openNew = () => {
     setEditingRole(null);
     setFormName("");
@@ -117,20 +131,6 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
     }
   };
 
-  const handleDelete = async (id: number) => {
-    const fd = new FormData();
-    fd.set("id", String(id));
-    setDeleting(id);
-    try {
-      await deleteRole(fd);
-      router.refresh();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to delete role");
-    } finally {
-      setDeleting(null);
-    }
-  };
-
   const modules = Object.keys(PERMISSION_MODULES) as PermissionModule[];
 
   return (
@@ -188,29 +188,29 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
                   <td style={{ fontSize: "0.85rem" }}>
                     {new Date(r.created_at).toLocaleDateString()}
                   </td>
-                  <td>
-                    <div className="d-flex gap-1 justify-content-center">
-                      {actionPerms?.canEdit && (
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          title="Edit"
-                          onClick={() => openEdit(r)}
-                        >
-                          <Icon icon="mdi:pencil" />
-                        </button>
-                      )}
-                      {actionPerms?.canDelete && !r.is_system && (
-                        <button
-                          className="btn btn-sm btn-outline-danger"
-                          title="Delete"
-                          disabled={deleting === r.id}
-                          onClick={() => handleDelete(r.id)}
-                        >
-                          <Icon icon="mdi:delete" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                    <td>
+                        <div className="d-flex gap-1 justify-content-center">
+                          {actionPerms?.canEdit && (
+                            <button
+                              className="btn btn-sm btn-outline-primary"
+                              title="Edit"
+                              onClick={() => openEdit(r)}
+                            >
+                              <Icon icon="mdi:pencil" />
+                            </button>
+                          )}
+                          {actionPerms?.canDelete && !r.is_system && (
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              title="Delete"
+                              disabled={deleting === r.id}
+                              onClick={() => handleDelete(r.id)}
+                            >
+                              <Icon icon="mdi:delete" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
                 </tr>
               ))
             )}

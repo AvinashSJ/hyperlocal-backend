@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { deleteOrder, type OrderListItem, type PaymentStatus } from "./actions";
@@ -28,8 +28,10 @@ type ActionPermissions = {
 };
 
 export default function OrdersClient({ orders, actionPerms }: { orders: OrderListItem[]; actionPerms?: ActionPermissions }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [deleting, setDeleting] = useState<{ id: string; orderNumber: string } | null>(null);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -39,15 +41,16 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
     });
   }, [orders, search, statusFilter]);
 
-  const handleDelete = useCallback(async (id: string, orderNumber: string) => {
-    if (!confirm(`Delete order ${orderNumber}?`)) return;
+  const confirmDelete = useCallback(async () => {
+    if (!deleting) return;
     try {
-      await deleteOrder(id);
+      await deleteOrder(deleting.id);
       toast.success("Order deleted");
+      setDeleting(null);
     } catch {
       toast.error("Failed to delete order");
     }
-  }, []);
+  }, [deleting]);
 
   return (
     <>
@@ -95,11 +98,13 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
               </tr>
             )}
             {filtered.map((order) => (
-              <tr key={order.id}>
+              <tr
+                key={order.id}
+                onClick={() => router.push(`/orders/${order.id}`)}
+                style={{ cursor: "pointer" }}
+              >
                 <td>
-                  <Link href={`/orders/${order.id}`} className="fw-semibold text-decoration-none">
-                    {order.order_number}
-                  </Link>
+                  <span className="fw-semibold">{order.order_number}</span>
                 </td>
                 <td>{order.profiles?.full_name ?? "—"}</td>
                 <td>₹{Number(order.total_amount).toLocaleString()}</td>
@@ -118,31 +123,46 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
                     day: "numeric", month: "short", year: "numeric",
                   })}
                 </td>
-                <td className="text-center">
-                  <div className="d-flex gap-1 justify-content-center">
-                    <Link
-                      href={`/orders/${order.id}`}
-                      className="btn btn-sm btn-outline-primary"
-                      title="View"
+                <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                  {actionPerms?.canDelete && (
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      title="Delete"
+                      onClick={() => setDeleting({ id: order.id, orderNumber: order.order_number })}
                     >
-                      <Icon icon="ri:eye-line" width={16} />
-                    </Link>
-                    {actionPerms?.canDelete && (
-                      <button
-                        className="btn btn-sm btn-outline-danger"
-                        title="Delete"
-                        onClick={() => handleDelete(order.id, order.order_number)}
-                      >
-                        <Icon icon="ri:delete-bin-6-line" width={16} />
-                      </button>
-                    )}
-                  </div>
+                      <Icon icon="ri:delete-bin-6-line" width={16} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {deleting && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{ background: "rgba(0,0,0,0.5)", zIndex: 1050 }}
+        >
+          <div className="bg-white rounded-3 shadow" style={{ width: 420 }}>
+            <div className="px-4 py-3 border-bottom">
+              <h6 className="fw-bold mb-0">Delete Order</h6>
+            </div>
+            <div className="p-4">
+              <p className="mb-1">Are you sure you want to delete order <strong>{deleting.orderNumber}</strong>?</p>
+              <p className="text-muted small mb-0">This action cannot be undone.</p>
+            </div>
+            <div className="d-flex justify-content-end gap-2 px-4 py-3 border-top">
+              <button className="btn btn-outline-secondary" onClick={() => setDeleting(null)}>
+                Cancel
+              </button>
+              <button className="btn btn-danger" onClick={confirmDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

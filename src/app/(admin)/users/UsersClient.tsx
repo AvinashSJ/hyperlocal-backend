@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
-import { updateUserRole, toggleUserActive, deleteUser, createUser } from "./actions";
+import { updateUserRole, toggleUserActive, createUser } from "./actions";
 import type { UserRow, SimpleRole, SimpleStore } from "./actions";
 
 type ActionPermissions = {
@@ -25,7 +25,6 @@ export default function UsersClient({
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [createError, setCreateError] = useState("");
@@ -174,7 +173,7 @@ export default function UsersClient({
                     <td>
                       <div className="d-flex gap-1 justify-content-center align-items-center">
                         {actionPerms?.canEdit && (
-                          <form action={updateUserRole} method="post">
+                          <form action={updateUserRole} method="POST">
                             <input type="hidden" name="id" value={u.id} />
                             <select
                               name="role_id"
@@ -197,7 +196,7 @@ export default function UsersClient({
                           </form>
                         )}
                         {actionPerms?.canEdit && (
-                          <form action={toggleUserActive} method="post">
+                          <form action={toggleUserActive} method="POST">
                           <input type="hidden" name="id" value={u.id} />
                           <input
                             type="hidden"
@@ -221,34 +220,7 @@ export default function UsersClient({
                           </button>
                         </form>
                         )}
-                        {actionPerms?.canDelete && confirmDelete === u.id && (
-                          <div className="d-flex gap-1">
-                            <form action={deleteUser} method="post">
-                              <input type="hidden" name="id" value={u.id} />
-                              <button
-                                type="submit"
-                                className="btn btn-sm btn-outline-danger"
-                              >
-                                <Icon icon="mdi:check" />
-                              </button>
-                            </form>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
-                              onClick={() => setConfirmDelete(null)}
-                            >
-                              <Icon icon="mdi:close" />
-                            </button>
-                          </div>
-                        )}
-                        {actionPerms?.canDelete && confirmDelete !== u.id && (
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            title="Delete"
-                            onClick={() => setConfirmDelete(u.id)}
-                          >
-                            <Icon icon="mdi:delete" />
-                          </button>
-                        )}
+
                       </div>
                     </td>
                   </tr>

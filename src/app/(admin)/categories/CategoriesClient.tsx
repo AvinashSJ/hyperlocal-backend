@@ -19,6 +19,8 @@ type Category = {
   is_active: boolean;
   created_at: string;
   parent_name?: string | null;
+  product_count: number;
+  stores: string[];
 };
 
 type ActionPermissions = {
@@ -34,12 +36,14 @@ export default function CategoriesClient({
 }) {
   const [editing, setEditing] = useState<Category | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deleting, setDeleting] = useState<Category | null>(null);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this category? This cannot be undone.")) return;
+  const confirmDelete = async () => {
+    if (!deleting) return;
     try {
-      await deleteCategory(id);
+      await deleteCategory(deleting.id);
       toast.success("Category deleted");
+      setDeleting(null);
     } catch {
       toast.error("Failed to delete category");
     }
@@ -76,13 +80,15 @@ export default function CategoriesClient({
                   <th className="text-center">Featured</th>
                   <th className="text-center">Order</th>
                   <th className="text-center">Status</th>
+                  <th className="text-center">Products</th>
+                  <th>Stores</th>
                   <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {categories.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-4">
+                    <td colSpan={10} className="text-center text-muted py-4">
                       No categories found
                     </td>
                   </tr>
@@ -130,6 +136,14 @@ export default function CategoriesClient({
                           <span className="badge bg-danger-subtle text-danger">Inactive</span>
                         )}
                       </td>
+                      <td className="text-center">
+                        <span className="badge bg-primary bg-opacity-10 text-primary">
+                          {cat.product_count}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: "0.85rem" }}>
+                        {cat.stores.length > 0 ? cat.stores.join(", ") : <span className="text-muted">—</span>}
+                      </td>
                       <td className="text-end">
                         {actionPerms?.canEdit && (
                           <button
@@ -145,7 +159,7 @@ export default function CategoriesClient({
                         {actionPerms?.canDelete && (
                           <button
                             className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleDelete(cat.id)}
+                            onClick={() => setDeleting(cat)}
                           >
                             <Icon icon="ri:delete-bin-line" />
                           </button>
@@ -159,6 +173,44 @@ export default function CategoriesClient({
           </div>
         </div>
       </div>
+
+      {deleting && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{ background: "rgba(0,0,0,0.5)", zIndex: 1050 }}
+        >
+          <div className="bg-white rounded-3 shadow" style={{ width: 420 }}>
+            <div className="px-4 py-3 border-bottom">
+              <h6 className="fw-bold mb-0">Delete Category</h6>
+            </div>
+            <div className="p-4">
+              {deleting.product_count > 0 ? (
+                <>
+                  <div className="alert alert-warning py-2 mb-2">
+                    <strong>{deleting.product_count}</strong> product{deleting.product_count !== 1 ? "s" : ""} use{deleting.product_count === 1 ? "s" : ""} this category.
+                  </div>
+                  <p className="mb-1">Remove or reassign the products first before deleting this category.</p>
+                </>
+              ) : (
+                <>
+                  <p className="mb-1">Are you sure you want to delete <strong>{deleting.name}</strong>?</p>
+                  <p className="text-muted small mb-0">This action cannot be undone.</p>
+                </>
+              )}
+            </div>
+            <div className="d-flex justify-content-end gap-2 px-4 py-3 border-top">
+              <button className="btn btn-outline-secondary" onClick={() => setDeleting(null)}>
+                Cancel
+              </button>
+              {deleting.product_count === 0 && (
+                <button className="btn btn-danger" onClick={confirmDelete}>
+                  Delete
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <CategoryForm

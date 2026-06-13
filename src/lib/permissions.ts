@@ -15,6 +15,9 @@ export const PERMISSION_MODULES = {
   stores: ["view", "create", "edit", "delete"],
   users: ["view", "create", "edit", "delete"],
   roles: ["view", "create", "edit", "delete"],
+  staff: ["view", "create", "edit", "delete"],
+  commissions: ["view", "create", "edit", "delete"],
+  reports: ["view"],
   settings: ["view", "edit"],
 } as const;
 

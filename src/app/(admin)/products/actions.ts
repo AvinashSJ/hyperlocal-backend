@@ -229,3 +229,91 @@ export async function deleteProduct(id: string) {
 
   revalidatePath("/products");
 }
+
+type ImportRow = Record<string, string>;
+
+export async function bulkImportProducts(rows: ImportRow[]) {
+  await assertPermission("products", "create");
+  const supabase = createAdminClient();
+
+  const { data: allCategories } = await supabase
+    .from("categories")
+    .select("id, name");
+  const categoryMap = new Map(
+    (allCategories ?? []).map((c) => [c.name.toLowerCase(), c.id]),
+  );
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("id")
+    .limit(1)
+    .single();
+
+  let imported = 0;
+  const errors: { row: number; field: string; message: string }[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const rowNum = i + 2;
+
+    try {
+      const name = r.name?.trim();
+      if (!name) {
+        errors.push({ row: rowNum, field: "name", message: "Product name is required" });
+        continue;
+      }
+
+      const categoryName = r.category_name?.trim();
+      const categoryId = categoryName ? categoryMap.get(categoryName.toLowerCase()) ?? null : null;
+
+      const sellingPrice = Number(r.selling_price ?? 0);
+      if (!sellingPrice && sellingPrice !== 0) {
+        errors.push({ row: rowNum, field: "selling_price", message: "Invalid selling price" });
+        continue;
+      }
+
+      const mrp = Number(r.mrp ?? 0) || 0;
+      const discountPercent = Number(r.discount_percent ?? 0) || 0;
+      const gstRate = Number(r.gst_rate ?? 0) || 0;
+      const stockQty = Number(r.stock_quantity ?? 0) || 0;
+      const lowStockThreshold = r.low_stock_threshold ? Number(r.low_stock_threshold) || 0 : null;
+      const status = r.status?.trim() || "active";
+
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      const { error: productError } = await supabase.from("products").insert({
+        name,
+        slug,
+        description: r.description?.trim() || null,
+        category_id: categoryId,
+        brand: r.brand?.trim() || null,
+        unit_of_measurement: r.unit_of_measurement?.trim() || "piece",
+        mrp,
+        selling_price: sellingPrice,
+        discount_percent: discountPercent,
+        gst_rate: gstRate,
+        hsn_code: r.hsn_code?.trim() || null,
+        stock_quantity: stockQty,
+        low_stock_threshold: lowStockThreshold,
+        status,
+        sku: r.sku?.trim() || null,
+        store_id: store?.id ?? null,
+      });
+
+      if (productError) {
+        errors.push({ row: rowNum, field: "db", message: productError.message });
+        continue;
+      }
+
+      imported++;
+    } catch (e) {
+      errors.push({ row: rowNum, field: "unknown", message: (e as Error).message });
+    }
+  }
+
+  revalidatePath("/products");
+  return { imported, errors };
+}

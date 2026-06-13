@@ -32,24 +32,32 @@ async function getProduct(id: string) {
   return { ...product, variants: variants ?? [], images: images ?? [] };
 }
 
-async function getCategories() {
+async function getCategories(storeId?: string | null) {
   const supabase = createAdminClient();
-  const { data } = await supabase
+  let query = supabase
     .from("categories")
     .select("id, name")
     .eq("is_active", true)
     .order("name");
+  if (storeId) {
+    const { data: storeCats } = await supabase
+      .from("store_categories")
+      .select("category_id")
+      .eq("store_id", storeId);
+    const catIds = (storeCats ?? []).map((c) => c.category_id);
+    query = query.in("id", catIds);
+  }
+  const { data } = await query;
   return data ?? [];
 }
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  const [product, categories] = await Promise.all([
-    getProduct(id),
-    getCategories(),
-  ]);
+  const product = await getProduct(id);
 
   if (!product) notFound();
+
+  const categories = await getCategories(product.store_id);
 
   return <ProductForm product={product} categories={categories} />;
 }

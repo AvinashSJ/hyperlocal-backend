@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { deleteProduct } from "./actions";
+import BulkImportModal from "./BulkImportModal";
 
 type Product = {
   id: string;
@@ -15,6 +16,7 @@ type Product = {
   selling_price: number;
   mrp: number;
   stock_quantity: number;
+  low_stock_threshold: number | null;
   status: string;
   categories: { name: string } | null;
 };
@@ -40,21 +42,29 @@ export default function ProductsClient({
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [deleting, setDeleting] = useState<Product | null>(null);
+
+  const isLowStock = (p: Product) =>
+    p.low_stock_threshold != null && p.stock_quantity <= p.low_stock_threshold;
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
       if (categoryFilter && p.category_id !== categoryFilter) return false;
       if (statusFilter && p.status !== statusFilter) return false;
+      if (lowStockOnly && !isLowStock(p)) return false;
       return true;
     });
-  }, [products, search, categoryFilter, statusFilter]);
+  }, [products, search, categoryFilter, statusFilter, lowStockOnly]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this product?")) return;
+  const confirmDelete = async () => {
+    if (!deleting) return;
     try {
-      await deleteProduct(id);
+      await deleteProduct(deleting.id);
       toast.success("Product deleted");
+      setDeleting(null);
     } catch {
       toast.error("Failed to delete product");
     }
@@ -99,7 +109,33 @@ export default function ProductsClient({
               <option value="out_of_stock">Out of Stock</option>
             </select>
           </div>
+          <div className="col-md-auto d-flex align-items-center">
+            <div className="form-check">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="lowStock"
+                checked={lowStockOnly}
+                onChange={(e) => setLowStockOnly(e.target.checked)}
+              />
+              <label className="form-check-label small" htmlFor="lowStock">
+                Low Stock Only
+              </label>
+            </div>
+          </div>
         </div>
+
+        {actionPerms?.canCreate && (
+          <div className="mb-3">
+            <button
+              className="btn btn-outline-primary btn-sm"
+              onClick={() => setShowImport(true)}
+            >
+              <Icon icon="ri:upload-2-line" className="me-1" />
+              Import CSV
+            </button>
+          </div>
+        )}
 
         <div className="table-responsive">
           <table className="table table-hover mb-0">
@@ -148,7 +184,12 @@ export default function ProductsClient({
                         </small>
                       )}
                     </td>
-                    <td>{p.stock_quantity}</td>
+                    <td>
+                      <span className={isLowStock(p) ? "text-warning fw-semibold" : ""}>
+                        {p.stock_quantity}
+                        {isLowStock(p) && <Icon icon="ri:alert-line" className="ms-1 text-warning" />}
+                      </span>
+                    </td>
                     <td>
                       {p.status === "active" ? (
                         <span className="badge bg-success-subtle text-success">Active</span>
@@ -170,7 +211,7 @@ export default function ProductsClient({
                       {actionPerms?.canDelete && (
                         <button
                           className="btn btn-sm btn-outline-danger"
-                          onClick={() => handleDelete(p.id)}
+                          onClick={() => setDeleting(p)}
                         >
                           <Icon icon="ri:delete-bin-line" />
                         </button>
@@ -183,6 +224,35 @@ export default function ProductsClient({
           </table>
         </div>
       </div>
+
+      {showImport && (
+        <BulkImportModal onClose={() => setShowImport(false)} />
+      )}
+
+      {deleting && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{ background: "rgba(0,0,0,0.5)", zIndex: 1050 }}
+        >
+          <div className="bg-white rounded-3 shadow" style={{ width: 420 }}>
+            <div className="px-4 py-3 border-bottom">
+              <h6 className="fw-bold mb-0">Delete Product</h6>
+            </div>
+            <div className="p-4">
+              <p className="mb-1">Are you sure you want to delete <strong>{deleting.name}</strong>?</p>
+              <p className="text-muted small mb-0">This action cannot be undone.</p>
+            </div>
+            <div className="d-flex justify-content-end gap-2 px-4 py-3 border-top">
+              <button className="btn btn-outline-secondary" onClick={() => setDeleting(null)}>
+                Cancel
+              </button>
+              <button className="btn btn-danger" onClick={confirmDelete}>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

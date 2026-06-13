@@ -18,6 +18,16 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { label: "Dashboard", icon: "ri:dashboard-line", href: "/dashboard", module: "dashboard" },
+  {
+    label: "Management",
+    icon: "ri:shield-user-line",
+    href: "#",
+    children: [
+      { label: "Admin Users", href: "/users", module: "users" },
+      { label: "Roles", href: "/roles", module: "roles" },
+      { label: "Staff", href: "/staff", module: "staff" },
+    ],
+  },
   { label: "Stores", icon: "ri:store-2-line", href: "/stores", module: "stores" },
   {
     label: "Catalog",
@@ -35,18 +45,10 @@ const navItems: NavItem[] = [
     children: [
       { label: "Orders", href: "/orders", module: "orders" },
       { label: "Invoices", href: "/invoices", module: "invoices" },
+      { label: "Commissions", href: "/commissions", module: "commissions" },
     ],
   },
   { label: "Customers", icon: "ri:user-3-line", href: "/customers", module: "customers" },
-  {
-    label: "Management",
-    icon: "ri:shield-user-line",
-    href: "#",
-    children: [
-      { label: "Admin Users", href: "/users", module: "users" },
-      { label: "Roles", href: "/roles", module: "roles" },
-    ],
-  },
   {
     label: "Content",
     icon: "ri:file-list-3-line",
@@ -69,23 +71,9 @@ const navItems: NavItem[] = [
     ],
   },
   { label: "Inventory Log", icon: "ri:file-chart-line", href: "/inventory-log", module: "inventory_log" },
+  { label: "Reports", icon: "ri:bar-chart-2-line", href: "/reports", module: "reports" },
 ];
 
-function hasModuleAccess(
-  permissions: RolePermissions,
-  module?: PermissionModule,
-): boolean {
-  if (!module) return true;
-  return canAccess(permissions, module, "view");
-}
-
-function itemHasVisibleChild(
-  permissions: RolePermissions,
-  children?: { module?: PermissionModule }[],
-): boolean {
-  if (!children) return false;
-  return children.some((c) => hasModuleAccess(permissions, c.module));
-}
 
 export default function MasterLayout({
   children,
@@ -93,6 +81,7 @@ export default function MasterLayout({
   permissions = {},
   storeId = null,
   isStoreScoped = false,
+  isSuperAdmin = false,
   onSignOut,
 }: {
   children: React.ReactNode;
@@ -100,6 +89,7 @@ export default function MasterLayout({
   permissions?: RolePermissions;
   storeId?: string | null;
   isStoreScoped?: boolean;
+  isSuperAdmin?: boolean;
   onSignOut: () => void;
 }) {
   const pathname = usePathname();
@@ -129,22 +119,28 @@ export default function MasterLayout({
     return true;
   }
 
+  function moduleVisible(module?: PermissionModule): boolean {
+    if (!module) return true;
+    if (isSuperAdmin) return true;
+    return canAccess(permissions, module, "view");
+  }
+
   function itemHasVisibleChildScoped(
     children?: { module?: PermissionModule }[],
   ): boolean {
     if (!children) return false;
-    return children.some((c) => isNotHidden(c.module) && hasModuleAccess(permissions, c.module));
+    return children.some((c) => isNotHidden(c.module) && moduleVisible(c.module));
   }
 
   const visibleItems = navItems.filter(
     (item) =>
       isNotHidden(item.module) &&
-      (hasModuleAccess(permissions, item.module) ||
+      (moduleVisible(item.module) ||
         itemHasVisibleChildScoped(item.children)),
   );
 
   const childFilter = (child: { module?: PermissionModule }) =>
-    isNotHidden(child.module) && hasModuleAccess(permissions, child.module);
+    isNotHidden(child.module) && moduleVisible(child.module);
 
   return (
     <div className="d-flex" style={{ minHeight: "100vh" }}>
