@@ -107,7 +107,7 @@ export default function StaffClient({
                         className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center"
                         style={{ width: 36, height: 36, fontSize: "0.8rem" }}
                       >
-                        {(s.full_name ?? "S")[0].toUpperCase()}
+                        {(s.full_name || "S")[0].toUpperCase()}
                       </div>
                       <span className="fw-medium">{s.full_name ?? "—"}</span>
                     </div>
@@ -146,7 +146,7 @@ export default function StaffClient({
                           >
                             <Icon icon="mdi:pencil" />
                           </button>
-                          <form action={toggleStaffActive} method="POST">
+                          <form action={toggleStaffActive}>
                             <input type="hidden" name="id" value={s.id} />
                             <input type="hidden" name="current" value={String(s.is_active)} />
                             <button
@@ -317,7 +317,7 @@ export default function StaffClient({
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setDeleteItem(null)}>Cancel</button>
-                <form action={deleteStaff} method="POST">
+                <form action={deleteStaff}>
                   <input type="hidden" name="id" value={deleteItem.id} />
                   <button type="submit" className="btn btn-danger" onClick={() => setTimeout(() => setDeleteItem(null), 100)}>Delete</button>
                 </form>

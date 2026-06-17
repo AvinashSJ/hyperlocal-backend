@@ -66,7 +66,7 @@ export default function CustomersClient({
                         className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center"
                         style={{ width: 36, height: 36, fontSize: "0.8rem" }}
                       >
-                        {(c.profile?.full_name ?? c.email ?? "U")[0].toUpperCase()}
+                        {(c.profile?.full_name || c.email || "U")[0].toUpperCase()}
                       </div>
                       <span className="fw-medium">
                         {c.profile?.full_name ?? "—"}

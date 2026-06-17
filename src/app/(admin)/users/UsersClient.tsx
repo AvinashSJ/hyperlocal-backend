@@ -134,7 +134,7 @@ export default function UsersClient({
                           className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center"
                           style={{ width: 36, height: 36, fontSize: "0.8rem" }}
                         >
-                          {(u.full_name ?? u.email ?? "U")[0].toUpperCase()}
+                          {(u.full_name || u.email || "U")[0].toUpperCase()}
                         </div>
                         <span className="fw-medium">
                           {u.full_name ?? "—"}
@@ -173,7 +173,7 @@ export default function UsersClient({
                     <td>
                       <div className="d-flex gap-1 justify-content-center align-items-center">
                         {actionPerms?.canEdit && (
-                          <form action={updateUserRole} method="POST">
+                          <form action={updateUserRole}>
                             <input type="hidden" name="id" value={u.id} />
                             <select
                               name="role_id"
@@ -196,7 +196,7 @@ export default function UsersClient({
                           </form>
                         )}
                         {actionPerms?.canEdit && (
-                          <form action={toggleUserActive} method="POST">
+                          <form action={toggleUserActive}>
                           <input type="hidden" name="id" value={u.id} />
                           <input
                             type="hidden"

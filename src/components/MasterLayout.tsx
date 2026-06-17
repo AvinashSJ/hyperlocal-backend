@@ -254,7 +254,7 @@ export default function MasterLayout({
                 className="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-2"
                 style={{ width: 32, height: 32, fontSize: "0.8rem" }}
               >
-                {(user.full_name || user.email)[0].toUpperCase()}
+                {(user.full_name || user.email || "U")[0].toUpperCase()}
               </div>
               <div className="text-start d-none d-md-block" style={{ fontSize: "0.85rem" }}>
                 <div className="fw-medium">{user.full_name || user.email}</div>
