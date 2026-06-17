@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useActionState } from "react";
+import { useState, useCallback, useEffect, useMemo, useActionState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
@@ -521,6 +521,152 @@ function InlineCrud<T extends { id: string }>({
   );
 }
 
+/* ──────────── CATEGORY EDITOR ──────────── */
+
+function CategoryEditor({
+  categories,
+  initialSelected,
+  lockedCategoryIds = [],
+}: {
+  categories: CategoryOption[];
+  initialSelected: string[];
+  lockedCategoryIds?: string[];
+}) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string[]>(initialSelected);
+  const lockedSet = useMemo(() => new Set(lockedCategoryIds), [lockedCategoryIds]);
+
+  useEffect(() => {
+    const h = document.getElementById("categoryIdsHidden") as HTMLInputElement | null;
+    if (h) h.value = selected.join(",");
+  }, [selected]);
+
+  const toggle = (id: string) => {
+    if (lockedSet.has(id)) return;
+    setSelected((prev) =>
+      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
+    );
+  };
+
+  const clearAll = () => {
+    setSelected((prev) => prev.filter((id) => lockedSet.has(id)));
+  };
+
+  const filtered = search.trim()
+    ? categories.filter((c) =>
+        c.name.toLowerCase().includes(search.toLowerCase()),
+      )
+    : categories;
+
+  const parents = filtered
+    .filter((c) => !c.parent_id)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const childrenByParent = new Map<string, CategoryOption[]>();
+  filtered.forEach((c) => {
+    if (c.parent_id) {
+      const list = childrenByParent.get(c.parent_id) ?? [];
+      list.push(c);
+      childrenByParent.set(c.parent_id, list);
+    }
+  });
+
+  const renderRow = (cat: CategoryOption, isChild: boolean) => {
+    const isLocked = lockedSet.has(cat.id);
+    return (
+      <div className="form-check" key={cat.id}>
+        <input
+          type="checkbox"
+          className="form-check-input"
+          id={`cat-edit-${cat.id}`}
+          checked={isLocked ? true : selected.includes(cat.id)}
+          disabled={isLocked}
+          onChange={() => toggle(cat.id)}
+        />
+        <label
+          className={`form-check-label ${isChild ? "small" : "fw-semibold"}`}
+          htmlFor={`cat-edit-${cat.id}`}
+          title={isLocked ? "Locked — has products or active orders" : undefined}
+        >
+          {isLocked && (
+            <Icon
+              icon="ri:lock-line"
+              width={isChild ? 11 : 13}
+              className="me-1 text-warning"
+            />
+          )}
+          {cat.name}
+          {isLocked && (
+            <span className="text-muted small ms-1">(locked)</span>
+          )}
+        </label>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div className="d-flex gap-2 align-items-center mb-2">
+        <input
+          type="text"
+          className="form-control form-control-sm"
+          placeholder="Search categories..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ maxWidth: 240 }}
+        />
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={clearAll}
+          disabled={
+            selected.length === 0 ||
+            selected.every((id) => lockedSet.has(id))
+          }
+        >
+          Clear all
+        </button>
+        <small className="text-muted ms-auto">
+          {selected.length} selected
+          {lockedCategoryIds.length > 0 && (
+            <span className="ms-2">
+              · <Icon icon="ri:lock-line" width={11} /> {lockedCategoryIds.length} locked
+            </span>
+          )}
+        </small>
+      </div>
+      <div
+        className="border rounded p-2"
+        style={{ maxHeight: 260, overflowY: "auto", background: "#fafafa" }}
+      >
+        {parents.length === 0 && (
+          <div className="text-muted small p-2">No categories found</div>
+        )}
+        {parents.map((parent) => {
+          const children = (childrenByParent.get(parent.id) ?? [])
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name));
+          return (
+            <div key={parent.id} className="mb-2">
+              {renderRow(parent, false)}
+              {children.length > 0 && (
+                <div className="ms-4 mt-1">
+                  {children.map((child) => renderRow(child, true))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {lockedCategoryIds.length > 0 && (
+        <div className="form-text mt-2">
+          <Icon icon="ri:lock-line" width={12} className="me-1" />
+          Locked categories have products or active orders and cannot be unassigned.
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ──────────── ORIGINAL FORM SECTIONS ──────────── */
 
 function StoreInfoSection({
@@ -528,12 +674,16 @@ function StoreInfoSection({
   isSuperAdmin,
   createMode,
   categories,
+  assignedCategoryIds = [],
+  lockedCategoryIds = [],
   managers,
 }: {
   store: StoreSettingsData["store"];
   isSuperAdmin: boolean;
   createMode?: boolean;
   categories: CategoryOption[];
+  assignedCategoryIds?: string[];
+  lockedCategoryIds?: string[];
   managers: ManagerOption[];
 }) {
   const router = useRouter();
@@ -649,34 +799,49 @@ function StoreInfoSection({
               </div>
             )}
 
-            {createMode && categories.length > 0 && (
+            {categories.length > 0 && (createMode || isSuperAdmin) && (
               <div className="col-12">
-                <label className="form-label">Assign Categories</label>
-                <div className="d-flex flex-wrap gap-2 mt-1">
-                  {categories.map((cat) => (
-                    <div className="form-check form-check-inline" key={cat.id}>
-                      <input
-                        type="checkbox"
-                        className="form-check-input"
-                        id={`cat-${cat.id}`}
-                        value={cat.id}
-                        onChange={(e) => {
-                          const h = document.getElementById("categoryIdsHidden") as HTMLInputElement;
-                          const checked = h.value ? h.value.split(",").filter(Boolean) : [];
-                          if (e.target.checked) {
-                            checked.push(cat.id);
-                          } else {
-                            const idx = checked.indexOf(cat.id);
-                            if (idx > -1) checked.splice(idx, 1);
-                          }
-                          h.value = checked.join(",");
-                        }}
-                      />
-                      <label className="form-check-label" htmlFor={`cat-${cat.id}`}>{cat.name}</label>
-                    </div>
-                  ))}
-                </div>
-                <input type="hidden" name="category_ids" id="categoryIdsHidden" value="" />
+                <label className="form-label">
+                  {createMode ? "Assign Categories" : "Assigned Categories"}
+                </label>
+                {createMode ? (
+                  <div className="d-flex flex-wrap gap-2 mt-1">
+                    {categories.map((cat) => (
+                      <div className="form-check form-check-inline" key={cat.id}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          id={`cat-${cat.id}`}
+                          value={cat.id}
+                          onChange={(e) => {
+                            const h = document.getElementById("categoryIdsHidden") as HTMLInputElement;
+                            const checked = h.value ? h.value.split(",").filter(Boolean) : [];
+                            if (e.target.checked) {
+                              checked.push(cat.id);
+                            } else {
+                              const idx = checked.indexOf(cat.id);
+                              if (idx > -1) checked.splice(idx, 1);
+                            }
+                            h.value = checked.join(",");
+                          }}
+                        />
+                        <label className="form-check-label" htmlFor={`cat-${cat.id}`}>{cat.name}</label>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <CategoryEditor
+                    categories={categories}
+                    initialSelected={assignedCategoryIds}
+                    lockedCategoryIds={lockedCategoryIds}
+                  />
+                )}
+                <input type="hidden" name="category_ids" id="categoryIdsHidden" value={createMode ? "" : assignedCategoryIds.join(",")} />
+                {!createMode && (
+                  <div className="form-text">
+                    Toggle categories to change which products this store can sell. Leave empty to allow all categories.
+                  </div>
+                )}
               </div>
             )}
 
@@ -927,7 +1092,12 @@ function GstSettingsSection({ gst, disabled }: { gst: StoreSettingsData["gst"]; 
   );
 }
 
-type CategoryOption = { id: string; name: string };
+type CategoryOption = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  sort_order: number;
+};
 type ManagerOption = { id: string; full_name: string | null; email: string | null };
 
 type ActionPermissions = {
@@ -939,6 +1109,8 @@ export default function SettingsClient({
   roleName,
   createMode,
   categories,
+  assignedCategoryIds = [],
+  lockedCategoryIds = [],
   managers,
   actionPerms,
 }: {
@@ -946,6 +1118,8 @@ export default function SettingsClient({
   roleName: string;
   createMode?: boolean;
   categories: CategoryOption[];
+  assignedCategoryIds?: string[];
+  lockedCategoryIds?: string[];
   managers: ManagerOption[];
   actionPerms?: ActionPermissions;
 }) {
@@ -966,7 +1140,15 @@ export default function SettingsClient({
 
   return (
     <>
-      <StoreInfoSection store={displayData.store} isSuperAdmin={isSuperAdmin} createMode={isCreate} categories={categories} managers={managers} />
+      <StoreInfoSection
+        store={displayData.store}
+        isSuperAdmin={isSuperAdmin}
+        createMode={isCreate}
+        categories={categories}
+        assignedCategoryIds={assignedCategoryIds}
+        lockedCategoryIds={lockedCategoryIds}
+        managers={managers}
+      />
       <PoliciesSection policies={displayData.policies} disabled={isCreate} />
       <PaymentSection payment={displayData.payment} disabled={isCreate} />
       <GstSettingsSection gst={displayData.gst} disabled={isCreate} />

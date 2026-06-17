@@ -38,8 +38,9 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url")
-    .in("id", userIds);
+    .select("id, full_name, avatar_url, role")
+    .in("id", userIds)
+    .eq("role", "customer");
 
   const profileMap = new Map(
     (profiles ?? []).map((p) => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]),
@@ -82,14 +83,16 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
     }));
   }
 
-  return userRecords.map((u) => ({
-    id: u.id,
-    email: u.email ?? null,
-    phone: u.phone ?? null,
-    created_at: u.created_at,
-    last_sign_in_at: u.last_sign_in_at ?? null,
-    profile: profileMap.get(u.id) ?? null,
-    addressCount: addressCountMap.get(u.id) ?? 0,
-    orderCount: orderCountMap.get(u.id) ?? 0,
-  }));
+  return userRecords
+    .filter((u) => profileMap.has(u.id))
+    .map((u) => ({
+      id: u.id,
+      email: u.email ?? null,
+      phone: u.phone ?? null,
+      created_at: u.created_at,
+      last_sign_in_at: u.last_sign_in_at ?? null,
+      profile: profileMap.get(u.id) ?? null,
+      addressCount: addressCountMap.get(u.id) ?? 0,
+      orderCount: orderCountMap.get(u.id) ?? 0,
+    }));
 }

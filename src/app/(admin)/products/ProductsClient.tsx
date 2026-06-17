@@ -24,6 +24,8 @@ type Product = {
 type Category = {
   id: string;
   name: string;
+  parent_id: string | null;
+  sort_order: number;
 };
 
 type ActionPermissions = {
@@ -50,14 +52,21 @@ export default function ProductsClient({
     p.low_stock_threshold != null && p.stock_quantity <= p.low_stock_threshold;
 
   const filtered = useMemo(() => {
+    const childIds = new Set(
+      categories.filter((c) => c.parent_id === categoryFilter).map((c) => c.id),
+    );
     return products.filter((p) => {
       if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (categoryFilter && p.category_id !== categoryFilter) return false;
+      if (categoryFilter) {
+        if (p.category_id !== categoryFilter && !childIds.has(p.category_id ?? "")) {
+          return false;
+        }
+      }
       if (statusFilter && p.status !== statusFilter) return false;
       if (lowStockOnly && !isLowStock(p)) return false;
       return true;
     });
-  }, [products, search, categoryFilter, statusFilter, lowStockOnly]);
+  }, [products, search, categoryFilter, statusFilter, lowStockOnly, categories]);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -90,11 +99,41 @@ export default function ProductsClient({
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
               <option value="">All Categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
+              {(() => {
+                const parents = categories
+                  .filter((c) => !c.parent_id)
+                  .sort((a, b) => a.name.localeCompare(b.name));
+                const childrenByParent = new Map<string, typeof categories>();
+                categories.forEach((c) => {
+                  if (c.parent_id) {
+                    const list = childrenByParent.get(c.parent_id) ?? [];
+                    list.push(c);
+                    childrenByParent.set(c.parent_id, list);
+                  }
+                });
+                return parents.map((parent) => {
+                  const children = (childrenByParent.get(parent.id) ?? [])
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name));
+                  if (children.length === 0) {
+                    return (
+                      <option key={parent.id} value={parent.id}>
+                        {parent.name}
+                      </option>
+                    );
+                  }
+                  return (
+                    <optgroup key={parent.id} label={parent.name}>
+                      <option value={parent.id}>{parent.name} (incl. subcategories)</option>
+                      {children.map((child) => (
+                        <option key={child.id} value={child.id}>
+                          {"\u2003\u2514\u00A0"}{child.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                });
+              })()}
             </select>
           </div>
           <div className="col-md-2">

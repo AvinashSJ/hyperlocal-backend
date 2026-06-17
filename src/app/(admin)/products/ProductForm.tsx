@@ -48,7 +48,7 @@ type ProductImage = {
   sort_order: number;
 };
 
-type Category = { id: string; name: string };
+type Category = { id: string; name: string; parent_id: string | null; sort_order: number };
 
 const UNITS = ["kg", "g", "liter", "ml", "piece", "pack", "dozen"];
 const GST_RATES = [0, 5, 12, 18, 28];
@@ -292,12 +292,45 @@ export default function ProductForm({
                     defaultValue={product?.category_id ?? ""}
                   >
                     <option value="">Select category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                    {(() => {
+                      const parents = categories
+                        .filter((c) => !c.parent_id)
+                        .sort((a, b) => a.name.localeCompare(b.name));
+                      const childrenByParent = new Map<string, typeof categories>();
+                      categories.forEach((c) => {
+                        if (c.parent_id) {
+                          const list = childrenByParent.get(c.parent_id) ?? [];
+                          list.push(c);
+                          childrenByParent.set(c.parent_id, list);
+                        }
+                      });
+                      return parents.map((parent) => {
+                        const children = (childrenByParent.get(parent.id) ?? [])
+                          .slice()
+                          .sort((a, b) => a.name.localeCompare(b.name));
+                        if (children.length === 0) {
+                          return (
+                            <option key={parent.id} value={parent.id}>
+                              {parent.name}
+                            </option>
+                          );
+                        }
+                        return (
+                          <optgroup key={parent.id} label={parent.name}>
+                            <option value={parent.id}>{parent.name} (all)</option>
+                            {children.map((child) => (
+                              <option key={child.id} value={child.id}>
+                                {"\u2003\u2514\u00A0"}{child.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      });
+                    })()}
                   </select>
+                  <small className="text-muted d-block mt-1">
+                    Select a subcategory (indented) to assign this product to it, or pick a parent with "(all)" to keep it at the parent level.
+                  </small>
                 </div>
 
                 <div className="mb-3">

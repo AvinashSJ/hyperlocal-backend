@@ -100,7 +100,7 @@ export async function createStaff(formData: FormData) {
     staff_type: staffType || null,
     store_id: storeId || null,
     role_id: staffRole.id,
-    role: "staff",
+    role: "admin",
     is_active: true,
   });
 

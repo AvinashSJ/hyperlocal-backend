@@ -34,14 +34,28 @@ export default async function StoresPage() {
 
   if (roleName !== "Super Admin") redirect("/dashboard");
 
-  const stores = await getStores();
+  const adminSupabase = createAdminClient();
+  const [storesResult, categoriesResult] = await Promise.all([
+    getStores(),
+    adminSupabase
+      .from("categories")
+      .select("id, name, parent_id, sort_order")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("name"),
+  ]);
 
   return (
     <div>
       <h4 className="fw-bold mb-4">Stores</h4>
       <div className="card">
         <div className="card-body">
-          <StoresClient stores={stores} actionPerms={actionPerms} />
+          <StoresClient
+            stores={storesResult}
+            categories={categoriesResult.data ?? []}
+            roleName={roleName}
+            actionPerms={actionPerms}
+          />
         </div>
       </div>
     </div>

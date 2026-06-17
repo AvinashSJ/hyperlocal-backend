@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
-import { updateUserRole, toggleUserActive, createUser } from "./actions";
+import { updateUserRole, toggleUserActive, createUser, updateUser, deleteUser } from "./actions";
 import type { UserRow, SimpleRole, SimpleStore } from "./actions";
 
 type ActionPermissions = {
@@ -28,6 +28,10 @@ export default function UsersClient({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [createError, setCreateError] = useState("");
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [editError, setEditError] = useState("");
+  const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
+  const [deleteError, setDeleteError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
 
   const filtered = useMemo(() => {
@@ -84,7 +88,6 @@ export default function UsersClient({
             }}
           >
             <option value="all">All Roles</option>
-            <option value="customer">Customer</option>
             {roles.map((r) => (
               <option key={r.id} value={String(r.id)}>
                 {r.name}
@@ -178,12 +181,10 @@ export default function UsersClient({
                             <select
                               name="role_id"
                               className="form-select form-select-sm"
-                              style={{ width: 130 }}
+                              style={{ width: 140 }}
                               defaultValue={u.role_id ?? ""}
                               onChange={(e) => {
-                                if (e.target.value) {
-                                  e.target.form?.requestSubmit();
-                                }
+                                e.target.form?.requestSubmit();
                               }}
                             >
                               <option value="" disabled>Select role</option>
@@ -192,6 +193,7 @@ export default function UsersClient({
                                   {r.name}
                                 </option>
                               ))}
+                              <option value="customer">Customer</option>
                             </select>
                           </form>
                         )}
@@ -219,6 +221,32 @@ export default function UsersClient({
                             />
                           </button>
                         </form>
+                        )}
+                        {actionPerms?.canEdit && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary"
+                            title="Edit"
+                            onClick={() => {
+                              setEditingUser(u);
+                              setEditError("");
+                            }}
+                          >
+                            <Icon icon="mdi:pencil" />
+                          </button>
+                        )}
+                        {actionPerms?.canDelete && (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            title="Delete"
+                            onClick={() => {
+                              setDeletingUser(u);
+                              setDeleteError("");
+                            }}
+                          >
+                            <Icon icon="mdi:trash-can-outline" />
+                          </button>
                         )}
 
                       </div>
@@ -346,6 +374,171 @@ export default function UsersClient({
                   </button>
                   <button type="submit" className="btn btn-primary">
                     Create User
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Edit User</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setEditingUser(null);
+                    setEditError("");
+                  }}
+                />
+              </div>
+              <form
+                action={async (fd) => {
+                  try {
+                    setEditError("");
+                    await updateUser(fd);
+                    setEditingUser(null);
+                    router.refresh();
+                  } catch (e: unknown) {
+                    setEditError(e instanceof Error ? e.message : "Failed to update user");
+                  }
+                }}
+              >
+                <input type="hidden" name="id" value={editingUser.id} />
+                <div className="modal-body">
+                  {editError && (
+                    <div className="alert alert-danger py-2">{editError}</div>
+                  )}
+                  <div className="mb-3">
+                    <label className="form-label">Full Name</label>
+                    <input
+                      type="text"
+                      name="full_name"
+                      className="form-control"
+                      defaultValue={editingUser.full_name ?? ""}
+                      placeholder="Enter full name"
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      className="form-control"
+                      defaultValue={editingUser.email ?? ""}
+                      placeholder="Enter email address"
+                    />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Phone</label>
+                    <input
+                      type="text"
+                      name="phone"
+                      className="form-control"
+                      defaultValue={editingUser.phone ?? ""}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  {editingUser.role_name !== "Super Admin" && (
+                    <div className="mb-3">
+                      <label className="form-label">Store</label>
+                      <select
+                        name="store_id"
+                        className="form-select"
+                        defaultValue={editingUser.store_id ?? ""}
+                      >
+                        <option value="">No store</option>
+                        {stores.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setEditingUser(null);
+                      setEditError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary">
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingUser && (
+        <div className="modal d-block" tabIndex={-1} style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Delete User</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => {
+                    setDeletingUser(null);
+                    setDeleteError("");
+                  }}
+                />
+              </div>
+              <form
+                action={async (fd) => {
+                  try {
+                    setDeleteError("");
+                    await deleteUser(fd);
+                    setDeletingUser(null);
+                    router.refresh();
+                  } catch (e: unknown) {
+                    setDeleteError(e instanceof Error ? e.message : "Failed to delete user");
+                  }
+                }}
+              >
+                <input type="hidden" name="id" value={deletingUser.id} />
+                <div className="modal-body">
+                  {deleteError && (
+                    <div className="alert alert-danger py-2">{deleteError}</div>
+                  )}
+                  <p className="mb-2">
+                    Are you sure you want to delete{" "}
+                    <strong>
+                      {deletingUser.full_name || deletingUser.email || deletingUser.phone}
+                    </strong>
+                    ?
+                  </p>
+                  <p className="text-muted small mb-0">
+                    This will permanently remove the user's profile. This action cannot be undone.
+                  </p>
+                </div>
+                <div className="modal-footer">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setDeletingUser(null);
+                      setDeleteError("");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-danger">
+                    Delete User
                   </button>
                 </div>
               </form>

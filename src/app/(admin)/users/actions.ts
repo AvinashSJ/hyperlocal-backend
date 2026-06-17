@@ -51,9 +51,21 @@ export async function getStoresLight(): Promise<SimpleStore[]> {
 export async function getUsers(roleFilter?: string): Promise<UserRow[]> {
   const supabase = createAdminClient();
 
+  // Exclude Staff role_id from the admin users list — staff live on /staff
+  const { data: staffRole } = await supabase
+    .from("roles")
+    .select("id")
+    .eq("name", "Staff")
+    .maybeSingle();
+
   let query = supabase
     .from("profiles")
-    .select("id, email, phone, full_name, avatar_url, role, role_id, is_active, created_at, store_id");
+    .select("id, email, phone, full_name, avatar_url, role, role_id, is_active, created_at, store_id")
+    .neq("role", "customer");
+
+  if (staffRole) {
+    query = query.neq("role_id", staffRole.id);
+  }
 
   if (roleFilter && roleFilter !== "all") {
     if (["customer", "admin", "superadmin"].includes(roleFilter)) {
@@ -132,13 +144,37 @@ export async function updateUserRole(formData: FormData) {
   const id = formData.get("id") as string;
   const roleId = formData.get("role_id") as string;
 
+  if (roleId === "customer") {
+    const { error } = await supabase
+      .from("profiles")
+      .update({ role_id: null, role: "customer" })
+      .eq("id", id);
+
+    if (error) console.error("Failed to demote to customer:", error);
+    revalidatePath("/users");
+    revalidatePath("/customers");
+    return;
+  }
+
+  // Sync the `role` string with the new `role_id` so segmentation stays correct
+  const { data: roleData } = await supabase
+    .from("roles")
+    .select("name")
+    .eq("id", Number(roleId))
+    .single();
+
+  const role: "admin" | "superadmin" =
+    roleData?.name === "Super Admin" ? "superadmin" : "admin";
+
   const { error } = await supabase
     .from("profiles")
-    .update({ role_id: Number(roleId) })
+    .update({ role_id: Number(roleId), role })
     .eq("id", id);
 
   if (error) console.error("Failed to update role:", error);
   revalidatePath("/users");
+  revalidatePath("/staff");
+  revalidatePath("/customers");
 }
 
 export async function toggleUserActive(formData: FormData) {
@@ -167,6 +203,32 @@ export async function deleteUser(formData: FormData) {
   revalidatePath("/users");
 }
 
+export async function updateUser(formData: FormData) {
+  await assertPermission("users", "edit");
+  const supabase = createAdminClient();
+  const id = formData.get("id") as string;
+  const fullName = (formData.get("full_name") as string | null)?.trim() ?? "";
+  const email = (formData.get("email") as string | null)?.trim() ?? "";
+  const phone = (formData.get("phone") as string | null)?.trim() ?? "";
+  const storeId = (formData.get("store_id") as string | null)?.trim() ?? "";
+
+  const update: Record<string, unknown> = {
+    full_name: fullName || null,
+    phone: phone || null,
+  };
+
+  if (email) update.email = email;
+  update.store_id = storeId || null;
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(update)
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath("/users");
+}
+
 export async function createUser(formData: FormData) {
   await assertPermission("users", "create");
   const supabase = createAdminClient();
@@ -179,6 +241,7 @@ export async function createUser(formData: FormData) {
   const storeId = formData.get("store_id") as string;
 
   if (!email || !password) throw new Error("Email and password are required");
+  if (!roleId) throw new Error("Role is required");
 
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
@@ -189,12 +252,25 @@ export async function createUser(formData: FormData) {
 
   if (authError) throw new Error(authError.message);
 
+  // Look up the role name to derive the `role` string used for segmentation
+  // (admin vs customer). Without this, the column defaults to 'customer'
+  // and the user gets misclassified.
+  const { data: roleData } = await supabase
+    .from("roles")
+    .select("name")
+    .eq("id", Number(roleId))
+    .single();
+
+  const role: "admin" | "superadmin" =
+    roleData?.name === "Super Admin" ? "superadmin" : "admin";
+
   const profileData: Record<string, unknown> = {
     id: authUser.user.id,
     email,
     full_name: fullName || null,
     phone: phone || null,
-    role_id: roleId ? Number(roleId) : null,
+    role,
+    role_id: Number(roleId),
     is_active: true,
   };
 

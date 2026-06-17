@@ -36,8 +36,9 @@ async function getCategories(storeId?: string | null) {
   const supabase = createAdminClient();
   let query = supabase
     .from("categories")
-    .select("id, name")
+    .select("id, name, parent_id, sort_order")
     .eq("is_active", true)
+    .order("sort_order", { ascending: true })
     .order("name");
   if (storeId) {
     const { data: storeCats } = await supabase

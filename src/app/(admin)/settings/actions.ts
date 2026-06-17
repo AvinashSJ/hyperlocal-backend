@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission } from "@/lib/require-permission";
+import { assertCategoriesRemovable } from "@/app/(admin)/stores/actions";
 
 export type StoreData = {
   id: string;
@@ -170,7 +171,44 @@ export async function updateStore(formData: FormData) {
 
   const { error } = await supabase.from("stores").update(updates).eq("id", id);
   if (error) throw new Error(error.message);
+
+  const categoryIdsRaw = formData.get("category_ids");
+  if (categoryIdsRaw !== null) {
+    const categoryIds = String(categoryIdsRaw)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const { data: existingRows } = await supabase
+      .from("store_categories")
+      .select("category_id")
+      .eq("store_id", id);
+    const existingIds = new Set((existingRows ?? []).map((r) => r.category_id));
+    const newIds = new Set(categoryIds);
+    const removed = Array.from(existingIds).filter((cid) => !newIds.has(cid));
+
+    await assertCategoriesRemovable(id, removed);
+
+    const { error: deleteError } = await supabase
+      .from("store_categories")
+      .delete()
+      .eq("store_id", id);
+    if (deleteError) throw new Error(deleteError.message);
+
+    if (categoryIds.length > 0) {
+      const rows = categoryIds.map((category_id) => ({
+        store_id: id,
+        category_id,
+      }));
+      const { error: insertError } = await supabase
+        .from("store_categories")
+        .insert(rows);
+      if (insertError) throw new Error(insertError.message);
+    }
+  }
+
   revalidatePath("/settings");
+  revalidatePath("/stores");
 }
 
 export async function createStore(formData: FormData) {

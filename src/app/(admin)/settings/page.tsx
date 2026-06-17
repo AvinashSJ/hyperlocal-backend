@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreSettings } from "./actions";
-import { getEligibleManagers } from "@/app/(admin)/stores/actions";
+import {
+  getEligibleManagers,
+  getLockedStoreCategories,
+} from "@/app/(admin)/stores/actions";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage({
@@ -46,9 +49,28 @@ export default async function SettingsPage({
   const adminSupabase = createAdminClient();
   const { data: allCategories } = await adminSupabase
     .from("categories")
-    .select("id, name")
+    .select("id, name, parent_id, sort_order")
     .eq("is_active", true)
+    .order("sort_order", { ascending: true })
     .order("name");
+
+  let assignedCategoryIds: string[] = [];
+  let lockedCategoryIds: string[] = [];
+  if (!createMode && data?.store?.id) {
+    const [assignedRes, lockedRes] = await Promise.all([
+      adminSupabase
+        .from("store_categories")
+        .select("category_id")
+        .eq("store_id", data.store.id),
+      getLockedStoreCategories(data.store.id),
+    ]);
+    assignedCategoryIds = (assignedRes.data ?? []).map((r) => r.category_id);
+    const assignedSet = new Set(assignedCategoryIds);
+    lockedCategoryIds = lockedRes
+      .filter((l) => assignedSet.has(l.categoryId))
+      .map((l) => l.categoryId);
+  }
+
   const managers = createMode ? await getEligibleManagers() : [];
 
   return (
@@ -59,6 +81,8 @@ export default async function SettingsPage({
         roleName={roleName}
         createMode={createMode}
         categories={allCategories ?? []}
+        assignedCategoryIds={assignedCategoryIds}
+        lockedCategoryIds={lockedCategoryIds}
         managers={managers}
         actionPerms={actionPerms}
       />

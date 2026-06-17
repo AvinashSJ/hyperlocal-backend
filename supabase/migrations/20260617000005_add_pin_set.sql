@@ -1,0 +1,2 @@
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS pin_set BOOLEAN NOT NULL DEFAULT false;

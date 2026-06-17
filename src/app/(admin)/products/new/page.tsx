@@ -5,8 +5,9 @@ async function getCategories() {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("categories")
-    .select("id, name")
+    .select("id, name, parent_id, sort_order")
     .eq("is_active", true)
+    .order("sort_order", { ascending: true })
     .order("name");
   return data ?? [];
 }
