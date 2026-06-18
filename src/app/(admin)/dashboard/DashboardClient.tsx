@@ -54,7 +54,7 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
 
   const chartSeries = useMemo(() => [{ name: "Orders", data: stats.monthlyData.map((d) => d.total) }], [stats.monthlyData]);
 
-  const statusLabels = Object.keys(stats.statusBreakdown);
+  const statusLabels = useMemo(() => Object.keys(stats.statusBreakdown), [stats.statusBreakdown]);
   const statusValues = Object.values(stats.statusBreakdown);
   const statusColors: Record<string, string> = {
     pending: "#ffc107", confirmed: "#0dcaf0", processing: "#0d6efd",
@@ -69,7 +69,7 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
     dataLabels: { enabled: true, style: { fontSize: "12px" }, dropShadow: { enabled: false } },
     legend: { position: "bottom" as const, fontSize: "13px" },
     plotOptions: { pie: { donut: { size: "55%" } } },
-  }), [statusLabels.join(",")]);
+  }), [statusLabels]);
 
   return (
     <div>

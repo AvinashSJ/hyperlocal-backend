@@ -28,6 +28,7 @@ type Product = {
   low_stock_threshold: number | null;
   status: string;
   store_id: string | null;
+  categories?: { name: string } | null;
   variants?: ProductVariant[];
   images?: ProductImage[];
 };
@@ -292,6 +293,12 @@ export default function ProductForm({
                     defaultValue={product?.category_id ?? ""}
                   >
                     <option value="">Select category</option>
+                    {product?.category_id &&
+                      !categories.some((c) => c.id === product.category_id) && (
+                        <option value={product.category_id}>
+                          Current: {product.categories?.name ?? product.category_id} (out of scope)
+                        </option>
+                      )}
                     {(() => {
                       const parents = categories
                         .filter((c) => !c.parent_id)
@@ -329,7 +336,7 @@ export default function ProductForm({
                     })()}
                   </select>
                   <small className="text-muted d-block mt-1">
-                    Select a subcategory (indented) to assign this product to it, or pick a parent with "(all)" to keep it at the parent level.
+                    Select a subcategory (indented) to assign this product to it, or pick a parent with &quot;(all)&quot; to keep it at the parent level.
                   </small>
                 </div>
 

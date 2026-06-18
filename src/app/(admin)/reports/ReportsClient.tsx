@@ -91,23 +91,23 @@ export default function ReportsClient({
 
       const [rs, rs2, rm, mr, gs, gm, gh, gbs] = await Promise.all([
         getRevenueSummary(s, e, storeId),
-        !storeId ? getRevenueByStore(s, e) : Promise.resolve([] as any[]),
+        !storeId ? getRevenueByStore(s, e) : Promise.resolve([] as Awaited<ReturnType<typeof getRevenueByStore>>),
         getRevenueByMethod(s, e, storeId),
         getMonthlyRevenue(s, e, storeId),
         getGSTSummary(s, e, storeId),
         getGSTMonthly(s, e, storeId),
         getGSTByHSN(s, e, storeId),
-        !storeId ? getGSTByStore(s, e) : Promise.resolve([] as any[]),
+        !storeId ? getGSTByStore(s, e) : Promise.resolve([] as Awaited<ReturnType<typeof getGSTByStore>>),
       ]);
 
       setRevSummary(rs);
-      setRevByStore(rs2 as any);
+      setRevByStore(rs2);
       setRevByMethod(rm);
       setMonthlyRev(mr);
       setGstSummary(gs);
       setGstMonthly(gm);
       setGstHSN(gh);
-      setGstByStore(gbs as any);
+      setGstByStore(gbs);
     } finally {
       setLoading(false);
     }

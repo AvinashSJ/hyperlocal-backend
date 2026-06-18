@@ -523,7 +523,7 @@ export default function UsersClient({
                     ?
                   </p>
                   <p className="text-muted small mb-0">
-                    This will permanently remove the user's profile. This action cannot be undone.
+                    This will permanently remove the user&apos;s profile. This action cannot be undone.
                   </p>
                 </div>
                 <div className="modal-footer">

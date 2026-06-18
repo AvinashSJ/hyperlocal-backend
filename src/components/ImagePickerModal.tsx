@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { listMedia, type MediaFile } from "@/app/(admin)/media/actions";
 
@@ -14,9 +14,13 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set(selectedUrls));
+  const lastSelectedRef = useRef(selectedUrls);
 
   useEffect(() => {
-    setPicked(new Set(selectedUrls));
+    if (lastSelectedRef.current !== selectedUrls) {
+      lastSelectedRef.current = selectedUrls;
+      setPicked(new Set(selectedUrls));
+    }
   }, [selectedUrls]);
 
   useEffect(() => {

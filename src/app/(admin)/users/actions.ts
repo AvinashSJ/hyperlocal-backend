@@ -98,7 +98,7 @@ export async function getUsers(roleFilter?: string): Promise<UserRow[]> {
   }
 
   const roleIds = [...new Set(profiles.map((p) => p.role_id).filter(Boolean))] as number[];
-  let roleNameMap = new Map<number, string>();
+  const roleNameMap = new Map<number, string>();
   if (roleIds.length > 0) {
     const { data: roleData } = await supabase
       .from("roles")
@@ -110,7 +110,7 @@ export async function getUsers(roleFilter?: string): Promise<UserRow[]> {
   }
 
   const storeIds = [...new Set(profiles.map((p) => p.store_id).filter(Boolean))] as string[];
-  let storeNameMap = new Map<string, string>();
+  const storeNameMap = new Map<string, string>();
   if (storeIds.length > 0) {
     const { data: storeData } = await supabase
       .from("stores")

@@ -10,6 +10,11 @@ export default function MediaClient({ initialFiles, canUpload, canDelete }: { in
   const [files, setFiles] = useState(initialFiles);
   const [uploading, setUploading] = useState(false);
 
+  const refresh = useCallback(async () => {
+    const updated = await listMedia();
+    setFiles(updated);
+  }, []);
+
   const onDrop = useCallback(async (accepted: File[]) => {
     if (accepted.length === 0) return;
     setUploading(true);
@@ -22,24 +27,19 @@ export default function MediaClient({ initialFiles, canUpload, canDelete }: { in
         throw new Error(data.message || data.error || "Upload failed");
       }
       toast.success(`${accepted.length} file(s) uploaded`);
-      refresh();
+      await refresh();
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
       setUploading(false);
     }
-  }, []);
+  }, [refresh]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "image/*": [".png", ".jpg", ".jpeg", ".webp"] },
     multiple: true,
   });
-
-  const refresh = async () => {
-    const updated = await listMedia();
-    setFiles(updated);
-  };
 
   const handleDelete = async (name: string) => {
     if (!confirm("Delete this image?")) return;

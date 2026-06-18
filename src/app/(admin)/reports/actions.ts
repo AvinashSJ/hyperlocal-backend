@@ -2,18 +2,21 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
-function dateFilter(
-  q: any,
+function dateFilter<T extends { gte: (c: string, v: string) => T; lte: (c: string, v: string) => T }>(
+  q: T,
   start?: string | null,
   end?: string | null,
   column = "placed_at",
-) {
+): T {
   if (start) q = q.gte(column, start);
   if (end) q = q.lte(column, `${end}T23:59:59.999Z`);
   return q;
 }
 
-function storeFilter(q: any, storeId?: string | null) {
+function storeFilter<T extends { eq: (c: string, v: unknown) => T }>(
+  q: T,
+  storeId?: string | null,
+): T {
   if (storeId) q = q.eq("store_id", storeId);
   return q;
 }
@@ -87,7 +90,7 @@ export async function getRevenueByStore(
   const map = new Map<string, { name: string; total: number; count: number }>();
   for (const o of data ?? []) {
     const id = o.store_id ?? "unknown";
-    const entry = map.get(id) ?? { name: (o.stores as any)?.name ?? "Unknown", total: 0, count: 0 };
+    const entry = map.get(id) ?? { name: (o.stores as { name?: string } | null)?.name ?? "Unknown", total: 0, count: 0 };
     entry.total += Number(o.total_amount);
     entry.count += 1;
     map.set(id, entry);
@@ -299,7 +302,7 @@ export async function getGSTByHSN(
     { hsn: string; rate: number; count: number; taxable: number; gst: number }
   >();
   for (const item of data ?? []) {
-    const hsn = (item.products as any)?.hsn_code ?? "NA";
+    const hsn = (item.products as { hsn_code?: string } | null)?.hsn_code ?? "NA";
     const rate = Number(item.gst_rate);
     const key = `${hsn}_${rate}`;
     const entry = map.get(key) ?? { hsn, rate, count: 0, taxable: 0, gst: 0 };
@@ -342,8 +345,8 @@ export async function getGSTByStore(
 
   const map = new Map<string, { name: string; taxable: number; cgst: number; sgst: number }>();
   for (const i of data ?? []) {
-    const storeId = (i.orders as any)?.store_id ?? "unknown";
-    const storeName = (i.orders as any)?.stores?.name ?? "Unknown";
+    const storeId = (i.orders as { store_id?: string } | null)?.store_id ?? "unknown";
+    const storeName = (i.orders as { stores?: { name?: string } | null } | null)?.stores?.name ?? "Unknown";
     const entry = map.get(storeId) ?? { name: storeName, taxable: 0, cgst: 0, sgst: 0 };
     entry.taxable += Number(i.taxable_amount);
     entry.cgst += Number(i.cgst ?? 0);

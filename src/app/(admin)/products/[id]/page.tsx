@@ -1,5 +1,7 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requirePermission } from "@/lib/require-permission";
+import { getStoreScope } from "@/lib/store-scope";
 import ProductForm from "../ProductForm";
 
 type Props = {
@@ -11,7 +13,7 @@ async function getProduct(id: string) {
 
   const { data: product } = await supabase
     .from("products")
-    .select("*")
+    .select("*, categories(name)")
     .eq("id", id)
     .single();
 
@@ -54,11 +56,13 @@ async function getCategories(storeId?: string | null) {
 
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
+  await requirePermission("products", "view");
+  const { storeId: userStoreId } = await getStoreScope();
   const product = await getProduct(id);
 
   if (!product) notFound();
 
-  const categories = await getCategories(product.store_id);
+  const categories = await getCategories(userStoreId);
 
   return <ProductForm product={product} categories={categories} />;
 }
