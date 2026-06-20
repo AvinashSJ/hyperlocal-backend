@@ -6,8 +6,8 @@
 
 | Metric | Current | Target |
 |---|---|---|
-| Test files | **40** | 30+ |
-| Tests passing | **716 / 716** | 250+ |
+| Test files | **48** | 30+ |
+| Tests passing | **878 / 878** | 250+ |
 | Typecheck | clean | clean |
 | Lint errors | **0** | 0 |
 | Lint warnings | 49 | trend → 0 |
@@ -2678,13 +2678,13 @@ npm run build         # next build — success
 | Metric | P1 start | P28 end |
 |---|---|---|
 | Test files | 1 (smoke) | 45 |
-| Tests | 17 | 874 (P28 follow-up: +3 seed-roles regression tests; P29: +3 createStaff auth-flow tests; P30: net 0 — 5 updateUserRole tests removed, 5 updateUser role-change tests added; P31: +18 password reset + first-login forced setup tests; P32: +4 direct upload in product image picker; P33: +14 manager cascade + category reassign + delete grace period tests; P34: +22 maintenance toggles + public API + navbar component; P35: +11 switch-slider pill refactor + popover config) |
+| Tests | 17 | 878 (P28 follow-up: +3 seed-roles regression tests; P29: +3 createStaff auth-flow tests; P30: net 0 — 5 updateUserRole tests removed, 5 updateUser role-change tests added; P31: +18 password reset + first-login forced setup tests; P32: +4 direct upload in product image picker; P33: +14 manager cascade + category reassign + delete grace period tests; P34: +22 maintenance toggles + public API + navbar component; P35: +11 switch-slider pill refactor + popover config; P37: +4 stale Supabase refresh-token edge-runtime fix) |
 | Typecheck | clean | clean |
 | Lint | 0 errors | 0 errors |
 | Lint warnings | n/a | 50 (non-blocking) |
 | Coverage | n/a | 92.83% / 85.2% / 93.42% / 93.81% |
 | Source bugs surfaced | n/a | 25 (consolidated) |
-| Source bugs fixed | n/a | 12 (P10: edit page scope, new page scope, out-of-scope category UX; P12: silent delete error in `updateProduct`/`deleteProduct`; P18: B22 store assignment + NEXT_REDIRECT handling; P21: bulk import sending non-existent `slug` column; P23: Manager category data leak + subcategory invisibility in products dropdown; P24: B26 dashboard customer count data leak; P26: order item product name disappears on product delete — fixed in both admin and Flutter; P27: commission generation silently inserts 0-commission rows + wrong auth.getUser client + missing Generated column + missing Generate All; P28: staff module was accessible to Super Admin + Manager could create store-less staff that disappeared; P28 follow-up: Manager role was missing the `staff` permission in the seed migration so the Staff nav link never rendered; P29: `createStaff` was missing the `auth.admin.createUser` call, so every staff insert failed with an FK / NOT NULL violation). **P30: design change, not a bug fix** — moved role change out of a one-click auto-submit inline dropdown into the explicit edit modal save flow. |
+| Source bugs fixed | n/a | 13 (P10: edit page scope, new page scope, out-of-scope category UX; P12: silent delete error in `updateProduct`/`deleteProduct`; P18: B22 store assignment + NEXT_REDIRECT handling; P21: bulk import sending non-existent `slug` column; P23: Manager category data leak + subcategory invisibility in products dropdown; P24: B26 dashboard customer count data leak; P26: order item product name disappears on product delete — fixed in both admin and Flutter; P27: commission generation silently inserts 0-commission rows + wrong auth.getUser client + missing Generated column + missing Generate All; P28: staff module was accessible to Super Admin + Manager could create store-less staff that disappeared; P28 follow-up: Manager role was missing the `staff` permission in the seed migration so the Staff nav link never rendered; P29: `createStaff` was missing the `auth.admin.createUser` call, so every staff insert failed with an FK / NOT NULL violation; P37: stale Supabase refresh tokens caused repeated `AuthApiError: refresh_token_not_found` log lines on every request — middleware now catches the specific code, clears the bad cookies, and treats the user as unauthenticated). **P30: design change, not a bug fix** — moved role change out of a one-click auto-submit inline dropdown into the explicit edit modal save flow. |
 | Features added | n/a | 13 (P11: auto-calculated discount; P13: VariantEditor table layout; P16: order delete restriction + product activity trail; P17: variants reflect MRP/Selling/Discount columns; P22: product CSV export + download button; P25: product activity log on edit page; P27: commission generation with global default rate + Generate All bulk action + Generated date column; P30: role change moved from inline dropdown to edit modal — safer UX, role-aware revalidation; P31: admin-driven password reset on /users + /staff edit modals with first-login forced setup via /auth/reset-password; P32: direct image upload in the product image picker — no need to visit /media first; P33: manager disable cascade (products → inactive, categories unassigned) with force-override toggle + category reassign + delete grace period; P34: app-wide + store-wide on/off toggles in the navbar (Super Admin / Manager) with reason + message + ETA, public /api/maintenance endpoint for Flutter, /maintenance public page; P35: navbar maintenance pills restyled as switch-slider buttons that toggle state immediately with optimistic UI + rollback, popover with interactive switch + remaining config (reason / message / ETA / save)) |
 | Migrations added | n/a | 13 (P12, P14, P15, P16, P17, P23, P25, P26, P28, P28 follow-up: 20260620000003_grant_manager_staff_module, P31: 20260620000004_add_must_reset_password, P33: 20260620000005_manager_disable_cascade, P34: 20260620000006_app_store_maintenance_settings). **P29, P30, P32 added no new migrations** — application-only. |
 | Helper test bugs fixed | n/a | 1 (P20: helper digest check was a tautological false positive — test mock didn't match production) |
@@ -2693,9 +2693,75 @@ npm run build         # next build — success
 | Flutter app fixes | n/a | 1 (P26: order_items snapshot columns + `displayName` getter on the Dart model) |
 | CI green | ❌ | ✅ |
 
+## P37 — Bug fix: Stale Supabase refresh token causes repeated edge-runtime errors (DONE)
+
+**User report (live, post-deploy):** server logs show `AuthApiError: Invalid Refresh Token: Refresh Token Not Found` repeated dozens of times in the edge runtime (`[root-of-the-server]__*.js`).
+
+### Root cause
+
+The `supabase.auth.getUser()` call in the edge middleware (`src/lib/supabase/middleware.ts:31`) can throw an `AuthApiError` with `code: "refresh_token_not_found"` when:
+
+- The user signed out in another tab
+- The session was revoked server-side (Supabase admin, security event)
+- The refresh token expired without rotation
+- The user manually deleted cookies
+
+When this happens, the error was re-thrown to Next.js, which logged it on **every** request. Since the bad cookies persisted, every subsequent request repeated the same failed refresh, generating the noise.
+
+### The fix
+
+Wrap `getUser()` in a try/catch. On `refresh_token_not_found` / `refresh_token_already_used`:
+
+1. Log a single warning (with the path + code) for diagnostics
+2. Clear the Supabase auth cookies (`sb-*` and `*-auth-token` patterns) on the response
+3. Treat the user as unauthenticated — no redirect, no re-throw
+
+Other errors are re-thrown unchanged so they remain visible (network errors, programming errors, etc.).
+
+```ts
+let user: { id: string; email?: string } | null = null;
+try {
+  const result = await supabase.auth.getUser();
+  user = result.data.user;
+} catch (err) {
+  const code = (err as { code?: string } | null)?.code;
+  if (code === "refresh_token_not_found" || code === "refresh_token_already_used") {
+    console.warn(
+      "[middleware] Supabase refresh token invalid; clearing auth cookies",
+      { path: request.nextUrl.pathname, code },
+    );
+    for (const { name } of request.cookies.getAll()) {
+      if (name.startsWith("sb-") || name.includes("auth-token")) {
+        supabaseResponse.cookies.set(name, "", { maxAge: 0, path: "/" });
+      }
+    }
+  } else {
+    throw err;
+  }
+}
+```
+
+### Tests added (+4, middleware.test.ts now 8 tests)
+
+1. **Clears `sb-*` cookies** and treats the user as unauthenticated when `getUser` throws `refresh_token_not_found`
+2. **Clears `*-auth-token` cookies** (the project-specific Supabase pattern) when the same error fires
+3. **Re-throws unknown errors** so they remain visible in the logs
+4. **Does NOT redirect to `/dashboard`** when the error fires on `/auth/login` (user is unauthenticated, must re-authenticate)
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `npm test -- --run` | **878 / 878** passing (was 874) |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 52 warnings (no new warnings) |
+| `npm run build` | succeeded (49s, 30 static pages) |
+| `curl https://hyperlocal-backend-u51x.onrender.com/api/maintenance` | returns `{"app":{"enabled":false,...},"stores":{}}` |
+| Production URL | live |
+
 ## Next Step
 
-All 28 phases complete. **Test suite is production-ready.**
+All 36 phases complete. **Test suite is production-ready.**
 
 Future work (out of test-scope):
 1. **Fix the remaining 22 source bugs** documented in the consolidated "Source Bugs Surfaced" table. **B1 is production-blocking** — change `assertPermission("notifications", "create")` to `"send"`. **B2–B5 are data-leakage bugs** — store-scoped admins see all GST data, not their own.

@@ -26,9 +26,29 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: { id: string; email?: string } | null = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    if (
+      code === "refresh_token_not_found" ||
+      code === "refresh_token_already_used"
+    ) {
+      console.warn(
+        "[middleware] Supabase refresh token invalid; clearing auth cookies",
+        { path: request.nextUrl.pathname, code },
+      );
+      for (const { name } of request.cookies.getAll()) {
+        if (name.startsWith("sb-") || name.includes("auth-token")) {
+          supabaseResponse.cookies.set(name, "", { maxAge: 0, path: "/" });
+        }
+      }
+    } else {
+      throw err;
+    }
+  }
 
   if (request.nextUrl.pathname === "/auth/login" && user) {
     const url = request.nextUrl.clone();
