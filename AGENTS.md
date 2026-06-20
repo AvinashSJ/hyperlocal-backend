@@ -65,6 +65,16 @@ This overrides the global `node` env. Use `react-dom/server`'s `renderToString` 
 
 Current actual coverage: ~93% statements, 86% branches, 93% functions, 94% lines — well above thresholds. See `TEST_REPORT.md` for the per-module breakdown.
 
+**Server actions: delete-then-insert must check errors** (P12 lesson):
+- `await supabase.from(table).delete().eq(...)` discards the response. If a foreign key violates (e.g. `inventory_log.variant_id_fkey` referencing the variant), the error is silently swallowed and the subsequent `insert()` still runs — duplicating rows on every save. Live bug: a product went from 2 → 16 variants across 5 saves.
+- **Always destructure and throw:**
+  ```typescript
+  const { error: delError } = await supabase.from("X").delete().eq(...);
+  if (delError) throw new Error(delError.message);
+  ```
+- For non-atomic delete+insert, the preferred fix is a single Postgres RPC function that does both in one transaction. The error-check is a defense-in-depth minimum.
+- The `updateProduct` and `deleteProduct` actions in `src/app/(admin)/products/actions.ts` follow this pattern (fixed in P12).
+
 **Mock-incompleteness (known limitations, not bugs):**
 - `storage.from(bucket).list` and `storage.remove` always return success — cannot test media error paths
 - `chainsForTable` groups by call-list boundaries, not by builder closure — see "Mock chainsForTable limitation" in `TEST_REPORT.md` P7 section

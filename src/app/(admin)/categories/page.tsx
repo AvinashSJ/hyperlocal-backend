@@ -1,5 +1,7 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getStoreScope } from "@/lib/store-scope";
+import { getCategoriesForStore } from "@/lib/categories";
 import CategoriesClient from "./CategoriesClient";
 
 type CategoryRow = {
@@ -13,13 +15,23 @@ type CategoryRow = {
   sort_order: number;
   is_active: boolean;
   created_at: string;
+  pending_deletion_at: string | null; // P33
   parent_name?: string | null;
   product_count: number;
   stores: string[];
 };
 
-async function getCategories() {
+async function getCategoriesForAdmin(storeId: string | null) {
   const supabase = createAdminClient();
+
+  // P23: a Manager sees only the categories Super Admin has assigned to
+  // their store (plus all descendants). Super Admin sees all.
+  // The list page needs additional metadata (parent name, product count,
+  // store names) that the helper doesn't provide, so we use the helper
+  // as the source-of-truth for which IDs to include, then enrich from
+  // a separate full-categories query.
+  const visibleNodes = await getCategoriesForStore(storeId);
+  const visibleIds = new Set(visibleNodes.map((n) => n.id));
 
   const { data: categories } = await supabase
     .from("categories")
@@ -55,20 +67,22 @@ async function getCategories() {
 
   const parentMap = new Map(allParents?.map((p) => [p.id, p.name]) ?? []);
 
-  const rows: CategoryRow[] =
-    categories?.map((cat) => ({
+  const rows: CategoryRow[] = (categories ?? [])
+    .filter((cat) => visibleIds.has(cat.id))
+    .map((cat) => ({
       ...cat,
       parent_name: cat.parent_id ? parentMap.get(cat.parent_id) ?? null : null,
       product_count: productCountMap.get(cat.id) ?? 0,
       stores: storeNamesMap.get(cat.id) ?? [],
-    })) ?? [];
+    }));
 
   return rows;
 }
 
 export default async function CategoriesPage() {
   const { permissions } = await requirePermission("categories", "view");
-  const categories = await getCategories();
+  const { storeId } = await getStoreScope();
+  const categories = await getCategoriesForAdmin(storeId);
   const actionPerms = getActionPermissions(permissions, "categories");
 
   return <CategoriesClient categories={categories} actionPerms={actionPerms} />;

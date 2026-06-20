@@ -6,6 +6,7 @@ import "../../../../test/mocks/require-permission";
 import {
   getAdminClient,
   resetSupabaseClients,
+  setServerUser,
 } from "../../../../test/mocks/supabase-clients";
 import { revalidatePathMock } from "../../../../test/mocks/next-cache";
 import {
@@ -24,11 +25,12 @@ import {
   getRoles,
   getStoresLight,
   getUsers,
-  updateUserRole,
   toggleUserActive,
+  toggleManagerActiveWithCascade,
   deleteUser,
   updateUser,
   createUser,
+  resetUserPassword,
 } from "./actions";
 
 beforeEach(() => {
@@ -358,90 +360,6 @@ describe("getUsers", () => {
   });
 });
 
-describe("updateUserRole", () => {
-  it("rejects users without users:edit permission", async () => {
-    asAdmin({ users: ["view"] });
-    const fd = buildFormData({ id: "u-1", role_id: "2" });
-    await expect(updateUserRole(fd)).rejects.toBeInstanceOf(PermissionError);
-  });
-
-  it("demotes to customer when role_id is 'customer' (clears role_id)", async () => {
-    asAdmin({ users: ["edit"] });
-    const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
-
-    const fd = buildFormData({ id: "u-1", role_id: "customer" });
-    await runAction(updateUserRole, fd);
-
-    const profilesChains = admin.chainsForTable("profiles");
-    const updateChain = profilesChains[0];
-    const updateCall = updateChain.find((c) => c.method === "update")!;
-    const updateArg = updateCall.args[0] as Record<string, unknown>;
-    expect(updateArg).toEqual({ role_id: null, role: "customer" });
-    expect(revalidatePathMock).toHaveBeenCalledWith("/users");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/customers");
-  });
-
-  it("promotes to superadmin when role name is 'Super Admin'", async () => {
-    asAdmin({ users: ["edit"] });
-    const admin = getAdminClient();
-    // 1) role lookup
-    // 2) update
-    admin.setResponses(
-      { data: { name: "Super Admin" }, error: null },
-      { data: null, error: null },
-    );
-
-    const fd = buildFormData({ id: "u-1", role_id: "1" });
-    await runAction(updateUserRole, fd);
-
-    const profilesChains = admin.chainsForTable("profiles");
-    const updateChain = profilesChains[0];
-    const updateCall = updateChain.find((c) => c.method === "update")!;
-    const updateArg = updateCall.args[0] as Record<string, unknown>;
-    expect(updateArg).toEqual({ role_id: 1, role: "superadmin" });
-    expect(revalidatePathMock).toHaveBeenCalledWith("/users");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/staff");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/customers");
-  });
-
-  it("promotes to admin when role name is anything other than 'Super Admin'", async () => {
-    asAdmin({ users: ["edit"] });
-    const admin = getAdminClient();
-    admin.setResponses(
-      { data: { name: "Manager" }, error: null },
-      { data: null, error: null },
-    );
-
-    const fd = buildFormData({ id: "u-1", role_id: "5" });
-    await runAction(updateUserRole, fd);
-
-    const profilesChains = admin.chainsForTable("profiles");
-    const updateChain = profilesChains[0];
-    const updateCall = updateChain.find((c) => c.method === "update")!;
-    const updateArg = updateCall.args[0] as Record<string, unknown>;
-    expect(updateArg).toEqual({ role_id: 5, role: "admin" });
-  });
-
-  it("falls back to admin role when role name is null (not found)", async () => {
-    asAdmin({ users: ["edit"] });
-    const admin = getAdminClient();
-    admin.setResponses(
-      { data: null, error: null },
-      { data: null, error: null },
-    );
-
-    const fd = buildFormData({ id: "u-1", role_id: "5" });
-    await runAction(updateUserRole, fd);
-
-    const profilesChains = admin.chainsForTable("profiles");
-    const updateChain = profilesChains[0];
-    const updateCall = updateChain.find((c) => c.method === "update")!;
-    const updateArg = updateCall.args[0] as Record<string, unknown>;
-    expect(updateArg.role).toBe("admin");
-  });
-});
-
 describe("toggleUserActive", () => {
   it("rejects users without users:edit permission", async () => {
     asAdmin({ users: ["view"] });
@@ -594,6 +512,126 @@ describe("updateUser", () => {
     const result = await runAction(updateUser, fd);
     expect(result.ok).toBe(false);
     expect(result.error?.message).toMatch(/constraint failed/);
+  });
+
+  // P30: role change via the edit modal. Two hard safety gates:
+  //   1. Cannot change a Super Admin's role
+  //   2. Cannot change your own role
+  // Otherwise, the role is updated and the role string is synced.
+
+  it("P30: updates role_id and syncs role string when a non-Super-Admin target's role is changed", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // 1) target profile lookup (with roles join)
+    // 2) role name lookup
+    // 3) profile update
+    admin.setResponses(
+      { data: { role_id: 2, roles: { name: "Manager" } }, error: null },
+      { data: { name: "Manager" }, error: null },
+      { data: null, error: null },
+    );
+
+    const fd = buildFormData({
+      id: "u-other",
+      full_name: "Alice",
+      email: "alice@example.com",
+      role_id: "3",
+    });
+    await runAction(updateUser, fd);
+
+    // chainsForTable groups by from(table); the target profile
+    // lookup is the first profiles chain, the update is the second.
+    const profilesChains = admin.chainsForTable("profiles");
+    const updateChain = profilesChains[1];
+    const updateCall = updateChain.find((c) => c.method === "update")!;
+    const updateArg = updateCall.args[0] as Record<string, unknown>;
+    expect(updateArg.role_id).toBe(3);
+    expect(updateArg.role).toBe("admin");
+    // role-aware pages must be revalidated so sidebar / nav reflects new role
+    expect(revalidatePathMock).toHaveBeenCalledWith("/users");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/staff");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/customers");
+  });
+
+  it("P30: demotes to customer when role_id is 'customer' (clears role_id)", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // 1) target profile lookup
+    // 2) profile update
+    admin.setResponses(
+      { data: { role_id: 2, roles: { name: "Manager" } }, error: null },
+      { data: null, error: null },
+    );
+
+    const fd = buildFormData({
+      id: "u-other",
+      full_name: "Alice",
+      role_id: "customer",
+    });
+    await runAction(updateUser, fd);
+
+    const profilesChains = admin.chainsForTable("profiles");
+    const updateChain = profilesChains[1];
+    const updateCall = updateChain.find((c) => c.method === "update")!;
+    const updateArg = updateCall.args[0] as Record<string, unknown>;
+    expect(updateArg.role_id).toBeNull();
+    expect(updateArg.role).toBe("customer");
+  });
+
+  it("P30: throws when target user is Super Admin (defense in depth)", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // target profile lookup returns Super Admin
+    admin.setResponses(
+      { data: { role_id: 1, roles: { name: "Super Admin" } }, error: null },
+    );
+
+    const fd = buildFormData({
+      id: "u-sa",
+      full_name: "SA",
+      role_id: "3",
+    });
+    const result = await runAction(updateUser, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/Super Admin role cannot be changed/);
+  });
+
+  it("P30: throws when current user tries to change their own role", async () => {
+    asAdmin({ users: ["edit"] });
+    // Inject a server user with a known id. The action's
+    // auth.getUser() (server) returns this id; the FormData's `id`
+    // matches → self-edit path triggers.
+    setServerUser({ id: "u-self", email: "self@example.com" });
+
+    const fd = buildFormData({
+      id: "u-self",
+      full_name: "Self",
+      role_id: "3",
+    });
+    const result = await runAction(updateUser, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/cannot change your own role/);
+  });
+
+  it("P30: omits role fields from update when role_id is empty (no change)", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+
+    const fd = buildFormData({
+      id: "u-other",
+      full_name: "Alice",
+      email: "alice@example.com",
+      // no role_id — the edit modal may not include it if unchanged
+    });
+    await runAction(updateUser, fd);
+
+    const profilesChains = admin.chainsForTable("profiles");
+    const updateChain = profilesChains[0];
+    const updateCall = updateChain.find((c) => c.method === "update")!;
+    const updateArg = updateCall.args[0] as Record<string, unknown>;
+    expect(updateArg).not.toHaveProperty("role_id");
+    expect(updateArg).not.toHaveProperty("role");
   });
 });
 
@@ -813,5 +851,219 @@ describe("createUser", () => {
     });
     await runAction(createUser, fd);
     expect(revalidatePathMock).toHaveBeenCalledWith("/users");
+  });
+});
+
+// P31: password reset. Sets a new temporary password via
+// auth.admin.updateUserById and flags must_reset_password = true.
+// The user's next sign-in then redirects them to
+// /auth/reset-password to set a permanent password.
+describe("resetUserPassword", () => {
+  it("rejects users without users:edit permission", async () => {
+    asAdmin({ users: ["view"] });
+    const fd = buildFormData({ id: "u-1", new_password: "abcdef" });
+    await expect(resetUserPassword(fd)).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("throws when new_password is missing", async () => {
+    asAdmin({ users: ["edit"] });
+    const fd = buildFormData({ id: "u-1" });
+    await expect(resetUserPassword(fd)).rejects.toThrow(/New password is required/);
+  });
+
+  it("throws when new_password is too short", async () => {
+    asAdmin({ users: ["edit"] });
+    const fd = buildFormData({ id: "u-1", new_password: "abc" });
+    await expect(resetUserPassword(fd)).rejects.toThrow(/at least 6/);
+  });
+
+  it("throws when the admin tries to reset their own password", async () => {
+    asAdmin({ users: ["edit"] });
+    setServerUser({ id: "u-self", email: "self@example.com" });
+    const fd = buildFormData({ id: "u-self", new_password: "abcdef" });
+    await expect(resetUserPassword(fd)).rejects.toThrow(/your own password/);
+  });
+
+  it("calls auth.admin.updateUserById and sets must_reset_password = true on the profile", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // 1) auth.admin.updateUserById → success
+    // 2) profile update (must_reset_password = true) → success
+    admin.setResponses({ data: null, error: null }, { data: null, error: null });
+
+    const fd = buildFormData({ id: "u-1", new_password: "TempPass123" });
+    await runAction(resetUserPassword, fd);
+
+    // 1) auth.admin.updateUserById
+    const updateAuthCalls = admin.calls.filter(
+      (c) => c.method === "auth.admin.updateUserById",
+    );
+    expect(updateAuthCalls.length).toBe(1);
+    expect(updateAuthCalls[0].args).toEqual([
+      "u-1",
+      { password: "TempPass123", email_confirm: true },
+    ]);
+
+    // 2) profile update with must_reset_password = true
+    const profilesChains = admin.chainsForTable("profiles");
+    const profileUpdate = profilesChains[0].find(
+      (c) => c.method === "update",
+    )!;
+    const updateArg = profileUpdate.args[0] as Record<string, unknown>;
+    expect(updateArg.must_reset_password).toBe(true);
+
+    // 3) revalidate /users
+    expect(revalidatePathMock).toHaveBeenCalledWith("/users");
+  });
+
+  it("propagates auth.admin.updateUserById errors", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: { message: "weak password policy" } });
+
+    const fd = buildFormData({ id: "u-1", new_password: "TempPass123" });
+    const result = await runAction(resetUserPassword, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/weak password policy/);
+  });
+});
+
+// P33: toggleManagerActiveWithCascade — extends toggleUserActive for
+// Manager rows with a cascade (inactivates products, unassigns
+// categories). Distinct from the simple toggle so non-Manager users
+// (e.g. Super Admin) are not accidentally affected.
+describe("toggleManagerActiveWithCascade", () => {
+  it("rejects users without users:edit permission", async () => {
+    asAdmin({ users: ["view"] });
+    const fd = buildFormData({ id: "u-1", target: "false" });
+    await expect(toggleManagerActiveWithCascade(fd)).rejects.toBeInstanceOf(
+      PermissionError,
+    );
+  });
+
+  it("throws when target user is not a Manager", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // Target profile is Super Admin
+    admin.setResponses({
+      data: { id: "u-sa", store_id: null, is_active: true, roles: { name: "Super Admin" } },
+      error: null,
+    });
+    const fd = buildFormData({ id: "u-sa", target: "false" });
+    await expect(toggleManagerActiveWithCascade(fd)).rejects.toThrow(
+      /Cascade is only available for Manager role/,
+    );
+  });
+
+  it("disabling a Manager: inactivates products (excluding cascade_locked=false) AND deletes store_categories", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // Response order matches the action's call order:
+    // 1) target profile lookup (Manager, store_id="s-1", is_active=true)
+    // 2) profiles.update (sets is_active=false) — happens BEFORE the cascade
+    // 3) products.update (inactivates cascade_locked=true rows)
+    // 4) store_categories.delete (unassigns the store)
+    // 5) activity_logs.insert (best-effort)
+    admin.setResponses(
+      { data: { id: "u-1", store_id: "s-1", is_active: true, roles: { name: "Manager" } }, error: null },
+      { data: null, error: null },
+      { data: [{ id: "p-1" }, { id: "p-2" }], error: null },
+      { data: [{ category_id: "c-1" }, { category_id: "c-2" }, { category_id: "c-3" }], error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ id: "u-1", target: "false" });
+    const result = await toggleManagerActiveWithCascade(fd);
+    expect(result.ok).toBe(true);
+    expect(result.cascaded).toBe(true);
+    expect(result.productsDisabled).toBe(2);
+    expect(result.categoriesUnassigned).toBe(3);
+
+    // Verify the products update used the cascade_locked filter.
+    // The mock stores .update()'s payload as a raw object; instead of
+    // stringifying, we look for the .neq() call that only appears in
+    // the products cascade chain (the profile update has no .neq()).
+    const neqCalls = admin.calls.filter((c) => c.method === "neq");
+    expect(neqCalls.length).toBeGreaterThanOrEqual(1);
+
+    // The cascade_locked filter was applied — the .eq() arg should be true
+    const eqCalls = admin.calls.filter((c) => c.method === "eq");
+    expect(eqCalls.some((c) => c.args[0] === "cascade_locked" && c.args[1] === true)).toBe(true);
+
+    // Verify the store_categories delete is filtered by store_id
+    const deleteCalls = admin.calls.filter((c) => c.method === "delete");
+    expect(deleteCalls.length).toBeGreaterThanOrEqual(1);
+
+    // Verify the profile update set is_active=false (the .update() payload
+    // contains an is_active key — checked via JSON)
+    const profileUpdateFound = admin.calls.some(
+      (c) => c.method === "update" && JSON.stringify(c.args[0]).includes("is_active"),
+    );
+    expect(profileUpdateFound).toBe(true);
+  });
+
+  it("re-enabling a Manager: does NOT cascade-restore products or reassign categories", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // 1) target profile lookup (Manager, store_id="s-1", is_active=false)
+    // 2) profiles.update (sets is_active=true)
+    // 3) activity_logs.insert (best-effort)
+    admin.setResponses(
+      { data: { id: "u-1", store_id: "s-1", is_active: false, roles: { name: "Manager" } }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ id: "u-1", target: "true" });
+    const result = await toggleManagerActiveWithCascade(fd);
+    expect(result.ok).toBe(true);
+    expect(result.cascaded).toBe(false);
+    expect(result.productsDisabled).toBe(0);
+    expect(result.categoriesUnassigned).toBe(0);
+
+    // No products update (no .neq()) or store_categories delete
+    // should have fired during re-enable.
+    expect(admin.calls.filter((c) => c.method === "neq").length).toBe(0);
+    expect(admin.calls.filter((c) => c.method === "delete").length).toBe(0);
+  });
+
+  it("a Manager with no store_id: profile is toggled but no cascade runs", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // 1) target profile lookup
+    // 2) profiles.update (is_active = false)
+    // 3) activity log
+    admin.setResponses(
+      { data: { id: "u-1", store_id: null, is_active: true, roles: { name: "Manager" } }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ id: "u-1", target: "false" });
+    const result = await toggleManagerActiveWithCascade(fd);
+    expect(result.ok).toBe(true);
+    expect(result.cascaded).toBe(false);
+    expect(result.productsDisabled).toBe(0);
+    expect(result.categoriesUnassigned).toBe(0);
+  });
+
+  it("revalidates /users, /products, /categories, /stores", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // 1) target profile lookup
+    // 2) profiles.update
+    // 3) products.update
+    // 4) store_categories.delete
+    // 5) activity log
+    admin.setResponses(
+      { data: { id: "u-1", store_id: "s-1", is_active: true, roles: { name: "Manager" } }, error: null },
+      { data: null, error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ id: "u-1", target: "false" });
+    await toggleManagerActiveWithCascade(fd);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/users");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/products");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/categories");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/stores");
   });
 });

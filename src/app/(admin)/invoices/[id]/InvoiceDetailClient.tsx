@@ -106,9 +106,11 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                       {order?.order_items.map((item, i) => (
                         <tr key={item.id}>
                           <td>{i + 1}</td>
-                          <td>{item.products?.name ?? "—"}</td>
-                          <td>{item.products?.hsn_code ?? "—"}</td>
-                          <td>{item.product_variants?.name ?? "—"}</td>
+                          {/* P26: prefer the snapshot (survives product/variant deletion),
+                              fall back to the JOIN, then to a placeholder. */}
+                          <td>{item.product_name ?? item.products?.name ?? "Deleted Product"}</td>
+                          <td>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</td>
+                          <td>{item.variant_name ?? item.product_variants?.name ?? "—"}</td>
                           <td className="text-center">{item.quantity}</td>
                           <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
                           <td className="text-end">₹{Number(item.total_price).toLocaleString()}</td>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
 import { updateStore, updateStoreSetting } from "./actions";
 import type { StoreSettingsData } from "./actions";
 import {
@@ -161,17 +162,13 @@ function ZonesSection({ initial, disabled }: { initial: ZoneRow[]; disabled?: bo
 
 function ZoneFormBody({ item: zone, onActionDone }: { item: ZoneRow | null; onActionDone: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (zone) {
-        await updateDeliveryZone(zone.id, formData);
-      } else {
-        await createDeliveryZone(formData);
-      }
+    const action = zone ? updateDeliveryZone.bind(null, zone.id) : createDeliveryZone;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onActionDone();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (
@@ -262,17 +259,13 @@ function SlotsSection({ initial, disabled }: { initial: SlotRow[]; disabled?: bo
 
 function SlotFormBody({ item: slot, onActionDone }: { item: SlotRow | null; onActionDone: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (slot) {
-        await updateDeliverySlot(slot.id, formData);
-      } else {
-        await createDeliverySlot(formData);
-      }
+    const action = slot ? updateDeliverySlot.bind(null, slot.id) : createDeliverySlot;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onActionDone();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (
@@ -368,17 +361,13 @@ function GstSection({ initial, disabled }: { initial: GstRow[]; disabled?: boole
 
 function GstFormBody({ item: gst, onActionDone }: { item: GstRow | null; onActionDone: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (gst) {
-        await updateGstNumber(gst.id, formData);
-      } else {
-        await createGstNumber(formData);
-      }
+    const action = gst ? updateGstNumber.bind(null, gst.id) : createGstNumber;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onActionDone();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (
@@ -689,20 +678,22 @@ function StoreInfoSection({
   const router = useRouter();
   const [state, formAction, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
-      try {
-        if (createMode) {
-          const { createStore } = await import("./actions");
-          const { id } = await createStore(formData);
+      if (createMode) {
+        const { createStore } = await import("./actions");
+        const r = await runServerAction(createStore, formData);
+        if (r.ok) {
           toast.success("Store created");
-          router.push(`/settings?store_id=${id}`);
-        } else {
-          await updateStore(formData);
-          toast.success("Store info saved");
+          router.push(`/settings?store_id=${r.value.id}`);
+          return { error: null };
         }
-        return { error: null };
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : "Failed to save" };
+        return { error: r.error.message };
       }
+      const r = await runServerAction(updateStore, formData);
+      if (r.ok) {
+        toast.success("Store info saved");
+        return { error: null };
+      }
+      return { error: r.error.message };
     },
     { error: null },
   );
@@ -877,13 +868,12 @@ function StoreInfoSection({
 function PoliciesSection({ policies, disabled }: { policies: StoreSettingsData["policies"]; disabled?: boolean }) {
   const [state, formAction, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
-      try {
-        await updateStoreSetting("store_policies", formData);
+      const r = await runServerAction(updateStoreSetting, "store_policies", formData);
+      if (r.ok) {
         toast.success("Policies saved");
         return { error: null };
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : "Failed to save" };
       }
+      return { error: r.error.message };
     },
     { error: null },
   );
@@ -952,13 +942,12 @@ function PoliciesSection({ policies, disabled }: { policies: StoreSettingsData["
 function PaymentSection({ payment, disabled }: { payment: StoreSettingsData["payment"]; disabled?: boolean }) {
   const [state, formAction, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
-      try {
-        await updateStoreSetting("payment_config", formData);
+      const r = await runServerAction(updateStoreSetting, "payment_config", formData);
+      if (r.ok) {
         toast.success("Payment config saved");
         return { error: null };
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : "Failed to save" };
       }
+      return { error: r.error.message };
     },
     { error: null },
   );
@@ -1038,13 +1027,12 @@ function PaymentSection({ payment, disabled }: { payment: StoreSettingsData["pay
 function GstSettingsSection({ gst, disabled }: { gst: StoreSettingsData["gst"]; disabled?: boolean }) {
   const [state, formAction, pending] = useActionState(
     async (_prev: { error: string | null }, formData: FormData) => {
-      try {
-        await updateStoreSetting("gst_config", formData);
+      const r = await runServerAction(updateStoreSetting, "gst_config", formData);
+      if (r.ok) {
         toast.success("GST settings saved");
         return { error: null };
-      } catch (e) {
-        return { error: e instanceof Error ? e.message : "Failed to save" };
       }
+      return { error: r.error.message };
     },
     { error: null },
   );

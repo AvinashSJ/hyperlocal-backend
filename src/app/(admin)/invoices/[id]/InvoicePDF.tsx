@@ -116,9 +116,11 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
           {items.map((item, i) => (
             <View key={item.id} style={styles.tableRow}>
               <Text style={styles.cellNo}>{i + 1}</Text>
-              <Text style={styles.cellProduct}>{item.products?.name ?? "—"}</Text>
-              <Text style={styles.cellHsn}>{item.products?.hsn_code ?? "—"}</Text>
-              <Text style={styles.cellVariant}>{item.product_variants?.name ?? "—"}</Text>
+              {/* P26: prefer the snapshot (survives product/variant deletion),
+                  fall back to the JOIN, then to a placeholder. */}
+              <Text style={styles.cellProduct}>{item.product_name ?? item.products?.name ?? "Deleted Product"}</Text>
+              <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
+              <Text style={styles.cellVariant}>{item.variant_name ?? item.product_variants?.name ?? "—"}</Text>
               <Text style={styles.cellQty}>{item.quantity}</Text>
               <Text style={styles.cellRate}>₹{Number(item.unit_price).toFixed(2)}</Text>
               <Text style={styles.cellAmount}>₹{Number(item.total_price).toFixed(2)}</Text>

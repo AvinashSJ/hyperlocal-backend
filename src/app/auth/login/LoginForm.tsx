@@ -24,7 +24,11 @@ export default function LoginForm() {
     });
 
     if (res.ok) {
-      router.push("/dashboard");
+      const data = await res.json();
+      // P31: API may return a redirect target if the user is flagged
+      // for a forced password reset on first login.
+      const target = data.redirectTo || "/dashboard";
+      router.push(target);
       router.refresh();
     } else {
       const data = await res.json();

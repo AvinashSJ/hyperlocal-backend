@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
 import type { StoreRow } from "./actions";
 import {
   getStoreCategories,
@@ -175,16 +176,19 @@ export default function StoresClient({
   const saveCategoryChanges = async () => {
     if (!viewing) return;
     setSavingCategories(true);
-    try {
-      await setStoreCategories(viewing.id, pendingCategoryIds);
+    const result = await runServerAction(
+      setStoreCategories,
+      viewing.id,
+      pendingCategoryIds,
+    );
+    if (result.ok) {
       setAssignedIds(pendingCategoryIds);
       setEditingCategories(false);
       toast.success("Store categories updated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update categories");
-    } finally {
-      setSavingCategories(false);
+    } else {
+      toast.error(result.error.message);
     }
+    setSavingCategories(false);
   };
 
   const parents = categories

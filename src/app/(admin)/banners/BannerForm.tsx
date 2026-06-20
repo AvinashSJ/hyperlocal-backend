@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { runServerAction } from "@/lib/run-server-action";
 import { createBanner, updateBanner } from "./actions";
 
 type Banner = {
@@ -9,17 +10,13 @@ type Banner = {
 
 export default function BannerForm({ banner, onClose }: { banner: Banner | null; onClose: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (banner) {
-        await updateBanner(banner.id, formData);
-      } else {
-        await createBanner(formData);
-      }
+    const action = banner ? updateBanner.bind(null, banner.id) : createBanner;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onClose();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (

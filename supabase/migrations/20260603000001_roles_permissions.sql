@@ -62,7 +62,8 @@ INSERT INTO public.roles (name, description, permissions, is_system) VALUES
     "users": ["view"],
     "roles": [],
     "stores": ["view", "create", "edit", "delete"],
-    "settings": ["view"]
+    "settings": ["view"],
+    "staff": ["view", "create", "edit", "delete"]
   }'::jsonb, true),
   ('Staff', 'View-only access with limited content management', '{
     "dashboard": ["view"],

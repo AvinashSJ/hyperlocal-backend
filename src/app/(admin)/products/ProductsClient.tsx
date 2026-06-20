@@ -4,7 +4,12 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
-import { deleteProduct } from "./actions";
+import { runServerAction } from "@/lib/run-server-action";
+import {
+  deleteProduct,
+  getProductActivityTrail,
+  type ProductActivityTrail,
+} from "./actions";
 import BulkImportModal from "./BulkImportModal";
 
 type Product = {
@@ -32,6 +37,18 @@ type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
 };
 
+const STATUS_BADGE: Record<string, string> = {
+  pending: "bg-warning text-dark",
+  confirmed: "bg-info text-white",
+  processing: "bg-primary text-white",
+  shipped: "bg-secondary text-white",
+  delivered: "bg-success text-white",
+  cancelled: "bg-danger text-white",
+  returned: "bg-dark text-white",
+};
+
+const INR = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+
 export default function ProductsClient({
   products,
   categories,
@@ -47,6 +64,9 @@ export default function ProductsClient({
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [deleting, setDeleting] = useState<Product | null>(null);
+  const [trail, setTrail] = useState<ProductActivityTrail | null>(null);
+  const [trailLoading, setTrailLoading] = useState(false);
+  const [deleting2, setDeleting2] = useState(false);
 
   const isLowStock = (p: Product) =>
     p.low_stock_threshold != null && p.stock_quantity <= p.low_stock_threshold;
@@ -68,16 +88,48 @@ export default function ProductsClient({
     });
   }, [products, search, categoryFilter, statusFilter, lowStockOnly, categories]);
 
-  const confirmDelete = async () => {
-    if (!deleting) return;
+  const handleDeleteClick = async (p: Product) => {
+    setDeleting(p);
+    setTrail(null);
+    setTrailLoading(true);
     try {
-      await deleteProduct(deleting.id);
-      toast.success("Product deleted");
-      setDeleting(null);
+      const t = await getProductActivityTrail(p.id);
+      setTrail(t);
     } catch {
-      toast.error("Failed to delete product");
+      setTrail({
+        orders: [],
+        orderTracks: [],
+        inventoryLog: [],
+        summary: { orderCount: 0, totalUnitsSold: 0, totalRevenue: 0, inventoryEvents: 0 },
+      });
+    } finally {
+      setTrailLoading(false);
     }
   };
+
+  const cancelDelete = () => {
+    setDeleting(null);
+    setTrail(null);
+    setTrailLoading(false);
+    setDeleting2(false);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleting2(true);
+    const result = await runServerAction(deleteProduct, deleting.id);
+    if (result.ok) {
+      toast.success("Product deleted");
+      cancelDelete();
+    } else {
+      toast.error(result.error.message);
+      setDeleting2(false);
+    }
+  };
+
+  const hasTrail =
+    trail !== null &&
+    (trail.orders.length > 0 || trail.inventoryLog.length > 0);
 
   return (
     <div className="card">
@@ -165,7 +217,7 @@ export default function ProductsClient({
         </div>
 
         {actionPerms?.canCreate && (
-          <div className="mb-3">
+          <div className="mb-3 d-flex gap-2">
             <button
               className="btn btn-outline-primary btn-sm"
               onClick={() => setShowImport(true)}
@@ -173,6 +225,15 @@ export default function ProductsClient({
               <Icon icon="ri:upload-2-line" className="me-1" />
               Import CSV
             </button>
+            <a
+              href="/api/admin/products/export"
+              className="btn btn-outline-secondary btn-sm"
+              download
+              data-testid="download-csv"
+            >
+              <Icon icon="ri:download-line" className="me-1" />
+              Download CSV
+            </a>
           </div>
         )}
 
@@ -250,7 +311,8 @@ export default function ProductsClient({
                       {actionPerms?.canDelete && (
                         <button
                           className="btn btn-sm btn-outline-danger"
-                          onClick={() => setDeleting(p)}
+                          onClick={() => handleDeleteClick(p)}
+                          data-testid={`delete-product-${p.id}`}
                         >
                           <Icon icon="ri:delete-bin-line" />
                         </button>
@@ -272,21 +334,187 @@ export default function ProductsClient({
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
           style={{ background: "rgba(0,0,0,0.5)", zIndex: 1050 }}
+          onClick={cancelDelete}
+          data-testid="product-delete-modal"
         >
-          <div className="bg-white rounded-3 shadow" style={{ width: 420 }}>
-            <div className="px-4 py-3 border-bottom">
+          <div
+            className="bg-white rounded-3 shadow"
+            style={{ width: hasTrail ? 640 : 420, maxWidth: "95vw", maxHeight: "90vh", display: "flex", flexDirection: "column" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 border-bottom d-flex justify-content-between align-items-center">
               <h6 className="fw-bold mb-0">Delete Product</h6>
+              <button
+                className="btn-close"
+                onClick={cancelDelete}
+                aria-label="Close"
+                data-testid="product-delete-modal-close"
+              />
             </div>
-            <div className="p-4">
-              <p className="mb-1">Are you sure you want to delete <strong>{deleting.name}</strong>?</p>
-              <p className="text-muted small mb-0">This action cannot be undone.</p>
+
+            <div className="p-4" style={{ overflowY: "auto" }}>
+              {trailLoading ? (
+                <div className="text-center py-4 text-muted">
+                  <Icon icon="ri:loader-4-line" className="spinner me-2" />
+                  Loading activity trail…
+                </div>
+              ) : !hasTrail ? (
+                <>
+                  <p className="mb-1">
+                    Are you sure you want to delete <strong>{deleting.name}</strong>?
+                  </p>
+                  <p className="text-muted small mb-0">
+                    This product has no associated orders or inventory events.
+                    This action cannot be undone.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="alert alert-warning d-flex align-items-start gap-2 py-2 mb-3"
+                    role="alert"
+                    data-testid="product-delete-trail-summary"
+                  >
+                    <Icon icon="ri:alert-line" className="flex-shrink-0 mt-1" />
+                    <div className="small">
+                      <strong>Activity trail for {deleting.name}:</strong>
+                      <div className="mt-1">
+                        {trail!.summary.orderCount > 0 && (
+                          <>Referenced in {trail!.summary.orderCount} order(s) ({trail!.summary.totalUnitsSold} units sold, {INR(trail!.summary.totalRevenue)} revenue). </>
+
+                        )}
+                        {trail!.summary.inventoryEvents > 0 && (
+                          <>{trail!.summary.inventoryEvents} inventory event(s).</>
+                        )}
+                      </div>
+                      <div className="mt-1 text-muted">
+                        Deleting this product will set <code>product_id = NULL</code> in
+                        order_items and inventory_log. Orders themselves are preserved.
+                      </div>
+                    </div>
+                  </div>
+
+                  {trail!.orders.length > 0 && (
+                    <div className="mb-3">
+                      <h6 className="fw-semibold small text-uppercase text-muted mb-2" style={{ letterSpacing: "0.05em" }}>
+                        Orders ({trail!.orders.length})
+                      </h6>
+                      <div
+                        className="border rounded"
+                        style={{ maxHeight: 220, overflowY: "auto" }}
+                        data-testid="product-delete-trail-orders"
+                      >
+                        <table className="table table-sm mb-0">
+                          <thead className="table-light" style={{ position: "sticky", top: 0 }}>
+                            <tr>
+                              <th>Order</th>
+                              <th>Customer</th>
+                              <th>Status</th>
+                              <th className="text-end">Qty × Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {trail!.orders.map((o) => (
+                              <tr key={o.orderId + "-" + o.quantity}>
+                                <td>
+                                  <div className="fw-semibold">{o.orderNumber}</div>
+                                  <small className="text-muted">
+                                    {new Date(o.placedAt).toLocaleDateString("en-IN", {
+                                      day: "numeric", month: "short", year: "numeric",
+                                    })}
+                                  </small>
+                                </td>
+                                <td>{o.customerName ?? "—"}</td>
+                                <td>
+                                  <span className={`badge ${STATUS_BADGE[o.status] ?? "bg-secondary"}`}>
+                                    {o.status}
+                                  </span>
+                                </td>
+                                <td className="text-end">
+                                  {o.quantity} × {INR(o.unitPrice)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {trail!.inventoryLog.length > 0 && (
+                    <div>
+                      <h6 className="fw-semibold small text-uppercase text-muted mb-2" style={{ letterSpacing: "0.05em" }}>
+                        Inventory log ({trail!.inventoryLog.length})
+                      </h6>
+                      <div
+                        className="border rounded"
+                        style={{ maxHeight: 160, overflowY: "auto" }}
+                        data-testid="product-delete-trail-inventory"
+                      >
+                        <table className="table table-sm mb-0">
+                          <thead className="table-light" style={{ position: "sticky", top: 0 }}>
+                            <tr>
+                              <th>Date</th>
+                              <th>Reason</th>
+                              <th className="text-end">Change</th>
+                              <th className="text-end">Balance</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {trail!.inventoryLog.map((row) => (
+                              <tr key={row.id}>
+                                <td className="text-nowrap">
+                                  {new Date(row.createdAt).toLocaleString("en-IN", {
+                                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                                  })}
+                                </td>
+                                <td>
+                                  <span className="badge bg-secondary-subtle text-secondary">
+                                    {row.reasonCode}
+                                  </span>
+                                  {row.notes && (
+                                    <div className="small text-muted">{row.notes}</div>
+                                  )}
+                                </td>
+                                <td className={`text-end fw-semibold ${row.quantityChange < 0 ? "text-danger" : "text-success"}`}>
+                                  {row.quantityChange > 0 ? "+" : ""}
+                                  {row.quantityChange}
+                                </td>
+                                <td className="text-end">{row.runningBalance}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
+
             <div className="d-flex justify-content-end gap-2 px-4 py-3 border-top">
-              <button className="btn btn-outline-secondary" onClick={() => setDeleting(null)}>
+              <button
+                className="btn btn-outline-secondary"
+                onClick={cancelDelete}
+                disabled={deleting2}
+                data-testid="product-delete-cancel"
+              >
                 Cancel
               </button>
-              <button className="btn btn-danger" onClick={confirmDelete}>
-                Delete
+              <button
+                className="btn btn-danger"
+                onClick={confirmDelete}
+                disabled={trailLoading || deleting2}
+                data-testid="product-delete-confirm"
+              >
+                {deleting2 ? (
+                  <>
+                    <Icon icon="ri:loader-4-line" className="spinner me-1" />
+                    Deleting…
+                  </>
+                ) : (
+                  "Delete product"
+                )}
               </button>
             </div>
           </div>

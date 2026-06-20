@@ -19,7 +19,16 @@ import {
 import { buildFormData } from "../../../../test/fixtures/formdata";
 import { runAction } from "../../../../test/helpers/invoke-action";
 
-import { createCategory, updateCategory, deleteCategory } from "./actions";
+import {
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  requestCategoryDeletion,
+  cancelCategoryDeletion,
+  forceUnassignCategory,
+  forceDeleteCategory,
+  reassignCategory,
+} from "./actions";
 
 beforeEach(() => {
   resetSupabaseClients();
@@ -271,5 +280,157 @@ describe("deleteCategory", () => {
     );
 
     await expect(deleteCategory("c-1")).rejects.toThrow(/fk violation/);
+  });
+});
+
+describe("P23: Manager category CRUD restrictions", () => {
+  it("Manager with categories:['view'] only cannot create, update, or delete a category", async () => {
+    // P23 migration 20260619000006 reduces Manager's categories to ["view"].
+    // This test asserts the post-migration default state: all three actions
+    // throw PermissionError for Manager. It catches accidental re-introduction
+    // of categories:create/edit/delete in Manager's default permissions.
+    asAdmin({ categories: ["view"] });
+
+    // createCategory throws
+    await expect(
+      createCategory(buildFormData({ name: "X" })),
+    ).rejects.toBeInstanceOf(PermissionError);
+
+    // updateCategory throws
+    await expect(
+      updateCategory("c-1", buildFormData({ name: "X" })),
+    ).rejects.toBeInstanceOf(PermissionError);
+
+    // deleteCategory throws
+    await expect(deleteCategory("c-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+});
+
+// P33: category delete grace period + reassign flow
+describe("requestCategoryDeletion", () => {
+  it("rejects users without categories:delete permission", async () => {
+    asAdmin({ categories: ["view"] });
+    const fd = buildFormData({ id: "c-1" });
+    await expect(requestCategoryDeletion(fd)).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("sets pending_deletion_at = now()", async () => {
+    asAdmin({ categories: ["delete"] });
+    const admin = getAdminClient();
+    // 1) existing lookup
+    // 2) update
+    // 3) activity_logs.insert (best-effort)
+    admin.setResponses(
+      { data: { pending_deletion_at: null }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ id: "c-1" });
+    await requestCategoryDeletion(fd);
+
+    // The mock stores update payloads as raw objects. JSON.stringify to
+    // check the payload contains the pending_deletion_at key.
+    const updateCall = admin.calls.find(
+      (c) => c.method === "update" && JSON.stringify(c.args[0]).includes("pending_deletion_at"),
+    );
+    expect(updateCall).toBeTruthy();
+  });
+
+  it("throws if the category is already scheduled for deletion", async () => {
+    asAdmin({ categories: ["delete"] });
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: { pending_deletion_at: "2025-01-01T00:00:00Z" },
+      error: null,
+    });
+    const fd = buildFormData({ id: "c-1" });
+    await expect(requestCategoryDeletion(fd)).rejects.toThrow(
+      /already scheduled for deletion/,
+    );
+  });
+});
+
+describe("cancelCategoryDeletion", () => {
+  it("clears pending_deletion_at", async () => {
+    asAdmin({ categories: ["delete"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null }, { data: null, error: null });
+    const fd = buildFormData({ id: "c-1" });
+    await cancelCategoryDeletion(fd);
+    // The mock stores update payloads as raw objects; check that the
+    // payload includes a pending_deletion_at key.
+    const updateCall = admin.calls.find(
+      (c) => c.method === "update" && JSON.stringify(c.args[0]).includes("pending_deletion_at"),
+    );
+    expect(updateCall).toBeTruthy();
+    // The payload value should be null (cancelling the deletion)
+    const payload = updateCall?.args[0] as Record<string, unknown> | undefined;
+    expect(payload?.pending_deletion_at).toBeNull();
+  });
+});
+
+describe("forceUnassignCategory", () => {
+  it("clears pending_deletion_at and deletes all store_categories rows for the category", async () => {
+    asAdmin({ categories: ["delete"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ id: "c-1" });
+    await forceUnassignCategory(fd);
+    // verify a delete was issued on store_categories
+    expect(admin.calls.some((c) => c.method === "delete")).toBe(true);
+  });
+});
+
+describe("forceDeleteCategory", () => {
+  it("clears pending_deletion_at and hard-deletes the category", async () => {
+    asAdmin({ categories: ["delete"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: null, error: null }, // update parent_id
+      { data: null, error: null }, // update pending_deletion_at
+      { data: null, error: null }, // delete
+      { data: null, error: null }, // activity log
+    );
+    const fd = buildFormData({ id: "c-1" });
+    await forceDeleteCategory(fd);
+    // Verify the delete call was issued. The mock records the table
+    // name on the .from() call, not the .delete() call (which is
+    // chainable and takes no args). We just count .delete() calls
+    // and verify a preceding .from("categories") exists.
+    const deleteCalls = admin.calls.filter((c) => c.method === "delete");
+    expect(deleteCalls.length).toBeGreaterThanOrEqual(1);
+    expect(admin.calls.some((c) => c.method === "from" && c.args[0] === "categories")).toBe(true);
+  });
+});
+
+describe("reassignCategory", () => {
+  it("upserts the store_categories row and clears pending_deletion_at", async () => {
+    asAdmin({ categories: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: null, error: null }, // store_categories.upsert
+      { data: null, error: null }, // categories.update pending_deletion_at = null
+      { data: null, error: null }, // activity log
+    );
+    // The action reads `category_id` from FormData (matches the form
+    // field name in the CategoriesClient UI).
+    const fd = buildFormData({ category_id: "c-1", to_store_id: "s-2" });
+    await reassignCategory(fd);
+    // verify upsert
+    expect(admin.calls.some((c) => c.method === "upsert")).toBe(true);
+  });
+
+  it("throws when category_id or to_store_id is missing", async () => {
+    asAdmin({ categories: ["edit"] });
+    // Missing category_id — checked first.
+    const fd = buildFormData({ to_store_id: "s-2" });
+    await expect(reassignCategory(fd)).rejects.toThrow(/Category id is required/);
+    // Missing to_store_id — checked second.
+    const fd2 = buildFormData({ category_id: "c-1" });
+    await expect(reassignCategory(fd2)).rejects.toThrow(/Target store id is required/);
   });
 });

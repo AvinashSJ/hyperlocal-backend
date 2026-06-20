@@ -7,6 +7,7 @@ import { Icon } from "@iconify/react";
 import { ToastContainer } from "react-toastify";
 import { canAccess } from "@/lib/permissions";
 import type { RolePermissions, PermissionModule } from "@/lib/permissions";
+import MaintenanceStatus from "./MaintenanceStatus";
 
 type NavItem = {
   label: string;
@@ -82,6 +83,8 @@ export default function MasterLayout({
   storeId = null,
   isStoreScoped = false,
   isSuperAdmin = false,
+  appMaintenance = { enabled: false, reason: "maintenance", message: "", etaHours: null },
+  storeMaintenance = { enabled: false, reason: "maintenance", message: "", etaHours: null },
   onSignOut,
 }: {
   children: React.ReactNode;
@@ -90,6 +93,18 @@ export default function MasterLayout({
   storeId?: string | null;
   isStoreScoped?: boolean;
   isSuperAdmin?: boolean;
+  appMaintenance?: {
+    enabled: boolean;
+    reason: "maintenance" | "technical" | "operations";
+    message: string;
+    etaHours: number | null;
+  };
+  storeMaintenance?: {
+    enabled: boolean;
+    reason: "maintenance" | "technical" | "operations";
+    message: string;
+    etaHours: number | null;
+  };
   onSignOut: () => void;
 }) {
   const pathname = usePathname();
@@ -113,9 +128,17 @@ export default function MasterLayout({
     "users", "roles", "settings",
   ];
 
+  // P28: modules that are HIDDEN from Super Admins. The Staff module is
+  // a Manager-only thing — Super Admins can create Staff via the /users
+  // page (users/actions.ts:createUser creates a real auth user with any role).
+  // Hiding Staff from the Super Admin nav prevents confusion and routes
+  // staff management to the appropriate role.
+  const superAdminHidden: PermissionModule[] = ["staff"];
+
   function isNotHidden(module?: PermissionModule): boolean {
     if (!module) return true;
     if (isStoreScoped && storeScopedHidden.includes(module)) return false;
+    if (isSuperAdmin && superAdminHidden.includes(module)) return false;
     return true;
   }
 
@@ -243,6 +266,14 @@ export default function MasterLayout({
           </button>
 
           <div className="flex-grow-1" />
+
+          <MaintenanceStatus
+            isSuperAdmin={isSuperAdmin}
+            isStoreScoped={isStoreScoped}
+            app={appMaintenance}
+            store={storeMaintenance}
+            storeId={storeId}
+          />
 
           <div className="position-relative">
             <button

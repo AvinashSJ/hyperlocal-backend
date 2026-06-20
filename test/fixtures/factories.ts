@@ -212,10 +212,16 @@ export function makeOrderItem(overrides: Partial<{
   category_id: string | null;
   products: { name: string; sku: string | null } | null;
   product_variants: { name: string } | null;
+  // P26: snapshot fields (added by migration 20260620000002)
+  product_name: string | null;
+  product_sku: string | null;
+  variant_name: string | null;
+  product_hsn_code: string | null;
 }> = {}) {
+  const productId = overrides.product_id ?? uid("prod");
   return {
     id: overrides.id ?? uid("oi"),
-    product_id: overrides.product_id ?? uid("prod"),
+    product_id: overrides.product_id ?? productId,
     variant_id: overrides.variant_id ?? null,
     quantity: overrides.quantity ?? 1,
     unit_price: overrides.unit_price ?? 100,
@@ -226,6 +232,12 @@ export function makeOrderItem(overrides: Partial<{
     category_id: overrides.category_id ?? null,
     products: overrides.products ?? null,
     product_variants: overrides.product_variants ?? null,
+    // P26 snapshots — default to "Test Product" / "TP-001" so tests reflect a
+    // realistic order where the product was named at order time.
+    product_name: overrides.product_name ?? "Test Product",
+    product_sku: overrides.product_sku ?? "TP-001",
+    variant_name: overrides.variant_name ?? null,
+    product_hsn_code: overrides.product_hsn_code ?? "1234",
   };
 }
 

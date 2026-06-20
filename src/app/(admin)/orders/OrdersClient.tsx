@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
 import { deleteOrder, type OrderListItem, type PaymentStatus } from "./actions";
 
 const STATUS_BADGES: Record<string, string> = {
@@ -43,12 +44,12 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
 
   const confirmDelete = useCallback(async () => {
     if (!deleting) return;
-    try {
-      await deleteOrder(deleting.id);
+    const result = await runServerAction(deleteOrder, deleting.id);
+    if (result.ok) {
       toast.success("Order deleted");
       setDeleting(null);
-    } catch {
-      toast.error("Failed to delete order");
+    } else {
+      toast.error(result.error.message);
     }
   }, [deleting]);
 

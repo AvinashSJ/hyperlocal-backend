@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderToString } from "react-dom/server";
+import { act } from "react";
+import type { ReactNode } from "react";
 
 vi.mock("@iconify/react", () => ({
   Icon: ({ icon, width, className }: { icon: string; width?: number; className?: string }) => (
@@ -12,13 +14,20 @@ vi.mock("@/app/(admin)/media/actions", () => ({
   listMedia: vi.fn(),
 }));
 
+// P32: stub global fetch so the upload handler can be exercised in
+// the jsdom test environment without touching the real network.
+const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
+
 import ImagePickerModal from "./ImagePickerModal";
 import { listMedia } from "@/app/(admin)/media/actions";
 
 const mockListMedia = listMedia as ReturnType<typeof vi.fn>;
+const mockFetchGlobal = fetch as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   mockListMedia.mockReset();
+  mockFetchGlobal.mockReset();
 });
 
 describe("ImagePickerModal — initial render (loading state)", () => {
@@ -152,5 +161,160 @@ describe("ImagePickerModal — lastSelectedRef guard (regression test for cascad
     );
     expect(html1).toMatch(/1<!-- -->\s+selected/);
     expect(html2).toMatch(/1<!-- -->\s+selected/);
+  });
+});
+
+// P32: the picker now ships an in-modal upload bar so admins can
+// upload images while creating a product without first visiting
+// /media. The bar is rendered in SSR; the click/change interaction
+// requires a real DOM (jsdom).
+describe("ImagePickerModal — direct upload (P32)", () => {
+  it("renders the 'Upload images' bar with a file input above the grid", () => {
+    const html = renderToString(
+      <ImagePickerModal selectedUrls={[]} onSelect={() => {}} onClose={() => {}} />,
+    );
+    expect(html).toContain("Upload images");
+    expect(html).toContain('type="file"');
+    expect(html).toContain('accept="image/png,image/jpeg,image/webp"');
+    expect(html).toContain('data-testid="image-picker-upload-input"');
+  });
+
+  it("replaces the empty-state copy with an upload hint", () => {
+    // The previous empty-state text "Upload some in the Media
+    // section first" is gone — it's now in the upload bar that
+    // lives at the top of the modal. The empty state itself is
+    // only visible AFTER listMedia resolves with an empty array
+    // (i.e. in the live DOM, not in SSR which starts in "loading"
+    // state). We assert the hint lives in the upload bar rather
+    // than in the body.
+    const html = renderToString(
+      <ImagePickerModal selectedUrls={[]} onSelect={() => {}} onClose={() => {}} />,
+    );
+    expect(html).not.toContain("Upload some in the Media section first");
+    expect(html).toContain("Upload images");
+  });
+
+  it("client-side: file input change posts to /api/upload and refreshes the list", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    // After upload, the picker calls listMedia() to refresh the file
+    // list. We pre-program the second call to return the freshly
+    // uploaded file (with the public URL).
+    mockListMedia
+      .mockResolvedValueOnce([]) // initial fetch in useEffect
+      .mockResolvedValueOnce([
+        { name: "1700000000-abc.jpg", url: "https://cdn.example.com/1700000000-abc.jpg" },
+      ]);
+
+    mockFetchGlobal.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ uploaded: ["1700000000-abc.jpg"], errors: [] }),
+    });
+
+    const onSelect = vi.fn();
+    // Type the root loosely to avoid the dynamic-import-induced
+    // `ReturnType<typeof createRoot>` evaluating to `never`.
+    type RootLike = { render: (node: ReactNode) => void; unmount: () => void };
+    let root: RootLike | null = null;
+    await act(async () => {
+      const { createRoot } = await import("react-dom/client");
+      root = createRoot(container) as unknown as RootLike;
+      root.render(
+        <ImagePickerModal selectedUrls={[]} onSelect={onSelect} onClose={() => {}} />,
+      );
+    });
+
+    // Wait for the initial listMedia to settle (empty list)
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Build a fake File and fire the change event
+    const file = new File(["fake-bytes"], "test.png", { type: "image/png" });
+    const input = container.querySelector(
+      '[data-testid="image-picker-upload-input"]',
+    ) as HTMLInputElement;
+    expect(input).toBeTruthy();
+    await act(async () => {
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    // fetch was called with the upload endpoint and FormData
+    expect(mockFetchGlobal).toHaveBeenCalledTimes(1);
+    const [url, opts] = mockFetchGlobal.mock.calls[0];
+    expect(url).toBe("/api/upload");
+    expect(opts.method).toBe("POST");
+    expect(opts.body).toBeInstanceOf(FormData);
+
+    // After the upload resolves, listMedia is called again to
+    // refresh the list. Wait for the microtask queue to drain.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // The freshly uploaded URL should now be in `picked`, which
+    // increments the "Add Selected" count in the footer to 1.
+    // (In the live DOM, React strips the <!-- --> comment markers
+    // that it injects for adjacent-expression separation in SSR.)
+    const html = container.innerHTML;
+    expect(html).toContain("Add Selected (1)");
+    expect(html).toContain("1 selected");
+
+    container.remove();
+    // root.unmount() is intentionally not called — removing the
+    // container is sufficient for test cleanup and avoids a
+    // TS narrowing edge case with the dynamic-import root type.
+  });
+
+  it("client-side: shows an error message when /api/upload returns a non-OK status", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+
+    mockListMedia.mockResolvedValueOnce([]); // initial
+    mockFetchGlobal.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: "internal error" }),
+    });
+
+    type RootLike = { render: (node: ReactNode) => void; unmount: () => void };
+    let root: RootLike | null = null;
+    await act(async () => {
+      const { createRoot } = await import("react-dom/client");
+      root = createRoot(container) as unknown as RootLike;
+      root.render(
+        <ImagePickerModal selectedUrls={[]} onSelect={() => {}} onClose={() => {}} />,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const file = new File(["x"], "bad.png", { type: "image/png" });
+    const input = container.querySelector(
+      '[data-testid="image-picker-upload-input"]',
+    ) as HTMLInputElement;
+    await act(async () => {
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="image-picker-upload-error"]')).toBeTruthy();
+    expect(container.textContent).toMatch(/internal error|Upload failed/);
+
+    container.remove();
+    // root.unmount() not called — see the note in the test above.
   });
 });

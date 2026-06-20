@@ -49,6 +49,12 @@ export type InvoiceDetail = InvoiceRow & {
     order_items: {
       id: string; quantity: number; unit_price: number; total_price: number;
       gst_rate: number; gst_amount: number;
+      // P26: snapshot fields survive product/variant deletion
+      product_name: string | null;
+      product_sku: string | null;
+      variant_name: string | null;
+      product_hsn_code: string | null;
+      // Legacy JOIN (fallback for rows placed before the migration)
       products: { name: string; hsn_code: string | null; gst_rate: number } | null;
       product_variants: { name: string } | null;
     }[];
@@ -59,6 +65,9 @@ export async function getInvoice(id: string) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("invoices")
+    // P26: the order_items SELECT now reads the snapshot columns directly.
+    // The products JOIN is kept as a fallback for legacy rows (placed before
+    // the migration) where the snapshot is NULL.
     .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate), product_variants(name)))")
     .eq("id", id)
     .single();

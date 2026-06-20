@@ -1,8 +1,10 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { assertPermission } from "@/lib/require-permission";
+import { logActivity } from "@/lib/activity-log";
 
 export type UserRow = {
   id: string;
@@ -138,45 +140,6 @@ export async function getUsers(roleFilter?: string): Promise<UserRow[]> {
   }));
 }
 
-export async function updateUserRole(formData: FormData) {
-  await assertPermission("users", "edit");
-  const supabase = createAdminClient();
-  const id = formData.get("id") as string;
-  const roleId = formData.get("role_id") as string;
-
-  if (roleId === "customer") {
-    const { error } = await supabase
-      .from("profiles")
-      .update({ role_id: null, role: "customer" })
-      .eq("id", id);
-
-    if (error) console.error("Failed to demote to customer:", error);
-    revalidatePath("/users");
-    revalidatePath("/customers");
-    return;
-  }
-
-  // Sync the `role` string with the new `role_id` so segmentation stays correct
-  const { data: roleData } = await supabase
-    .from("roles")
-    .select("name")
-    .eq("id", Number(roleId))
-    .single();
-
-  const role: "admin" | "superadmin" =
-    roleData?.name === "Super Admin" ? "superadmin" : "admin";
-
-  const { error } = await supabase
-    .from("profiles")
-    .update({ role_id: Number(roleId), role })
-    .eq("id", id);
-
-  if (error) console.error("Failed to update role:", error);
-  revalidatePath("/users");
-  revalidatePath("/staff");
-  revalidatePath("/customers");
-}
-
 export async function toggleUserActive(formData: FormData) {
   await assertPermission("users", "edit");
   const supabase = createAdminClient();
@@ -190,6 +153,128 @@ export async function toggleUserActive(formData: FormData) {
 
   if (error) console.error("Failed to toggle active:", error);
   revalidatePath("/users");
+}
+
+// P33: Toggle a Manager (store-scoped admin) with cascade. Distinct
+// from `toggleUserActive` so we don't accidentally cascade-disable
+// Super Admins or other non-Manager users.
+//
+// Cascade rules on disable (targetActive = false):
+//   1. Products in the manager's store → status = 'inactive'
+//      (skipped for products with cascade_locked = false; Super Admin
+//      can flip that flag in the product edit form to force-keep
+//      a product active even when the manager is disabled)
+//   2. Categories in the manager's store → DELETE the
+//      `store_categories` row (unassign, do NOT mark the category
+//      globally inactive — the category stays alive and is available
+//      for SA to reassign to another store)
+//
+// On re-enable (targetActive = true): NO auto-restore. Disabled
+// products stay inactive; unassigned categories stay unassigned.
+// Manager / SA must re-enable products and reassign categories
+// individually. This is a deliberate "no surprises on re-enable"
+// decision.
+export async function toggleManagerActiveWithCascade(
+  formData: FormData,
+): Promise<{
+  ok: boolean;
+  cascaded: boolean;
+  productsDisabled: number;
+  categoriesUnassigned: number;
+}> {
+  await assertPermission("users", "edit");
+  const supabase = createAdminClient();
+
+  const id = formData.get("id") as string;
+  const targetActive = formData.get("target") === "true";
+
+  if (!id) throw new Error("User id is required");
+
+  // 1. Look up the target user. We need role + store_id + roles(name).
+  const { data: target, error: targetErr } = await supabase
+    .from("profiles")
+    .select("id, role_id, store_id, is_active, roles(name)")
+    .eq("id", id)
+    .single();
+
+  if (targetErr || !target) {
+    throw new Error(targetErr?.message ?? "User not found");
+  }
+
+  const roleName = (target as { roles?: { name?: string } | null }).roles?.name;
+  if (roleName !== "Manager") {
+    // Only cascade for Manager-role users. Other roles use the
+    // simpler `toggleUserActive` action.
+    throw new Error(
+      "Cascade is only available for Manager role. Use toggleUserActive for other roles.",
+    );
+  }
+
+  // 2. Update the profile's is_active to the target state.
+  const { error: updateErr } = await supabase
+    .from("profiles")
+    .update({ is_active: targetActive })
+    .eq("id", id);
+  if (updateErr) throw new Error(updateErr.message);
+
+  // 3. If disabling, run the cascade.
+  let productsDisabled = 0;
+  let categoriesUnassigned = 0;
+  if (!targetActive && target.store_id) {
+    // Products: set status = 'inactive' for products in this store,
+    // EXCEPT those with cascade_locked = false.
+    const { data: updatedProducts, error: prodErr } = await supabase
+      .from("products")
+      .update({ status: "inactive" })
+      .eq("store_id", target.store_id)
+      .eq("cascade_locked", true)
+      .neq("status", "inactive")
+      .select("id");
+    if (prodErr) {
+      console.error("Failed to cascade-disable products:", prodErr);
+    } else {
+      productsDisabled = updatedProducts?.length ?? 0;
+    }
+
+    // Categories: delete the store_categories rows for this store.
+    // The categories themselves stay `is_active = true` globally
+    // (the only effect is they're no longer assigned to this store).
+    const { data: deletedCats, error: catErr } = await supabase
+      .from("store_categories")
+      .delete()
+      .eq("store_id", target.store_id)
+      .select("category_id");
+    if (catErr) {
+      console.error("Failed to unassign store categories:", catErr);
+    } else {
+      categoriesUnassigned = deletedCats?.length ?? 0;
+    }
+  }
+
+  // 4. Activity log entry (best-effort, never blocks the action).
+  await logActivity({
+    action: "update",
+    entityType: "manager_active_cascade",
+    entityId: id,
+    details: {
+      targetActive,
+      storeId: target.store_id,
+      productsDisabled,
+      categoriesUnassigned,
+    },
+  });
+
+  revalidatePath("/users");
+  revalidatePath("/products");
+  revalidatePath("/categories");
+  revalidatePath("/stores");
+
+  return {
+    ok: true,
+    cascaded: !targetActive && !!target.store_id,
+    productsDisabled,
+    categoriesUnassigned,
+  };
 }
 
 export async function deleteUser(formData: FormData) {
@@ -211,6 +296,7 @@ export async function updateUser(formData: FormData) {
   const email = (formData.get("email") as string | null)?.trim() ?? "";
   const phone = (formData.get("phone") as string | null)?.trim() ?? "";
   const storeId = (formData.get("store_id") as string | null)?.trim() ?? "";
+  const roleIdRaw = (formData.get("role_id") as string | null) ?? "";
 
   const update: Record<string, unknown> = {
     full_name: fullName || null,
@@ -220,13 +306,67 @@ export async function updateUser(formData: FormData) {
   if (email) update.email = email;
   update.store_id = storeId || null;
 
+  // P30: role change is now handled here (was updateUserRole, removed).
+  // Two hard safety gates: cannot change a Super Admin's role, and
+  // cannot change your own role. The UI disables the field for these
+  // cases too — this is defense in depth.
+  if (roleIdRaw) {
+    // Use the server client for auth.getUser() (mirrors
+    // commissions/actions.ts:resolveUserId). The admin client uses
+    // the service-role key and has no user context.
+    let currentUserId: string | null = null;
+    try {
+      const supabaseServer = await createClient();
+      const { data: { user } } = await supabaseServer.auth.getUser();
+      currentUserId = user?.id ?? null;
+    } catch {
+      currentUserId = null;
+    }
+    if (currentUserId && currentUserId === id) {
+      throw new Error("You cannot change your own role");
+    }
+
+    const { data: target } = await supabase
+      .from("profiles")
+      .select("role_id, roles(name)")
+      .eq("id", id)
+      .single();
+
+    if (target && (target as { roles?: { name?: string } | null }).roles?.name === "Super Admin") {
+      throw new Error("Super Admin role cannot be changed");
+    }
+
+    if (roleIdRaw === "customer") {
+      update.role_id = null;
+      update.role = "customer";
+    } else {
+      const roleId = Number(roleIdRaw);
+      if (!isNaN(roleId)) {
+        const { data: roleData } = await supabase
+          .from("roles")
+          .select("name")
+          .eq("id", roleId)
+          .single();
+        update.role_id = roleId;
+        update.role = roleData?.name === "Super Admin" ? "superadmin" : "admin";
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update(update)
     .eq("id", id);
 
   if (error) throw new Error(error.message);
-  revalidatePath("/users");
+
+  // If the role changed, revalidate the role-aware pages so the
+  // sidebar / nav reflects the new permissions.
+  if (roleIdRaw) {
+    revalidatePath("/users");
+    revalidatePath("/staff");
+    revalidatePath("/customers");
+  }
 }
 
 export async function createUser(formData: FormData) {
@@ -284,6 +424,57 @@ export async function createUser(formData: FormData) {
     await supabase.auth.admin.deleteUser(authUser.user.id);
     throw new Error(profileError.message);
   }
+
+  revalidatePath("/users");
+}
+
+// P31: Reset a user's password (admin action).
+// Sets a new temporary password via auth.admin.updateUserById and
+// flags the profile with must_reset_password = true. On the user's
+// next sign-in, the login flow redirects them to /auth/reset-password
+// where they set a permanent password.
+export async function resetUserPassword(formData: FormData) {
+  await assertPermission("users", "edit");
+  const supabase = createAdminClient();
+
+  const id = formData.get("id") as string;
+  const newPassword = formData.get("new_password") as string;
+
+  if (!id) throw new Error("User id is required");
+  if (!newPassword) throw new Error("New password is required");
+  if (newPassword.length < 6) {
+    throw new Error("Password must be at least 6 characters");
+  }
+
+  // Use the server client to fetch the current user's id for the
+  // self-edit safety check (mirrors the updateUser role check).
+  let currentUserId: string | null = null;
+  try {
+    const supabaseServer = await createClient();
+    const { data: { user } } = await supabaseServer.auth.getUser();
+    currentUserId = user?.id ?? null;
+  } catch {
+    currentUserId = null;
+  }
+
+  if (currentUserId && currentUserId === id) {
+    throw new Error("Use /auth/reset-password to change your own password");
+  }
+
+  // Update the auth.users password. email_confirm: true so the user
+  // can sign in immediately with the temporary password.
+  const { error: authError } = await supabase.auth.admin.updateUserById(id, {
+    password: newPassword,
+    email_confirm: true,
+  });
+  if (authError) throw new Error(authError.message);
+
+  // Mark the profile so the next login forces a password setup.
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ must_reset_password: true })
+    .eq("id", id);
+  if (profileError) throw new Error(profileError.message);
 
   revalidatePath("/users");
 }

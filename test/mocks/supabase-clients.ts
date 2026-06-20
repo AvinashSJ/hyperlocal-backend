@@ -24,6 +24,11 @@ vi.mock("@/lib/supabase/server", () => ({
       signInWithPassword: realAuth.signInWithPassword.bind(realAuth),
       signOut: realAuth.signOut.bind(realAuth),
       signUp: realAuth.signUp.bind(realAuth),
+      // P31: server-side password change for the current user.
+      // Delegates to the chainable mock's auth.updateUser so the
+      // test can queue success/error responses via the admin
+      // handle's setResponses/enqueueResponse.
+      updateUser: realAuth.updateUser.bind(realAuth),
     };
     return new Proxy(serverHandle.client, {
       get(target, prop) {

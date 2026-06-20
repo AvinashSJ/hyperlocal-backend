@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { assertPermission } from "@/lib/require-permission";
+import { assertPermission, PermissionError } from "@/lib/require-permission";
 
 export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
@@ -46,8 +46,14 @@ export type OrderDetail = OrderRow & {
     landmark: string | null; city: string; state: string; pincode: string;
   } | null;
   order_items: {
-    id: string; product_id: string; variant_id: string | null; quantity: number;
+    id: string; product_id: string | null; variant_id: string | null; quantity: number;
     unit_price: number; total_price: number; gst_rate: number; gst_amount: number; status: string;
+    // P26: snapshot fields survive product/variant deletion
+    product_name: string | null;
+    product_sku: string | null;
+    variant_name: string | null;
+    product_hsn_code: string | null;
+    // Kept as fallback for legacy rows that have NULL snapshots
     products: { name: string; sku: string | null } | null;
     product_variants: { name: string } | null;
   }[];
@@ -58,6 +64,9 @@ export async function getOrder(id: string) {
   const supabase = createAdminClient();
   const { data: order, error } = await supabase
     .from("orders")
+    // P26: include the snapshot columns (product_name, product_sku, variant_name,
+    // product_hsn_code). The products JOIN is kept as a fallback for legacy rows
+    // that have NULL snapshots.
     .select("*, profiles(full_name, phone, email), addresses(*), order_items(*, products(name, sku), product_variants(name)), order_tracks(*)")
     .eq("id", id)
     .single();
@@ -97,7 +106,10 @@ export async function updatePaymentStatus(id: string, payment_status: PaymentSta
 }
 
 export async function deleteOrder(id: string) {
-  await assertPermission("orders", "delete");
+  const result = await assertPermission("orders", "delete");
+  if (!result.isSuperAdmin) {
+    throw new PermissionError("orders", "delete");
+  }
   const supabase = createAdminClient();
   await supabase.from("order_tracks").delete().eq("order_id", id);
   await supabase.from("order_items").delete().eq("order_id", id);

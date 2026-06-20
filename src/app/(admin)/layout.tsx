@@ -4,6 +4,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import MasterLayout from "@/components/MasterLayout";
 import { signOut } from "@/app/auth/actions";
 import type { RolePermissions } from "@/lib/permissions";
+import { getAppMaintenance, getStoreMaintenanceMap } from "@/app/(admin)/settings/actions";
+
+const DEFAULT_MAINTENANCE = {
+  enabled: false,
+  reason: "maintenance" as const,
+  message: "",
+  etaHours: null as number | null,
+};
 
 export default async function AdminLayout({
   children,
@@ -53,6 +61,20 @@ export default async function AdminLayout({
   }
 
   const isSuperAdmin = role === "Super Admin";
+
+  // P34: gate non-Super-Admin admin routes on app_maintenance.
+  // Super Admins can always reach the panel to turn the toggle off.
+  const appMaintenance = await getAppMaintenance();
+  if (!isSuperAdmin && appMaintenance.enabled) {
+    redirect("/maintenance");
+  }
+
+  // P34: read the per-store maintenance state for the navbar pill.
+  const storeMaintenanceMap = await getStoreMaintenanceMap();
+  const storeMaintenance = storeId
+    ? storeMaintenanceMap[storeId] ?? DEFAULT_MAINTENANCE
+    : DEFAULT_MAINTENANCE;
+
   const isStoreScoped = !!(storeId && !isSuperAdmin);
 
   return (
@@ -62,6 +84,8 @@ export default async function AdminLayout({
       storeId={storeId}
       isStoreScoped={isStoreScoped}
       isSuperAdmin={isSuperAdmin}
+      appMaintenance={appMaintenance}
+      storeMaintenance={storeMaintenance}
       onSignOut={signOut}
     >
       {children}

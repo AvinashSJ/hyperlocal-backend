@@ -1,17 +1,17 @@
 "use client";
 
 import { useActionState } from "react";
+import { runServerAction } from "@/lib/run-server-action";
 import { createNotification } from "./actions";
 
 export default function NotificationForm({ onClose }: { onClose: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      await createNotification(formData);
+    const result = await runServerAction(createNotification, formData);
+    if (result.ok) {
       onClose();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (

@@ -109,6 +109,33 @@ export type Order = {
   updated_at: string;
 };
 
+/**
+ * P26: snapshots captured at order-placement time. These survive product
+ * or variant deletion (which SET NULLs the FKs). The DB trigger
+ * `order_items_snapshot_trigger` populates them automatically on insert.
+ * For legacy rows (placed before the migration), the migration backfills
+ * from the current `products`/`product_variants` rows (best-effort).
+ */
+export type OrderItem = {
+  id: string;
+  order_id: string;
+  product_id: string | null;
+  variant_id: string | null;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  gst_rate: number;
+  gst_amount: number;
+  status: string;
+  category_id: string | null;
+  // P26 snapshots (added by migration 20260620000002)
+  product_name: string | null;
+  product_sku: string | null;
+  variant_name: string | null;
+  product_hsn_code: string | null;
+  created_at: string;
+};
+
 export type Banner = {
   id: string;
   name: string;

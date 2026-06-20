@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
-import { updateUserRole, toggleUserActive, createUser, updateUser, deleteUser } from "./actions";
+import { toggleUserActive, createUser, updateUser, deleteUser, resetUserPassword, toggleManagerActiveWithCascade } from "./actions";
 import type { UserRow, SimpleRole, SimpleStore } from "./actions";
 
 type ActionPermissions = {
@@ -15,12 +15,14 @@ export default function UsersClient({
   roles,
   stores,
   currentRole,
+  currentUserId,
   actionPerms,
 }: {
   users: UserRow[];
   roles: SimpleRole[];
   stores: SimpleStore[];
   currentRole: string;
+  currentUserId: string;
   actionPerms?: ActionPermissions;
 }) {
   const router = useRouter();
@@ -30,9 +32,12 @@ export default function UsersClient({
   const [createError, setCreateError] = useState("");
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [editError, setEditError] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
   const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
   const [deleteError, setDeleteError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const resetFormRef = useRef<HTMLFormElement>(null);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -129,6 +134,7 @@ export default function UsersClient({
             ) : (
               filtered.map((u) => {
                 const roleName = getRoleName(u);
+                const isManager = roleName === "Manager";
                 return (
                   <tr key={u.id}>
                     <td>
@@ -155,15 +161,52 @@ export default function UsersClient({
                       {u.store_name ?? "—"}
                     </td>
                     <td className="text-center">
-                      <span
-                        className={`badge ${
-                          u.is_active
-                            ? "bg-success bg-opacity-10 text-success"
-                            : "bg-danger bg-opacity-10 text-danger"
-                        }`}
-                      >
-                        {u.is_active ? "Active" : "Disabled"}
-                      </span>
+                      {isManager && actionPerms?.canEdit ? (
+                        // P33: switch slider for Manager rows. Toggling
+                        // OFF cascades (inactivates products, unassigns
+                        // categories). Toggling ON does NOT auto-restore.
+                        <form
+                          action={async (fd) => {
+                            // The action returns cascade counts, but
+                            // the form action prop expects void. The
+                            // counts are still returned from the action
+                            // for tests and any programmatic caller.
+                            await toggleManagerActiveWithCascade(fd);
+                            router.refresh();
+                          }}
+                          className="d-inline-block"
+                        >
+                          <input type="hidden" name="id" value={u.id} />
+                          <input
+                            type="hidden"
+                            name="target"
+                            value={String(!u.is_active)}
+                          />
+                          <div className="form-check form-switch d-inline-block m-0">
+                            <input
+                              className="form-check-input"
+                              type="checkbox"
+                              role="switch"
+                              checked={u.is_active}
+                              onChange={(e) => {
+                                e.currentTarget.form?.requestSubmit();
+                              }}
+                              data-testid={`manager-active-switch-${u.id}`}
+                              title={u.is_active ? "Disable Manager (cascade)" : "Enable Manager"}
+                            />
+                          </div>
+                        </form>
+                      ) : (
+                        <span
+                          className={`badge ${
+                            u.is_active
+                              ? "bg-success bg-opacity-10 text-success"
+                              : "bg-danger bg-opacity-10 text-danger"
+                          }`}
+                        >
+                          {u.is_active ? "Active" : "Disabled"}
+                        </span>
+                      )}
                     </td>
                     <td className="text-center">
                       <span className="badge bg-primary bg-opacity-10 text-primary">
@@ -175,29 +218,10 @@ export default function UsersClient({
                     </td>
                     <td>
                       <div className="d-flex gap-1 justify-content-center align-items-center">
-                        {actionPerms?.canEdit && (
-                          <form action={updateUserRole}>
-                            <input type="hidden" name="id" value={u.id} />
-                            <select
-                              name="role_id"
-                              className="form-select form-select-sm"
-                              style={{ width: 140 }}
-                              defaultValue={u.role_id ?? ""}
-                              onChange={(e) => {
-                                e.target.form?.requestSubmit();
-                              }}
-                            >
-                              <option value="" disabled>Select role</option>
-                              {roles.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                  {r.name}
-                                </option>
-                              ))}
-                              <option value="customer">Customer</option>
-                            </select>
-                          </form>
-                        )}
-                        {actionPerms?.canEdit && (
+                        {actionPerms?.canEdit && !isManager && (
+                          // Non-Manager roles keep the simple Enable/Disable
+                          // button (no cascade). P33 introduced the
+                          // switch slider above for Manager rows.
                           <form action={toggleUserActive}>
                           <input type="hidden" name="id" value={u.id} />
                           <input
@@ -394,6 +418,8 @@ export default function UsersClient({
                   onClick={() => {
                     setEditingUser(null);
                     setEditError("");
+                    setResetError("");
+                    setResetSuccess("");
                   }}
                 />
               </div>
@@ -403,6 +429,8 @@ export default function UsersClient({
                     setEditError("");
                     await updateUser(fd);
                     setEditingUser(null);
+                    setResetError("");
+                    setResetSuccess("");
                     router.refresh();
                   } catch (e: unknown) {
                     setEditError(e instanceof Error ? e.message : "Failed to update user");
@@ -461,6 +489,101 @@ export default function UsersClient({
                       </select>
                     </div>
                   )}
+                  {(() => {
+                    // P30: role-change gating in the edit modal. The
+                    // inline role-change select was removed; role is
+                    // now changed only via the edit modal. The field
+                    // is enabled by default and is disabled only for
+                    // the two hard safety cases:
+                    //   1. The target user is a Super Admin (locked)
+                    //   2. The target user is the currently logged-in
+                    //      user (no self-demotion — would lock out
+                    //      the admin from the panel)
+                    const isSuperAdmin = editingUser.role_name === "Super Admin";
+                    const isSelf = editingUser.id === currentUserId;
+                    const roleDisabled = isSuperAdmin || isSelf;
+                    const reason = isSuperAdmin
+                      ? "Super Admin role cannot be changed."
+                      : isSelf
+                        ? "You cannot change your own role."
+                        : null;
+                    return (
+                      <div className="mb-3">
+                        <label className="form-label">Role</label>
+                        <select
+                          name="role_id"
+                          className="form-select"
+                          defaultValue={editingUser.role_id ?? "customer"}
+                          disabled={roleDisabled}
+                        >
+                          <option value="customer">Customer</option>
+                          {roles.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                        {reason && (
+                          <small className="text-muted d-block mt-1">
+                            {reason}
+                          </small>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* P31: password reset. The admin sets a new
+                      temporary password here; on the user's next
+                      sign-in they're forced to set a permanent one
+                      via /auth/reset-password. Self-edit is blocked
+                      server-side (the user should use the
+                      /auth/reset-password page themselves). */}
+                  {editingUser.id !== currentUserId && (
+                    <div className="mb-3 border-top pt-3 mt-1">
+                      <label className="form-label fw-semibold">Reset Password</label>
+                      {resetError && (
+                        <div className="alert alert-danger py-2">{resetError}</div>
+                      )}
+                      {resetSuccess && (
+                        <div className="alert alert-success py-2">{resetSuccess}</div>
+                      )}
+                      <form
+                        ref={resetFormRef}
+                        action={async (fd) => {
+                          try {
+                            setResetError("");
+                            setResetSuccess("");
+                            await resetUserPassword(fd);
+                            setResetSuccess(
+                              "Password reset. The user will be asked to set a new password on their next login.",
+                            );
+                            resetFormRef.current?.reset();
+                            router.refresh();
+                          } catch (e: unknown) {
+                            setResetError(e instanceof Error ? e.message : "Failed to reset password");
+                          }
+                        }}
+                      >
+                        <input type="hidden" name="id" value={editingUser.id} />
+                        <div className="d-flex gap-2">
+                          <input
+                            type="password"
+                            name="new_password"
+                            className="form-control"
+                            placeholder="New temporary password (min 6 chars)"
+                            minLength={6}
+                            required
+                          />
+                          <button type="submit" className="btn btn-warning text-nowrap">
+                            Reset Password
+                          </button>
+                        </div>
+                        <small className="text-muted d-block mt-1">
+                          The user will be forced to set a permanent password on their next login.
+                        </small>
+                      </form>
+                    </div>
+                  )}
                 </div>
                 <div className="modal-footer">
                   <button
@@ -469,6 +592,8 @@ export default function UsersClient({
                     onClick={() => {
                       setEditingUser(null);
                       setEditError("");
+                      setResetError("");
+                      setResetSuccess("");
                     }}
                   >
                     Cancel

@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { runServerAction } from "@/lib/run-server-action";
 import { createCategory, updateCategory } from "./actions";
 import { Icon } from "@iconify/react";
 
@@ -30,15 +31,11 @@ export default function CategoryForm({
 
   const [state, formAction, pending] = useActionState(
     async (_prev: unknown, formData: FormData) => {
-      try {
-        if (isEditing) {
-          await updateCategory(category!.id, formData);
-        } else {
-          await createCategory(formData);
-        }
-      } catch (err) {
-        return { error: (err as Error).message };
-      }
+      const action = isEditing
+        ? updateCategory.bind(null, category!.id)
+        : createCategory;
+      const result = await runServerAction(action, formData);
+      return result.ok ? { error: null } : { error: result.error.message };
     },
     { error: null as string | null },
   );

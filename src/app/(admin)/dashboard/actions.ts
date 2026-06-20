@@ -61,7 +61,6 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
   const [
     { count: productCount },
     { count: orderCount },
-    { count: customerCount },
     { data: revenueData },
     { data: lowStock },
     { count: todayOrders },
@@ -71,7 +70,6 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
   ] = await Promise.all([
     productQ,
     orderQ,
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "customer"),
     revenueQ,
     lowStockQ,
     todayOrderQ,
@@ -79,6 +77,30 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
     recentQ,
     statusQ,
   ]);
+
+  // P24: customer count is store-scoped. A customer's relationship to a
+  // store is established by placing an order with that store_id, not by a
+  // profiles.store_id value (which is for admin/staff, not customers).
+  // Mirrors the getCustomers() pattern at customers/actions.ts:22-29.
+  // - Super Admin (no storeId): count all `profiles` with role='customer'
+  //   (global aggregate).
+  // - Store-scoped (storeId): count distinct `user_id`s in the store's
+  //   orders. This is "people who have ordered from this store" — same
+  //   definition as the Customers page, regardless of order status.
+  let customerCount = 0;
+  if (storeId) {
+    const { data: orderUsers } = await supabase
+      .from("orders")
+      .select("user_id")
+      .eq("store_id", storeId);
+    customerCount = new Set((orderUsers ?? []).map((o) => o.user_id)).size;
+  } else {
+    const { count } = await supabase
+      .from("profiles")
+      .select("*", { count: "exact", head: true })
+      .eq("role", "customer");
+    customerCount = count ?? 0;
+  }
 
   let monthlyData: MonthlyData[];
   if (storeId) {

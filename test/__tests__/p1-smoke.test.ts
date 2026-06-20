@@ -149,9 +149,17 @@ describe("P1 smoke: next-cache + next-navigation mocks", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/products");
   });
 
-  it("redirect throws NEXT_REDIRECT:<url>", async () => {
+  it("redirect throws NEXT_REDIRECT with url in digest (production format)", async () => {
     const { redirect } = await import("next/navigation");
-    expect(() => redirect("/dashboard")).toThrow("NEXT_REDIRECT:/dashboard");
+    let caught: unknown = null;
+    try {
+      redirect("/dashboard");
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toBe("NEXT_REDIRECT");
+    expect((caught as { digest: string }).digest).toBe("NEXT_REDIRECT;push;/dashboard;307;");
   });
 });
 

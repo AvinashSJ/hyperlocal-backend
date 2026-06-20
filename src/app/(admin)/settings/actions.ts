@@ -334,3 +334,257 @@ export async function updateStoreSetting(key: string, formData: FormData) {
 
   revalidatePath("/settings");
 }
+
+// P34: shapes and defaults for the new maintenance / grace-period
+// settings. The settings table already exists in the live DB (seeded
+// by migration 20260620000006).
+//
+// Note: defaults are local (non-exported) because Next.js "use server"
+// files only allow async functions to be exported. Type-only exports
+// are allowed since types are erased at build time.
+export type AppMaintenanceValue = {
+  enabled: boolean;
+  reason: "maintenance" | "technical" | "operations";
+  message: string;
+  etaHours: number | null;
+};
+
+export type StoreMaintenanceValue = {
+  enabled: boolean;
+  reason: "maintenance" | "technical" | "operations";
+  message: string;
+  etaHours: number | null;
+};
+
+const DEFAULT_APP_MAINTENANCE: AppMaintenanceValue = {
+  enabled: false,
+  reason: "maintenance",
+  message: "",
+  etaHours: null,
+};
+
+const DEFAULT_STORE_MAINTENANCE: StoreMaintenanceValue = {
+  enabled: false,
+  reason: "maintenance",
+  message: "",
+  etaHours: null,
+};
+
+const DEFAULT_CATEGORY_DELETION_GRACE_DAYS = 30;
+
+const VALID_MAINTENANCE_REASONS: AppMaintenanceValue["reason"][] = [
+  "maintenance",
+  "technical",
+  "operations",
+];
+
+function normalizeMaintenanceValue(
+  raw: unknown,
+  fallback: AppMaintenanceValue,
+): AppMaintenanceValue {
+  if (!raw || typeof raw !== "object") return fallback;
+  const obj = raw as Record<string, unknown>;
+  const reason = VALID_MAINTENANCE_REASONS.includes(
+    obj.reason as AppMaintenanceValue["reason"],
+  )
+    ? (obj.reason as AppMaintenanceValue["reason"])
+    : fallback.reason;
+  const etaRaw = obj.etaHours;
+  const etaHours =
+    typeof etaRaw === "number" && Number.isFinite(etaRaw) && etaRaw >= 0
+      ? etaRaw
+      : null;
+  return {
+    enabled: Boolean(obj.enabled),
+    reason,
+    message: typeof obj.message === "string" ? obj.message : fallback.message,
+    etaHours,
+  };
+}
+
+export type AppMaintenance = AppMaintenanceValue;
+export type StoreMaintenance = StoreMaintenanceValue;
+
+export async function getAppMaintenance(): Promise<AppMaintenanceValue> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "app_maintenance")
+    .maybeSingle();
+  return normalizeMaintenanceValue(data?.value, DEFAULT_APP_MAINTENANCE);
+}
+
+export type StoreMaintenanceMap = Record<string, StoreMaintenanceValue>;
+
+export async function getStoreMaintenanceMap(): Promise<StoreMaintenanceMap> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "store_maintenance")
+    .maybeSingle();
+  const raw = (data?.value as Record<string, unknown> | null) ?? {};
+  const out: StoreMaintenanceMap = {};
+  for (const [storeId, value] of Object.entries(raw)) {
+    out[storeId] = normalizeMaintenanceValue(value, DEFAULT_STORE_MAINTENANCE);
+  }
+  return out;
+}
+
+export async function getCategoryDeletionGraceDays(): Promise<number> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "category_deletion_grace_days")
+    .maybeSingle();
+  const raw = data?.value;
+  // The value can be a JSONB number (e.g. "30") or an object — the
+  // seed inserts the raw number, but other writers might wrap it in
+  // an object. Be liberal in what we accept.
+  let days: number = DEFAULT_CATEGORY_DELETION_GRACE_DAYS;
+  if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) {
+    days = raw;
+  } else if (typeof raw === "string") {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) days = n;
+  } else if (raw && typeof raw === "object" && "days" in raw) {
+    const n = Number((raw as Record<string, unknown>).days);
+    if (Number.isFinite(n) && n > 0) days = n;
+  }
+  return days;
+}
+
+// P34: Super-Admin-only. Updates the app_maintenance setting. The
+// middleware reads this on every request to gate admin routes.
+export async function updateAppMaintenance(formData: FormData) {
+  const { isSuperAdmin } = await assertPermission("settings", "edit");
+  if (!isSuperAdmin) {
+    throw new Error("Only Super Admin can change app-wide maintenance");
+  }
+  const supabase = createAdminClient();
+  const enabled = formData.get("enabled") === "true";
+  const reasonRaw = formData.get("reason") as string;
+  const reason = VALID_MAINTENANCE_REASONS.includes(
+    reasonRaw as AppMaintenanceValue["reason"],
+  )
+    ? (reasonRaw as AppMaintenanceValue["reason"])
+    : "maintenance";
+  const etaRaw = formData.get("etaHours");
+  const etaHours =
+    etaRaw && etaRaw !== "" && Number.isFinite(Number(etaRaw))
+      ? Number(etaRaw)
+      : null;
+  const message = ((formData.get("message") as string) ?? "").trim();
+
+  const value: AppMaintenanceValue = { enabled, reason, message, etaHours };
+
+  // Upsert
+  const { data: existing } = await supabase
+    .from("settings")
+    .select("id")
+    .eq("key", "app_maintenance")
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase
+      .from("settings")
+      .update({ value, group_name: "general", updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("settings")
+      .insert({ key: "app_maintenance", value, group_name: "general" });
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/maintenance");
+  revalidatePath("/", "layout");
+}
+
+// P34: per-store on/off toggle. Super Admin can target any store;
+// Manager can target only their own store.
+export async function updateStoreMaintenance(formData: FormData) {
+  const { isSuperAdmin } = await assertPermission("settings", "edit");
+  const supabase = createAdminClient();
+  const targetStoreId = formData.get("store_id") as string;
+  if (!targetStoreId) throw new Error("store_id is required");
+
+  // Manager restriction: must match the caller's store
+  if (!isSuperAdmin) {
+    const { createClient } = await import("@/lib/supabase/server");
+    const serverSupabase = await createClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
+    if (!user) throw new Error("Not signed in");
+    const { data: profile } = await serverSupabase
+      .from("profiles")
+      .select("store_id")
+      .eq("id", user.id)
+      .single();
+    if (!profile || profile.store_id !== targetStoreId) {
+      throw new Error("Managers can only toggle their own store");
+    }
+  }
+
+  const enabled = formData.get("enabled") === "true";
+  const reasonRaw = formData.get("reason") as string;
+  const reason = VALID_MAINTENANCE_REASONS.includes(
+    reasonRaw as StoreMaintenanceValue["reason"],
+  )
+    ? (reasonRaw as StoreMaintenanceValue["reason"])
+    : "maintenance";
+  const etaRaw = formData.get("etaHours");
+  const etaHours =
+    etaRaw && etaRaw !== "" && Number.isFinite(Number(etaRaw))
+      ? Number(etaRaw)
+      : null;
+  const message = ((formData.get("message") as string) ?? "").trim();
+
+  // Load current map
+  const { data: existing } = await supabase
+    .from("settings")
+    .select("id, value")
+    .eq("key", "store_maintenance")
+    .maybeSingle();
+
+  const currentMap = (existing?.value as StoreMaintenanceMap | null) ?? {};
+  const newMap: StoreMaintenanceMap = {
+    ...currentMap,
+    [targetStoreId]: { enabled, reason, message, etaHours },
+  };
+
+  if (existing) {
+    const { error } = await supabase
+      .from("settings")
+      .update({ value: newMap, group_name: "store", updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("settings")
+      .insert({ key: "store_maintenance", value: newMap, group_name: "store" });
+    if (error) throw new Error(error.message);
+  }
+
+  // P34: store-off cascade. Mirror the manager-disable cascade but
+  // scoped to a single store. Unassigns categories and inactivates
+  // products when the store is being switched off.
+  if (!enabled) {
+    // Inactivate products in the store (respecting cascade_locked)
+    await supabase
+      .from("products")
+      .update({ status: "inactive" })
+      .eq("store_id", targetStoreId)
+      .eq("cascade_locked", true)
+      .neq("status", "inactive");
+    // Unassign categories
+    await supabase
+      .from("store_categories")
+      .delete()
+      .eq("store_id", targetStoreId);
+  }
+
+  revalidatePath("/maintenance");
+  revalidatePath("/", "layout");
+}

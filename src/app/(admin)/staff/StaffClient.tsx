@@ -3,7 +3,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
-import { createStaff, updateStaff, toggleStaffActive, deleteStaff } from "./actions";
+import { createStaff, updateStaff, toggleStaffActive, deleteStaff, resetStaffPassword } from "./actions";
 import type { StaffRow, SimpleStore } from "./actions";
 
 type ActionPermissions = {
@@ -28,8 +28,11 @@ export default function StaffClient({
   const [deleteItem, setDeleteItem] = useState<StaffRow | null>(null);
   const [createError, setCreateError] = useState("");
   const [editError, setEditError] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const editFormRef = useRef<HTMLFormElement>(null);
+  const resetFormRef = useRef<HTMLFormElement>(null);
 
   const filtered = useMemo(() => {
     return staff.filter((s) => {
@@ -207,6 +210,15 @@ export default function StaffClient({
                     <input type="text" name="full_name" className="form-control" placeholder="Enter full name" required />
                   </div>
                   <div className="mb-3">
+                    <label className="form-label">Email <span className="text-danger">*</span></label>
+                    <input type="email" name="email" className="form-control" placeholder="staff@example.com" required />
+                  </div>
+                  <div className="mb-3">
+                    <label className="form-label">Password <span className="text-danger">*</span></label>
+                    <input type="password" name="password" className="form-control" placeholder="At least 6 characters" minLength={6} required />
+                    <small className="text-muted">The staff member will use this to log in to the admin panel.</small>
+                  </div>
+                  <div className="mb-3">
                     <label className="form-label">Phone</label>
                     <input type="text" name="phone" className="form-control" placeholder="Enter phone number" />
                   </div>
@@ -229,6 +241,14 @@ export default function StaffClient({
                       </select>
                     </div>
                   )}
+                  {/* P28: when the caller is store-scoped (Manager), include a
+                      hidden store_id input so the form posts the correct
+                      store_id. Without this, the new staff row would be
+                      store-less and wouldn't appear in the Manager's own
+                      staff list. */}
+                  {storeId && (
+                    <input type="hidden" name="store_id" value={storeId} />
+                  )}
                 </div>
                 <div className="modal-footer">
                   <button type="button" className="btn btn-secondary" onClick={() => { setShowCreateModal(false); setCreateError(""); }}>Cancel</button>
@@ -246,7 +266,7 @@ export default function StaffClient({
             <div className="modal-content">
               <div className="modal-header">
                 <h5 className="modal-title">Edit Staff</h5>
-                <button type="button" className="btn-close" onClick={() => { setEditItem(null); setEditError(""); }} />
+                <button type="button" className="btn-close" onClick={() => { setEditItem(null); setEditError(""); setResetError(""); setResetSuccess(""); }} />
               </div>
               <form
                 ref={editFormRef}
@@ -291,9 +311,57 @@ export default function StaffClient({
                       </select>
                     </div>
                   )}
+
+                  {/* P31: password reset. Manager sets a new
+                      temporary password; the staff member is forced
+                      to set a permanent one on their next login. */}
+                  <div className="mb-3 border-top pt-3 mt-1">
+                    <label className="form-label fw-semibold">Reset Password</label>
+                    {resetError && (
+                      <div className="alert alert-danger py-2">{resetError}</div>
+                    )}
+                    {resetSuccess && (
+                      <div className="alert alert-success py-2">{resetSuccess}</div>
+                    )}
+                    <form
+                      ref={resetFormRef}
+                      action={async (fd) => {
+                        try {
+                          setResetError("");
+                          setResetSuccess("");
+                          await resetStaffPassword(fd);
+                          setResetSuccess(
+                            "Password reset. The staff member will be asked to set a new password on their next login.",
+                          );
+                          resetFormRef.current?.reset();
+                          router.refresh();
+                        } catch (e: unknown) {
+                          setResetError(e instanceof Error ? e.message : "Failed to reset password");
+                        }
+                      }}
+                    >
+                      <input type="hidden" name="id" value={editItem.id} />
+                      <div className="d-flex gap-2">
+                        <input
+                          type="password"
+                          name="new_password"
+                          className="form-control"
+                          placeholder="New temporary password (min 6 chars)"
+                          minLength={6}
+                          required
+                        />
+                        <button type="submit" className="btn btn-warning text-nowrap">
+                          Reset Password
+                        </button>
+                      </div>
+                      <small className="text-muted d-block mt-1">
+                        The staff member will be forced to set a permanent password on their next login.
+                      </small>
+                    </form>
+                  </div>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => { setEditItem(null); setEditError(""); }}>Cancel</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => { setEditItem(null); setEditError(""); setResetError(""); setResetSuccess(""); }}>Cancel</button>
                   <button type="submit" className="btn btn-primary">Save Changes</button>
                 </div>
               </form>

@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { assertPermission } from "@/lib/require-permission";
 
@@ -33,11 +34,50 @@ export type CommissionPayment = {
 export type SimpleStore = {
   id: string;
   name: string;
+  commission_rate: number | null;
 };
+
+export type GenerateAllResult = {
+  generated: number;
+  skipped: number;
+  total_stores: number;
+  errors: { store_id: string; store_name: string; message: string }[];
+};
+
+const DEFAULT_COMMISSION_KEY = "default_commission_rate";
+
+/**
+ * P27: Resolve the effective commission rate for a store.
+ * Order of precedence:
+ *   1. The store's own `commission_rate` (if set and > 0)
+ *   2. The global default from `settings` (key: `default_commission_rate`,
+ *      value shape: `{ rate: number }`)
+ *   3. 0 (caller is expected to throw if the effective rate is 0)
+ */
+async function resolveCommissionRate(
+  adminSupabase: ReturnType<typeof createAdminClient>,
+  store: { id: string; name: string; commission_rate: number | null },
+): Promise<number> {
+  const storeRate = Number(store.commission_rate ?? 0);
+  if (storeRate > 0) return storeRate;
+
+  const { data: setting } = await adminSupabase
+    .from("settings")
+    .select("value")
+    .eq("key", DEFAULT_COMMISSION_KEY)
+    .maybeSingle();
+  const defaultRate = Number(
+    (setting?.value as { rate?: number } | null)?.rate ?? 0,
+  );
+  return defaultRate;
+}
 
 export async function getStoresLight(): Promise<SimpleStore[]> {
   const supabase = createAdminClient();
-  const { data } = await supabase.from("stores").select("id, name").order("name");
+  const { data } = await supabase
+    .from("stores")
+    .select("id, name, commission_rate")
+    .order("name");
   return (data ?? []) as SimpleStore[];
 }
 
@@ -78,7 +118,7 @@ export async function getCommissions(storeId?: string | null): Promise<Commissio
     store_name: (c.stores as { name: string } | null)?.name ?? null,
     period_start: c.period_start,
     period_end: c.period_end,
-    total_revenue: Number(c.total_revenue),
+    total_revenue: Number(c.total_amount),
     commission_rate: Number(c.commission_rate),
     commission_amount: Number(c.commission_amount),
     balance_due: Number(c.balance_due),
@@ -115,44 +155,45 @@ export async function getCommissionPayments(commissionId: string): Promise<Commi
   }));
 }
 
-export async function generateCommission(formData: FormData) {
-  await assertPermission("commissions", "create");
-  const supabase = createAdminClient();
-
-  const storeId = formData.get("store_id") as string;
-  const periodStart = formData.get("period_start") as string;
-  const periodEnd = formData.get("period_end") as string;
-  const notes = formData.get("notes") as string;
-
-  if (!storeId || !periodStart || !periodEnd) {
-    throw new Error("Store, period start, and period end are required");
+/**
+ * P27: Per-store commission generation. Extracted as a shared helper so
+ * `generateCommission` (single-store) and `generateAllCommissions` (bulk)
+ * use identical math.
+ */
+async function generateForSingleStore(
+  adminSupabase: ReturnType<typeof createAdminClient>,
+  store: { id: string; name: string; commission_rate: number | null },
+  periodStart: string,
+  periodEnd: string,
+  notes: string,
+  userId: string | null,
+): Promise<{ inserted: boolean; revenue: number; commission: number; rate: number; reason?: string }> {
+  const rate = await resolveCommissionRate(adminSupabase, store);
+  if (rate <= 0) {
+    return {
+      inserted: false,
+      revenue: 0,
+      commission: 0,
+      rate: 0,
+      reason: "No commission rate available (no per-store rate, no global default)",
+    };
   }
 
-  const { data: store } = await supabase
-    .from("stores")
-    .select("id, name, commission_rate")
-    .eq("id", storeId)
-    .single();
-
-  if (!store) throw new Error("Store not found");
-
-  const { data: orders } = await supabase
+  const { data: orders } = await adminSupabase
     .from("orders")
     .select("total_amount")
-    .eq("store_id", storeId)
+    .eq("store_id", store.id)
     .eq("payment_status", "paid")
     .gte("placed_at", periodStart)
     .lte("placed_at", `${periodEnd}T23:59:59.999Z`);
 
   const totalRevenue = (orders ?? []).reduce((sum, o) => sum + Number(o.total_amount), 0);
-  const rate = Number(store.commission_rate ?? 0);
   const commissionAmount = totalRevenue * (rate / 100);
 
-  const { data: profile } = await supabase.auth.getUser();
-  const userId = profile.user?.id;
-
-  const { error } = await supabase.from("store_commissions").insert({
-    store_id: storeId,
+  // P27: also persist the rate that was used. If the store has no rate
+  // and the default was used, future audit will show the actual rate applied.
+  const { error } = await adminSupabase.from("store_commissions").insert({
+    store_id: store.id,
     period_start: periodStart,
     period_end: periodEnd,
     total_revenue: totalRevenue,
@@ -164,9 +205,150 @@ export async function generateCommission(formData: FormData) {
     created_by: userId,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    return {
+      inserted: false,
+      revenue: totalRevenue,
+      commission: commissionAmount,
+      rate,
+      reason: error.message,
+    };
+  }
+
+  return { inserted: true, revenue: totalRevenue, commission: commissionAmount, rate };
+}
+
+/**
+ * P27: Resolve the current user's id for `created_by`. Uses the server
+ * client (which has the user's session) instead of the admin client
+ * (service-role key has no real user context).
+ */
+async function resolveUserId(): Promise<string | null> {
+  try {
+    const supabaseServer = await createClient();
+    const { data: { user } } = await supabaseServer.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function generateCommission(formData: FormData) {
+  await assertPermission("commissions", "create");
+  const adminSupabase = createAdminClient();
+
+  const storeId = formData.get("store_id") as string;
+  const periodStart = formData.get("period_start") as string;
+  const periodEnd = formData.get("period_end") as string;
+  const notes = formData.get("notes") as string;
+
+  if (!storeId || !periodStart || !periodEnd) {
+    throw new Error("Store, period start, and period end are required");
+  }
+  if (periodStart > periodEnd) {
+    throw new Error("period_start must be on or before period_end");
+  }
+
+  const { data: store } = await adminSupabase
+    .from("stores")
+    .select("id, name, commission_rate")
+    .eq("id", storeId)
+    .single();
+
+  if (!store) throw new Error("Store not found");
+
+  const userId = await resolveUserId();
+
+  const result = await generateForSingleStore(
+    adminSupabase,
+    store,
+    periodStart,
+    periodEnd,
+    notes,
+    userId,
+  );
+
+  if (!result.inserted) {
+    throw new Error(
+      result.reason ??
+        `Store "${store.name}" has no commission rate. Set a per-store rate or set a global default.`,
+    );
+  }
 
   revalidatePath("/commissions");
+  return result;
+}
+
+/**
+ * P27: Bulk-generate commissions for ALL stores for the same period.
+ * Duplicates are allowed (each generation creates a new row, even for
+ * the same store + period — the `created_at` timestamp distinguishes them).
+ */
+export async function generateAllCommissions(
+  formData: FormData,
+): Promise<GenerateAllResult> {
+  await assertPermission("commissions", "create");
+  const adminSupabase = createAdminClient();
+
+  const periodStart = formData.get("period_start") as string;
+  const periodEnd = formData.get("period_end") as string;
+  const notes = formData.get("notes") as string;
+
+  if (!periodStart || !periodEnd) {
+    throw new Error("Both period_start and period_end are required");
+  }
+  if (periodStart > periodEnd) {
+    throw new Error("period_start must be on or before period_end");
+  }
+
+  // P27: include ALL stores (the user clarified — "All stores", not just active).
+  // Inactive stores can still have commissions generated for past periods.
+  const { data: stores } = await adminSupabase
+    .from("stores")
+    .select("id, name, commission_rate")
+    .order("name");
+
+  if (!stores || stores.length === 0) {
+    revalidatePath("/commissions");
+    return { generated: 0, skipped: 0, total_stores: 0, errors: [] };
+  }
+
+  const userId = await resolveUserId();
+
+  const summary: GenerateAllResult = {
+    generated: 0,
+    skipped: 0,
+    total_stores: stores.length,
+    errors: [],
+  };
+
+  // Process each store sequentially (DB-side — single-threaded insert). The
+  // total is bounded by the number of stores (typically <100) and each
+  // iteration is fast. Promise.all would help with parallel queries but
+  // could overwhelm the DB on large store counts. Sequential is safer.
+  for (const store of stores) {
+    const result = await generateForSingleStore(
+      adminSupabase,
+      store,
+      periodStart,
+      periodEnd,
+      notes,
+      userId,
+    );
+    if (result.inserted) {
+      summary.generated++;
+    } else {
+      summary.skipped++;
+      summary.errors.push({
+        store_id: store.id,
+        store_name: store.name,
+        message: result.reason ?? "Unknown error",
+      });
+    }
+  }
+
+  revalidatePath("/commissions");
+  return summary;
 }
 
 export async function recordPayment(formData: FormData) {
@@ -193,8 +375,9 @@ export async function recordPayment(formData: FormData) {
     throw new Error(`Amount (₹${amount}) exceeds balance due (₹${Number(commission.balance_due)})`);
   }
 
-  const { data: profile } = await supabase.auth.getUser();
-  const userId = profile.user?.id;
+  // P27: use the server client for the user lookup (admin client has no
+  // session context). This ensures `created_by` is correctly attributed.
+  const userId = await resolveUserId();
 
   const { error: paymentError } = await supabase.from("commission_payments").insert({
     commission_id: commissionId,

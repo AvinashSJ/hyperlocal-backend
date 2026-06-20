@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { runServerAction } from "@/lib/run-server-action";
 import { createGstNumber, updateGstNumber } from "./actions";
 
 type GstNumber = {
@@ -11,17 +12,15 @@ type GstNumber = {
 
 export default function GstForm({ gstNumber, onClose }: { gstNumber: GstNumber | null; onClose: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (gstNumber) {
-        await updateGstNumber(gstNumber.id, formData);
-      } else {
-        await createGstNumber(formData);
-      }
+    const action = gstNumber
+      ? updateGstNumber.bind(null, gstNumber.id)
+      : createGstNumber;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onClose();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (

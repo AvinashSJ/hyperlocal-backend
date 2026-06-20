@@ -2,7 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { assertPermission } from "@/lib/require-permission";
+import { assertPermission, PermissionError } from "@/lib/require-permission";
 
 export type StaffRow = {
   id: string;
@@ -26,8 +26,24 @@ export async function getStoresLight(): Promise<SimpleStore[]> {
   return (data ?? []) as SimpleStore[];
 }
 
+/**
+ * P28: throw PermissionError when a Super Admin tries to call a staff
+ * action. The /staff module is for store managers — Super Admins can
+ * create staff via the /users page (users/actions.ts:createUser creates
+ * a real auth user with any role).
+ */
+function assertNotSuperAdmin(
+  result: { isSuperAdmin: boolean },
+  action: string,
+): void {
+  if (result.isSuperAdmin) {
+    throw new PermissionError("staff", action);
+  }
+}
+
 export async function getStaff(storeId?: string | null): Promise<StaffRow[]> {
-  await assertPermission("staff", "view");
+  const result = await assertPermission("staff", "view");
+  assertNotSuperAdmin(result, "view");
   const supabase = createAdminClient();
 
   const { data: staffRole } = await supabase
@@ -76,15 +92,36 @@ export async function getStaff(storeId?: string | null): Promise<StaffRow[]> {
 }
 
 export async function createStaff(formData: FormData) {
-  await assertPermission("staff", "create");
+  const result = await assertPermission("staff", "create");
+  assertNotSuperAdmin(result, "create");
   const supabase = createAdminClient();
 
   const fullName = formData.get("full_name") as string;
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
   const phone = formData.get("phone") as string;
   const staffType = formData.get("staff_type") as string;
   const storeId = formData.get("store_id") as string;
 
   if (!fullName) throw new Error("Name is required");
+  if (!email || !password) throw new Error("Email and password are required");
+
+  // The profiles row's `id` is a UUID that REFERENCES auth.users(id) (the
+  // table is created by Supabase's standard pattern). Without first
+  // creating the auth user, the insert fails with a foreign-key
+  // violation or NOT NULL violation. Same flow as users/actions.ts:
+  // createUser — create auth user first, then insert the profile row
+  // with id = authUser.user.id.
+  const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  });
+
+  if (authError) {
+    throw new Error(authError.message);
+  }
 
   const { data: staffRole } = await supabase
     .from("roles")
@@ -92,9 +129,16 @@ export async function createStaff(formData: FormData) {
     .eq("name", "Staff")
     .single();
 
-  if (!staffRole) throw new Error("Staff role not found");
+  if (!staffRole) {
+    // Roll back the auth user we just created so we don't leave an
+    // orphan auth account that can't log in to anything.
+    await supabase.auth.admin.deleteUser(authUser.user.id);
+    throw new Error("Staff role not found");
+  }
 
   const { error } = await supabase.from("profiles").insert({
+    id: authUser.user.id,
+    email,
     full_name: fullName,
     phone: phone || null,
     staff_type: staffType || null,
@@ -104,13 +148,19 @@ export async function createStaff(formData: FormData) {
     is_active: true,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Roll back the auth user so we don't leave an orphan auth account
+    // paired with a profile that was never created.
+    await supabase.auth.admin.deleteUser(authUser.user.id);
+    throw new Error(error.message);
+  }
 
   revalidatePath("/staff");
 }
 
 export async function updateStaff(formData: FormData) {
-  await assertPermission("staff", "edit");
+  const result = await assertPermission("staff", "edit");
+  assertNotSuperAdmin(result, "edit");
   const supabase = createAdminClient();
 
   const id = formData.get("id") as string;
@@ -132,7 +182,8 @@ export async function updateStaff(formData: FormData) {
 }
 
 export async function toggleStaffActive(formData: FormData) {
-  await assertPermission("staff", "edit");
+  const result = await assertPermission("staff", "edit");
+  assertNotSuperAdmin(result, "edit");
   const supabase = createAdminClient();
 
   const id = formData.get("id") as string;
@@ -145,7 +196,8 @@ export async function toggleStaffActive(formData: FormData) {
 }
 
 export async function deleteStaff(formData: FormData) {
-  await assertPermission("staff", "delete");
+  const result = await assertPermission("staff", "delete");
+  assertNotSuperAdmin(result, "delete");
   const supabase = createAdminClient();
 
   const id = formData.get("id") as string;
@@ -153,5 +205,38 @@ export async function deleteStaff(formData: FormData) {
   const { error } = await supabase.from("profiles").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
+  revalidatePath("/staff");
+}
+
+// P31: Reset a staff member's password (admin action).
+// Mirrors resetUserPassword but lives in the staff module. Same
+// flow: set a temporary password via auth.admin.updateUserById and
+// flag must_reset_password = true.
+export async function resetStaffPassword(formData: FormData) {
+  const result = await assertPermission("staff", "edit");
+  assertNotSuperAdmin(result, "edit");
+  const supabase = createAdminClient();
+
+  const id = formData.get("id") as string;
+  const newPassword = formData.get("new_password") as string;
+
+  if (!id) throw new Error("Staff id is required");
+  if (!newPassword) throw new Error("New password is required");
+  if (newPassword.length < 6) {
+    throw new Error("Password must be at least 6 characters");
+  }
+
+  const { error: authError } = await supabase.auth.admin.updateUserById(id, {
+    password: newPassword,
+    email_confirm: true,
+  });
+  if (authError) throw new Error(authError.message);
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ must_reset_password: true })
+    .eq("id", id);
+  if (profileError) throw new Error(profileError.message);
+
   revalidatePath("/staff");
 }

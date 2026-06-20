@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { runServerAction } from "@/lib/run-server-action";
 import { createDeliveryZone, updateDeliveryZone } from "./actions";
 
 type Zone = {
@@ -11,17 +12,15 @@ type Zone = {
 
 export default function ZoneForm({ zone, onClose }: { zone: Zone | null; onClose: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (zone) {
-        await updateDeliveryZone(zone.id, formData);
-      } else {
-        await createDeliveryZone(formData);
-      }
+    const action = zone
+      ? updateDeliveryZone.bind(null, zone.id)
+      : createDeliveryZone;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onClose();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (

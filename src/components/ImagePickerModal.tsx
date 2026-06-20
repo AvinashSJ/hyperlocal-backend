@@ -14,6 +14,9 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [picked, setPicked] = useState<Set<string>>(new Set(selectedUrls));
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastSelectedRef = useRef(selectedUrls);
 
   useEffect(() => {
@@ -23,12 +26,28 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
     }
   }, [selectedUrls]);
 
+  // Refresh the file list from storage. Called on mount and after
+  // an upload. We keep the `loading` flag set to true on first
+  // mount so the initial fetch shows a spinner; subsequent
+  // refreshes (post-upload) keep the current grid visible and
+  // append the new file to it.
   useEffect(() => {
-    listMedia().then((f) => {
+    let cancelled = false;
+    (async () => {
+      const f = await listMedia();
+      if (cancelled) return;
       setFiles(f);
       setLoading(false);
-    });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const refresh = async () => {
+    const f = await listMedia();
+    setFiles(f);
+  };
 
   const toggle = (url: string) => {
     setPicked((prev) => {
@@ -37,6 +56,58 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
       else next.add(url);
       return next;
     });
+  };
+
+  // P32: Direct upload from inside the picker. Lets the user add new
+  // images while creating a product without first navigating to
+  // /media. After a successful upload, refreshes the file list and
+  // auto-selects the new images so they appear in the "Add Selected"
+  // count and the parent form's image list.
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const fd = new FormData();
+      for (const f of Array.from(fileList)) {
+        fd.append("files", f);
+      }
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({} as { uploaded?: string[]; message?: string; error?: string }));
+      if (!res.ok && res.status !== 207) {
+        throw new Error(data?.error || data?.message || `Upload failed (${res.status})`);
+      }
+      // Refresh the file list from the storage bucket. New files are
+      // returned with their public URLs.
+      const fresh = await listMedia();
+      setFiles(fresh);
+      // Auto-select the freshly uploaded files. The /api/upload
+      // response includes the *fileName* (storage key), not the public
+      // URL — so we look up each uploaded name in the refreshed list
+      // to get the public URL.
+      const uploadedNames = new Set<string>(data?.uploaded ?? []);
+      const newUrls = fresh
+        .filter((f) => uploadedNames.has(f.name))
+        .map((f) => f.url);
+      if (newUrls.length > 0) {
+        setPicked((prev) => {
+          const next = new Set(prev);
+          for (const url of newUrls) next.add(url);
+          return next;
+        });
+      }
+      if (data?.message) {
+        // Partial-success path (207 Multi-Status)
+        setUploadError(data.message);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      // Reset the file input so the same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -62,6 +133,37 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
           <button type="button" className="btn-close" onClick={onClose} />
         </div>
 
+        {/* P32: upload bar — directly upload new images from inside
+            the picker instead of forcing the user to navigate to
+            /media first. The bar stays visible above the file grid
+            so the user can keep adding images as they go. */}
+        <div className="border-bottom px-3 py-2 d-flex align-items-center gap-2" style={{ background: "#f8f9fa" }}>
+          <Icon icon="ri:upload-cloud-2-line" width={20} className="text-primary" />
+          <span className="small fw-semibold me-2">Upload images</span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            multiple
+            onChange={handleUpload}
+            disabled={uploading}
+            className="form-control form-control-sm"
+            style={{ maxWidth: 320 }}
+            data-testid="image-picker-upload-input"
+          />
+          {uploading && (
+            <span className="small text-muted">
+              <Icon icon="ri:loader-4-line" className="spinner me-1" />
+              Uploading…
+            </span>
+          )}
+        </div>
+        {uploadError && (
+          <div className="alert alert-warning py-2 mb-0 rounded-0 small" data-testid="image-picker-upload-error">
+            {uploadError}
+          </div>
+        )}
+
         <div className="card-body" style={{ overflowY: "auto", maxHeight: "60vh" }}>
           {loading ? (
             <div className="text-center py-5 text-muted">
@@ -71,7 +173,8 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
           ) : files.length === 0 ? (
             <div className="text-center py-5 text-muted">
               <Icon icon="ri:image-line" width={48} className="mb-2 opacity-25" />
-              <p>No images in library. Upload some in the Media section first.</p>
+              <p>No images in library yet.</p>
+              <p className="small mb-0">Use the <strong>Upload images</strong> bar above to add some.</p>
             </div>
           ) : (
             <div className="row g-2">

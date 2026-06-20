@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { runServerAction } from "@/lib/run-server-action";
 import { createDeliverySlot, updateDeliverySlot } from "./actions";
 
 type Slot = {
@@ -10,17 +11,15 @@ type Slot = {
 
 export default function SlotForm({ slot, onClose }: { slot: Slot | null; onClose: () => void }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    try {
-      if (slot) {
-        await updateDeliverySlot(slot.id, formData);
-      } else {
-        await createDeliverySlot(formData);
-      }
+    const action = slot
+      ? updateDeliverySlot.bind(null, slot.id)
+      : createDeliverySlot;
+    const result = await runServerAction(action, formData);
+    if (result.ok) {
       onClose();
       return { error: null };
-    } catch (e) {
-      return { error: e instanceof Error ? e.message : "An error occurred" };
     }
+    return { error: result.error.message };
   }, { error: null });
 
   return (

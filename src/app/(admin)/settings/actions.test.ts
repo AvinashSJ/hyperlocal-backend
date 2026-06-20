@@ -6,6 +6,7 @@ import "../../../../test/mocks/require-permission";
 import {
   getAdminClient,
   resetSupabaseClients,
+  setServerUser,
 } from "../../../../test/mocks/supabase-clients";
 import { revalidatePathMock } from "../../../../test/mocks/next-cache";
 import {
@@ -24,6 +25,11 @@ import {
   updateStore,
   createStore,
   updateStoreSetting,
+  getAppMaintenance,
+  getStoreMaintenanceMap,
+  getCategoryDeletionGraceDays,
+  updateAppMaintenance,
+  updateStoreMaintenance,
 } from "./actions";
 
 beforeEach(() => {
@@ -367,5 +373,224 @@ describe("updateStoreSetting", () => {
     const fd = buildFormData({ min_order: "100" });
     await updateStoreSetting("store_policies", fd);
     expect(revalidatePathMock).toHaveBeenCalledWith("/settings");
+  });
+});
+
+// P34: maintenance / grace-period settings
+describe("getAppMaintenance", () => {
+  it("returns the default when the setting is missing", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+    const result = await getAppMaintenance();
+    expect(result.enabled).toBe(false);
+    expect(result.reason).toBe("maintenance");
+    expect(result.message).toBe("");
+    expect(result.etaHours).toBeNull();
+  });
+
+  it("normalizes a valid stored value", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: {
+        value: { enabled: true, reason: "technical", message: "Down", etaHours: 4 },
+      },
+      error: null,
+    });
+    const result = await getAppMaintenance();
+    expect(result.enabled).toBe(true);
+    expect(result.reason).toBe("technical");
+    expect(result.message).toBe("Down");
+    expect(result.etaHours).toBe(4);
+  });
+
+  it("falls back to 'maintenance' for an unknown reason", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: { value: { enabled: true, reason: "weird", message: "" } },
+      error: null,
+    });
+    const result = await getAppMaintenance();
+    expect(result.reason).toBe("maintenance");
+  });
+
+  it("clamps negative etaHours to null", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: { value: { enabled: true, reason: "operations", message: "", etaHours: -3 } },
+      error: null,
+    });
+    const result = await getAppMaintenance();
+    expect(result.etaHours).toBeNull();
+  });
+});
+
+describe("getStoreMaintenanceMap", () => {
+  it("returns an empty map when the setting is missing", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+    const result = await getStoreMaintenanceMap();
+    expect(result).toEqual({});
+  });
+
+  it("returns a normalized map of storeId → maintenance", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: {
+        value: {
+          "s-1": { enabled: true, reason: "technical", message: "Down", etaHours: 2 },
+          "s-2": { enabled: false, reason: "maintenance", message: "", etaHours: null },
+        },
+      },
+      error: null,
+    });
+    const result = await getStoreMaintenanceMap();
+    expect(result["s-1"]?.enabled).toBe(true);
+    expect(result["s-1"]?.reason).toBe("technical");
+    expect(result["s-2"]?.enabled).toBe(false);
+  });
+});
+
+describe("getCategoryDeletionGraceDays", () => {
+  it("returns 30 (default) when the setting is missing", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+    const result = await getCategoryDeletionGraceDays();
+    expect(result).toBe(30);
+  });
+
+  it("returns the configured value when stored as a number", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: { value: 14 }, error: null });
+    const result = await getCategoryDeletionGraceDays();
+    expect(result).toBe(14);
+  });
+});
+
+describe("updateAppMaintenance", () => {
+  it("rejects non-Super-Admin callers", async () => {
+    asAdmin({ settings: ["edit"] });
+    const fd = buildFormData({ enabled: "true", reason: "maintenance" });
+    const result = await runAction(updateAppMaintenance, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/Only Super Admin/);
+  });
+
+  it("Super Admin toggles on with a reason, message, and ETA", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: { id: "set-1" }, error: null }, // existing lookup
+      { data: null, error: null }, // update
+    );
+    const fd = buildFormData({
+      enabled: "true",
+      reason: "operations",
+      message: "Brief outage",
+      etaHours: "3",
+    });
+    await updateAppMaintenance(fd);
+
+    // The mock records .update()'s payload as a raw object. The
+    // action issues one .update() call on the settings table (after
+    // the existing-row lookup). Find the .update() call whose
+    // associated .from() was "settings" — easier: just find any
+    // .update() call and check its payload.
+    const updateCalls = admin.calls.filter((c) => c.method === "update");
+    expect(updateCalls.length).toBeGreaterThanOrEqual(1);
+    const payload = JSON.stringify(updateCalls[0].args[0]);
+    expect(payload).toContain("operations");
+    expect(payload).toContain("Brief outage");
+    expect(payload).toContain("3");
+  });
+
+  it("Super Admin toggles off", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: { id: "set-1" }, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ enabled: "false", reason: "maintenance" });
+    await updateAppMaintenance(fd);
+    const updateCalls = admin.calls.filter((c) => c.method === "update");
+    const payload = JSON.stringify(updateCalls[0].args[0]);
+    expect(payload).toContain('"enabled":false');
+  });
+
+  it("revalidates the maintenance page and the layout", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: { id: "set-1" }, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({ enabled: "true", reason: "maintenance" });
+    await updateAppMaintenance(fd);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/maintenance");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/", "layout");
+  });
+});
+
+describe("updateStoreMaintenance", () => {
+  it("Manager can only toggle their own store", async () => {
+    // Manager for s-1 trying to toggle s-2 → throws
+    asAdmin({ settings: ["edit"] });
+    setServerUser({ id: "mgr-1", email: "mgr@example.com" });
+    const admin = getAdminClient();
+    // 1) profile lookup to check caller's store
+    admin.setResponses({
+      data: { store_id: "s-1" },
+      error: null,
+    });
+    const fd = buildFormData({ store_id: "s-2", enabled: "true" });
+    const result = await runAction(updateStoreMaintenance, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/their own store/);
+  });
+
+  it("Super Admin toggling a store OFF cascades (inactivates products, unassigns categories)", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    // 1) existing setting lookup
+    // 2) settings.update
+    // 3) products.update (cascade)
+    // 4) store_categories.delete (cascade)
+    admin.setResponses(
+      { data: { id: "set-1", value: {} }, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({
+      store_id: "s-1",
+      enabled: "false",
+      reason: "maintenance",
+    });
+    await updateStoreMaintenance(fd);
+
+    // verify a products update with cascade_locked filter was issued
+    const eqCalls = admin.calls.filter((c) => c.method === "eq");
+    expect(eqCalls.some((c) => c.args[0] === "cascade_locked" && c.args[1] === true)).toBe(true);
+    // verify a store_categories delete was issued
+    expect(admin.calls.filter((c) => c.method === "delete").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Super Admin toggling a store ON does NOT cascade", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: { id: "set-1", value: {} }, error: null },
+      { data: null, error: null },
+    );
+    const fd = buildFormData({
+      store_id: "s-1",
+      enabled: "true",
+      reason: "maintenance",
+    });
+    await updateStoreMaintenance(fd);
+
+    // No products update (no .neq()) and no delete should have fired
+    expect(admin.calls.filter((c) => c.method === "neq").length).toBe(0);
+    expect(admin.calls.filter((c) => c.method === "delete").length).toBe(0);
   });
 });

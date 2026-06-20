@@ -1,5 +1,6 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCategoriesForStore } from "@/lib/categories";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { getStoreScope } from "@/lib/store-scope";
@@ -17,24 +18,12 @@ async function getProducts(storeId?: string | null) {
 
   const { data: products } = await productQuery;
 
-  let categoryQuery = supabase
-    .from("categories")
-    .select("id, name, parent_id, sort_order")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("name");
-  if (storeId) {
-    const { data: storeCats } = await supabase
-      .from("store_categories")
-      .select("category_id")
-      .eq("store_id", storeId);
-    const catIds = (storeCats ?? []).map((c) => c.category_id);
-    categoryQuery = categoryQuery.in("id", catIds);
-  }
+  // P23: categories visible to the current user (Super Admin: all;
+  // store-scoped: assigned + all descendants). Replaces the old
+  // `in("id", catIds)` filter that dropped subcategories of assigned parents.
+  const categories = await getCategoriesForStore(storeId ?? null);
 
-  const { data: categories } = await categoryQuery;
-
-  return { products: products ?? [], categories: categories ?? [] };
+  return { products: products ?? [], categories };
 }
 
 export default async function ProductsPage() {

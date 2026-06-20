@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
 import { createProduct, updateProduct } from "./actions";
+import { formatDiscountLabel } from "./discount";
 import VariantEditor from "./VariantEditor";
 import ImagePickerModal from "@/components/ImagePickerModal";
 
@@ -28,6 +30,7 @@ type Product = {
   low_stock_threshold: number | null;
   status: string;
   store_id: string | null;
+  cascade_locked?: boolean; // P33: Super-Admin-only cascade flag
   categories?: { name: string } | null;
   variants?: ProductVariant[];
   images?: ProductImage[];
@@ -37,6 +40,7 @@ type ProductVariant = {
   id: string;
   name: string;
   sku: string | null;
+  mrp: number;
   price: number;
   stock: number;
   variant_attributes: Record<string, unknown> | null;
@@ -58,13 +62,19 @@ const STATUSES = ["active", "inactive", "out_of_stock"];
 export default function ProductForm({
   product,
   categories,
+  isSuperAdmin = false,
 }: {
   product: Product | null;
   categories: Category[];
+  isSuperAdmin?: boolean;
 }) {
   const router = useRouter();
   const isEditing = !!product;
   const [saving, setSaving] = useState(false);
+
+  const [mrp, setMrp] = useState<number>(product?.mrp ?? 0);
+  const [sellingPrice, setSellingPrice] = useState<number>(product?.selling_price ?? 0);
+  const [stockQty, setStockQty] = useState<number>(product?.stock_quantity ?? 0);
 
   const [variants, setVariants] = useState<ProductVariant[]>(
     product?.variants ?? [],
@@ -74,26 +84,46 @@ export default function ProductForm({
   );
   const [showImagePicker, setShowImagePicker] = useState(false);
 
+  const hasVariants = variants.length > 0;
+  const derivedMrp = useMemo(
+    () => (hasVariants ? Math.min(...variants.map((v) => Number(v.mrp) || 0)) : 0),
+    [variants, hasVariants],
+  );
+  const derivedSelling = useMemo(
+    () => (hasVariants ? Math.min(...variants.map((v) => Number(v.price) || 0)) : 0),
+    [variants, hasVariants],
+  );
+
+  const effectiveMrp = hasVariants ? derivedMrp : mrp;
+  const effectiveSelling = hasVariants ? derivedSelling : sellingPrice;
+  const discountLabel = useMemo(
+    () => formatDiscountLabel(effectiveMrp, effectiveSelling),
+    [effectiveMrp, effectiveSelling],
+  );
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
 
-    try {
-      const formData = new FormData(e.currentTarget);
-      formData.set("variants", JSON.stringify(variants));
-      formData.set("images", JSON.stringify(images));
+    const formData = new FormData(e.currentTarget);
+    formData.set("variants", JSON.stringify(variants));
+    formData.set("images", JSON.stringify(images));
 
-      if (isEditing) {
-        await updateProduct(product!.id, formData);
-        toast.success("Product updated");
-      } else {
-        await createProduct(formData);
-        toast.success("Product created");
-      }
+    if (hasVariants) {
+      formData.set("mrp", String(derivedMrp));
+      formData.set("selling_price", String(derivedSelling));
+    }
 
+    const action = isEditing
+      ? updateProduct.bind(null, product!.id)
+      : createProduct;
+    const result = await runServerAction(action, formData);
+
+    if (result.ok) {
+      toast.success(isEditing ? "Product updated" : "Product created");
       router.push("/products");
-    } catch (err) {
-      toast.error((err as Error).message);
+    } else {
+      toast.error(result.error.message);
       setSaving(false);
     }
   };
@@ -197,40 +227,97 @@ export default function ProductForm({
               <div className="card-body">
                 <h6 className="card-title fw-semibold mb-3">Pricing & Inventory</h6>
 
-                <div className="row g-3">
-                  <div className="col-md-4">
-                    <label className="form-label">MRP (₹)</label>
-                    <input
-                      name="mrp"
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      required
-                      defaultValue={product?.mrp ?? 0}
-                    />
+                {hasVariants ? (
+                  <div data-testid="product-pricing-readonly">
+                    <div className="row g-3">
+                      <div className="col-md-4">
+                        <label className="form-label">MRP (₹)</label>
+                        <div className="form-control-plaintext fw-semibold" data-testid="product-pricing-mrp">
+                          ₹{derivedMrp}
+                        </div>
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Selling Price (₹)</label>
+                        <div className="form-control-plaintext fw-semibold" data-testid="product-pricing-selling">
+                          ₹{derivedSelling}
+                        </div>
+                        {discountLabel !== "No discount" && discountLabel !== "—" && (
+                          <span
+                            className="badge bg-success-subtle text-success mt-1"
+                            data-testid="discount-badge"
+                          >
+                            {discountLabel}
+                          </span>
+                        )}
+                      </div>
+                      <div className="col-md-4">
+                        <label className="form-label">Discount</label>
+                        <div
+                          className="form-control-plaintext"
+                          data-testid="discount-display"
+                        >
+                          {discountLabel}
+                        </div>
+                        <small className="text-muted d-block">
+                          Auto-calculated from variant MRP/selling
+                        </small>
+                      </div>
+                    </div>
+                    <div className="alert alert-info py-2 px-3 mb-0 mt-2 small">
+                      <Icon icon="ri:information-line" className="me-1" />
+                      Derived from variants (min MRP: ₹{derivedMrp}, min Selling: ₹{derivedSelling}). Add MRP and Selling per variant in the Variants section below.
+                    </div>
                   </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Selling Price (₹) *</label>
-                    <input
-                      name="selling_price"
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      required
-                      defaultValue={product?.selling_price ?? 0}
-                    />
+                ) : (
+                  <div className="row g-3">
+                    <div className="col-md-4">
+                      <label className="form-label">MRP (₹)</label>
+                      <input
+                        name="mrp"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="form-control"
+                        required
+                        value={mrp}
+                        onChange={(e) => setMrp(Number(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label">Selling Price (₹) *</label>
+                      <input
+                        name="selling_price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="form-control"
+                        required
+                        value={sellingPrice}
+                        onChange={(e) => setSellingPrice(Number(e.target.value) || 0)}
+                      />
+                      {discountLabel !== "No discount" && discountLabel !== "—" && (
+                        <span
+                          className="badge bg-success-subtle text-success mt-1"
+                          data-testid="discount-badge"
+                        >
+                          {discountLabel}
+                        </span>
+                      )}
+                    </div>
+                    <div className="col-md-4">
+                      <label className="form-label">Discount</label>
+                      <div
+                        className="form-control-plaintext"
+                        data-testid="discount-display"
+                      >
+                        {discountLabel}
+                      </div>
+                      <small className="text-muted d-block">
+                        Auto-calculated from MRP and Selling Price
+                      </small>
+                    </div>
                   </div>
-                  <div className="col-md-4">
-                    <label className="form-label">Discount %</label>
-                    <input
-                      name="discount_percent"
-                      type="number"
-                      step="0.01"
-                      className="form-control"
-                      defaultValue={product?.discount_percent ?? 0}
-                    />
-                  </div>
-                </div>
+                )}
 
                 <div className="row g-3 mt-2">
                   <div className="col-md-4">
@@ -239,8 +326,10 @@ export default function ProductForm({
                       name="stock_quantity"
                       type="number"
                       step="0.01"
+                      min="0"
                       className="form-control"
-                      defaultValue={product?.stock_quantity ?? 0}
+                      value={stockQty}
+                      onChange={(e) => setStockQty(Number(e.target.value) || 0)}
                     />
                   </div>
                   <div className="col-md-4">
@@ -268,6 +357,28 @@ export default function ProductForm({
                     </select>
                   </div>
                 </div>
+                {isSuperAdmin && (
+                  // P33: Super-Admin-only toggle. When ON (default),
+                  // the product participates in the manager-disable
+                  // cascade (status → 'inactive'). When OFF, the
+                  // product stays active even when its store's manager
+                  // is disabled. Manager submissions are ignored server-side.
+                  <div className="form-check form-switch mt-3 ms-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      role="switch"
+                      id="cascade_locked"
+                      name="cascade_locked"
+                      value="true"
+                      defaultChecked={product?.cascade_locked ?? true}
+                      data-testid="cascade-locked-switch"
+                    />
+                    <label className="form-check-label ms-2" htmlFor="cascade_locked">
+                      Lock to manager cascade (uncheck to keep active when manager is disabled)
+                    </label>
+                  </div>
+                )}
               </div>
             </div>
 

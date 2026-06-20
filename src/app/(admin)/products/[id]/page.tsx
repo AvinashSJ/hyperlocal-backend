@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/require-permission";
 import { getStoreScope } from "@/lib/store-scope";
+import { getCategoriesForStore } from "@/lib/categories";
+import { getEntityActivityLog } from "@/lib/activity-log";
 import ProductForm from "../ProductForm";
+import ProductActivityLog from "./ProductActivityLog";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -34,35 +37,30 @@ async function getProduct(id: string) {
   return { ...product, variants: variants ?? [], images: images ?? [] };
 }
 
-async function getCategories(storeId?: string | null) {
-  const supabase = createAdminClient();
-  let query = supabase
-    .from("categories")
-    .select("id, name, parent_id, sort_order")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("name");
-  if (storeId) {
-    const { data: storeCats } = await supabase
-      .from("store_categories")
-      .select("category_id")
-      .eq("store_id", storeId);
-    const catIds = (storeCats ?? []).map((c) => c.category_id);
-    query = query.in("id", catIds);
-  }
-  const { data } = await query;
-  return data ?? [];
-}
-
 export default async function EditProductPage({ params }: Props) {
   const { id } = await params;
-  await requirePermission("products", "view");
+  // P33: pass the role check so the form knows whether to render the
+  // Super-Admin-only `cascade_locked` toggle.
+  const { isSuperAdmin } = await requirePermission("products", "view");
   const { storeId: userStoreId } = await getStoreScope();
   const product = await getProduct(id);
 
   if (!product) notFound();
 
-  const categories = await getCategories(userStoreId);
+  // P23: replaced inlined store_categories filter with the recursive helper
+  const categories = await getCategoriesForStore(userStoreId ?? null);
 
-  return <ProductForm product={product} categories={categories} />;
+  // P25: fetch the activity log for the activity-timeline section
+  const activityLog = await getEntityActivityLog("product", id);
+
+  return (
+    <>
+      <ProductForm
+        product={product}
+        categories={categories}
+        isSuperAdmin={isSuperAdmin}
+      />
+      <ProductActivityLog entries={activityLog} />
+    </>
+  );
 }

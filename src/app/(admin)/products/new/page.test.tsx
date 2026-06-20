@@ -78,13 +78,18 @@ describe("NewProductPage — category scope", () => {
     expect(catChain.some((c) => c.method === "in")).toBe(false);
   });
 
-  it("store-scoped user sees only their store's categories", async () => {
+  it("store-scoped user sees only their store's categories (P23: includes descendants of assigned parents)", async () => {
     const admin = getAdminClient();
     admin.setResponses(
       // store_categories lookup
-      { data: [{ category_id: "c-1" }], error: null },
-      // categories fetch (filtered by .in("id", ...))
-      { data: [{ id: "c-1", name: "MyStoreCat", parent_id: null, sort_order: 0 }], error: null },
+      { data: [{ category_id: "parent-1" }], error: null },
+      // First BFS level: parent-1 + its direct child
+      { data: [
+        { id: "parent-1", name: "Snacks", parent_id: null, sort_order: 0 },
+        { id: "sub-1", name: "Chips", parent_id: "parent-1", sort_order: 0 },
+      ], error: null },
+      // Second BFS level: sub-1's children (none) → loop terminates
+      { data: [], error: null },
     );
 
     asAdmin({ products: ["view"] });
@@ -98,13 +103,13 @@ describe("NewProductPage — category scope", () => {
     expect(eqCall).toBeDefined();
     expect(eqCall!.args).toEqual(["store_id", "s-1"]);
 
-    // Categories fetch should be filtered by .in("id", [c-1])
-    // (Mock limitation B19: chainsForTable groups calls by from() boundaries.
-    // The .in() call happens after store_categories' from() so it ends up
-    // grouped with store_categories. We count via admin.calls instead.)
-    const inCalls = admin.calls.filter((c) => c.method === "in");
-    const idInCall = inCalls.find((c) => c.args[0] === "id");
-    expect(idInCall).toBeDefined();
-    expect(idInCall!.args[1]).toEqual(["c-1"]);
+    // P23: the helper uses .or() instead of .in("id", ...) to also pick up
+    // children of assigned parents. Assert the .or() call exists on the
+    // categories chain (chainsForTable groups by from() boundaries).
+    const categoriesChains = admin.chainsForTable("categories");
+    const allOrCalls = categoriesChains.flatMap((c) => c.filter((call) => call.method === "or"));
+    expect(allOrCalls.length).toBeGreaterThan(0);
+    // First BFS level: id IN (parent-1) OR parent_id IN (parent-1)
+    expect(allOrCalls[0].args[0]).toBe("id.in.(parent-1),parent_id.in.(parent-1)");
   });
 });

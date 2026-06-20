@@ -96,6 +96,8 @@ export function createMockSupabase(): MockSupabaseHandle {
       "lt",
       "not",
       "is",
+      "or",
+      "filter",
       "order",
       "limit",
       "range",
@@ -155,6 +157,11 @@ export function createMockSupabase(): MockSupabaseHandle {
       },
       async signUp(creds: unknown) {
         calls.push({ method: "auth.signUp", args: [creds] });
+        return take();
+      },
+      // P31: used by updateOwnPassword to change the current user's password
+      async updateUser(payload: unknown) {
+        calls.push({ method: "auth.updateUser", args: [payload] });
         return take();
       },
       admin: {
