@@ -390,7 +390,17 @@ export async function createUser(formData: FormData) {
     user_metadata: { full_name: fullName },
   });
 
-  if (authError) throw new Error(authError.message);
+  if (authError) {
+    // P38: surface a clearer message for the "email already exists"
+    // case so the admin knows the next step (edit the existing
+    // user's role on the Users page rather than retry).
+    if (authError.message.toLowerCase().includes("already been registered")) {
+      throw new Error(
+        "A user with this email already exists. To change their role or details, use the edit action on their row.",
+      );
+    }
+    throw new Error(authError.message);
+  }
 
   // Look up the role name to derive the `role` string used for segmentation
   // (admin vs customer). Without this, the column defaults to 'customer'

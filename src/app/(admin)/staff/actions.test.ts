@@ -298,15 +298,12 @@ describe("createStaff", () => {
   it("throws when auth.admin.createUser returns an error and does not insert a profile", async () => {
     asAdmin({ staff: ["create"] });
     const admin = getAdminClient();
-    // Queue an error for auth.admin.createUser via the explicit auth
-    // response path. The current mock always succeeds for createUser,
-    // so we work around it by inspecting the calls list after the throw:
-    // if the profile insert never happened, the action correctly bailed
-    // out at the auth step.
-    //
-    // (We can't easily inject an error into auth.admin.createUser in
-    // the current mock, so this test verifies the inverse: that on
-    // success, the auth call IS made and the profile insert follows.)
+    // P38: the mock now supports injecting a one-shot error for
+    // auth.admin.createUser via setNextCreateUserError. We use it to
+    // assert that the action bails out at the auth step and never
+    // touches the profiles table.
+    admin.setNextCreateUserError({ message: "boom from supabase" });
+
     const fd = buildFormData({
       full_name: "Alice",
       email: "alice@example.com",
@@ -315,15 +312,63 @@ describe("createStaff", () => {
       staff_type: "delivery",
       store_id: "s-1",
     });
-    // Pre-queue role + insert responses
+    await expect(createStaff(fd)).rejects.toThrow(/boom from supabase/);
+
+    // No profile insert should have happened.
+    const profileChains = admin.chainsForTable("profiles");
+    expect(profileChains.length).toBe(0);
+
+    // The auth call was made exactly once.
+    const authCalls = admin.calls.filter(
+      (c) => c.method === "auth.admin.createUser",
+    );
+    expect(authCalls.length).toBe(1);
+  });
+
+  it("surfaces a clear message when the email is already registered and does not insert a profile", async () => {
+    asAdmin({ staff: ["create"] });
+    const admin = getAdminClient();
+    admin.setNextCreateUserError({
+      message: "A user with this email address has already been registered",
+    });
+
+    const fd = buildFormData({
+      full_name: "Alice",
+      email: "dup@example.com",
+      password: "secret123",
+      store_id: "s-1",
+    });
+    await expect(createStaff(fd)).rejects.toThrow(
+      /A user with this email already exists\. To convert them to staff, use the Users page/,
+    );
+
+    // No profile insert, no auth delete (we never created the auth user).
+    expect(admin.chainsForTable("profiles").length).toBe(0);
+    const deleteCalls = admin.calls.filter(
+      (c) => c.method === "auth.admin.deleteUser",
+    );
+    expect(deleteCalls.length).toBe(0);
+  });
+
+  it("makes the auth.createUser call BEFORE the profile insert (call order matters for FK integrity)", async () => {
+    asAdmin({ staff: ["create"] });
+    const admin = getAdminClient();
+    // Pre-queue role + insert responses (auth.createUser succeeds by default)
     admin.setResponses(
       { data: { id: 3 }, error: null },
       { data: null, error: null },
     );
+
+    const fd = buildFormData({
+      full_name: "Alice",
+      email: "alice@example.com",
+      password: "secret123",
+      phone: "+91",
+      staff_type: "delivery",
+      store_id: "s-1",
+    });
     await runAction(createStaff, fd);
 
-    // The auth.createUser call must have happened BEFORE the profile
-    // insert (call order matters for FK integrity).
     const authCalls = admin.calls.filter(
       (c) => c.method === "auth.admin.createUser",
     );
@@ -338,6 +383,16 @@ describe("createStaff", () => {
       email_confirm: true,
     });
     expect(insertCallIdx).toBeGreaterThanOrEqual(0);
+
+    // The auth call index must be BEFORE the insert call index in the
+    // shared calls array (call order is monotonic).
+    const authIdx = admin.calls.findIndex(
+      (c) => c.method === "auth.admin.createUser",
+    );
+    const insertIdx = admin.calls.findIndex(
+      (c) => c.method === "from" && c.args[0] === "profiles",
+    );
+    expect(authIdx).toBeLessThan(insertIdx);
   });
 
   it("throws when Staff role is not found AND rolls back the auth user", async () => {

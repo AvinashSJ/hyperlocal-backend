@@ -7,7 +7,7 @@
 | Metric | Current | Target |
 |---|---|---|
 | Test files | **48** | 30+ |
-| Tests passing | **878 / 878** | 250+ |
+| Tests passing | **882 / 882** | 250+ |
 | Typecheck | clean | clean |
 | Lint errors | **0** | 0 |
 | Lint warnings | 49 | trend → 0 |
@@ -2678,15 +2678,15 @@ npm run build         # next build — success
 | Metric | P1 start | P28 end |
 |---|---|---|
 | Test files | 1 (smoke) | 45 |
-| Tests | 17 | 878 (P28 follow-up: +3 seed-roles regression tests; P29: +3 createStaff auth-flow tests; P30: net 0 — 5 updateUserRole tests removed, 5 updateUser role-change tests added; P31: +18 password reset + first-login forced setup tests; P32: +4 direct upload in product image picker; P33: +14 manager cascade + category reassign + delete grace period tests; P34: +22 maintenance toggles + public API + navbar component; P35: +11 switch-slider pill refactor + popover config; P37: +4 stale Supabase refresh-token edge-runtime fix) |
+| Tests | 17 | 882 (P28 follow-up: +3 seed-roles regression tests; P29: +3 createStaff auth-flow tests; P30: net 0 — 5 updateUserRole tests removed, 5 updateUser role-change tests added; P31: +18 password reset + first-login forced setup tests; P32: +4 direct upload in product image picker; P33: +14 manager cascade + category reassign + delete grace period tests; P34: +22 maintenance toggles + public API + navbar component; P35: +11 switch-slider pill refactor + popover config; P37: +4 stale Supabase refresh-token edge-runtime fix; P38: +4 staff_type column + duplicate-email UX) |
 | Typecheck | clean | clean |
 | Lint | 0 errors | 0 errors |
 | Lint warnings | n/a | 50 (non-blocking) |
 | Coverage | n/a | 92.83% / 85.2% / 93.42% / 93.81% |
 | Source bugs surfaced | n/a | 25 (consolidated) |
-| Source bugs fixed | n/a | 13 (P10: edit page scope, new page scope, out-of-scope category UX; P12: silent delete error in `updateProduct`/`deleteProduct`; P18: B22 store assignment + NEXT_REDIRECT handling; P21: bulk import sending non-existent `slug` column; P23: Manager category data leak + subcategory invisibility in products dropdown; P24: B26 dashboard customer count data leak; P26: order item product name disappears on product delete — fixed in both admin and Flutter; P27: commission generation silently inserts 0-commission rows + wrong auth.getUser client + missing Generated column + missing Generate All; P28: staff module was accessible to Super Admin + Manager could create store-less staff that disappeared; P28 follow-up: Manager role was missing the `staff` permission in the seed migration so the Staff nav link never rendered; P29: `createStaff` was missing the `auth.admin.createUser` call, so every staff insert failed with an FK / NOT NULL violation; P37: stale Supabase refresh tokens caused repeated `AuthApiError: refresh_token_not_found` log lines on every request — middleware now catches the specific code, clears the bad cookies, and treats the user as unauthenticated). **P30: design change, not a bug fix** — moved role change out of a one-click auto-submit inline dropdown into the explicit edit modal save flow. |
+| Source bugs fixed | n/a | 14 (P10: edit page scope, new page scope, out-of-scope category UX; P12: silent delete error in `updateProduct`/`deleteProduct`; P18: B22 store assignment + NEXT_REDIRECT handling; P21: bulk import sending non-existent `slug` column; P23: Manager category data leak + subcategory invisibility in products dropdown; P24: B26 dashboard customer count data leak; P26: order item product name disappears on product delete — fixed in both admin and Flutter; P27: commission generation silently inserts 0-commission rows + wrong auth.getUser client + missing Generated column + missing Generate All; P28: staff module was accessible to Super Admin + Manager could create store-less staff that disappeared; P28 follow-up: Manager role was missing the `staff` permission in the seed migration so the Staff nav link never rendered; P29: `createStaff` was missing the `auth.admin.createUser` call, so every staff insert failed with an FK / NOT NULL violation; P37: stale Supabase refresh tokens caused repeated `AuthApiError: refresh_token_not_found` log lines on every request — middleware now catches the specific code, clears the bad cookies, and treats the user as unauthenticated; P38: `profiles.staff_type` column was missing from the live DB (migration 20260613000001 was never applied) so every Staff page call failed with Postgres 42703; same phase: `createStaff`/`createUser` returned a raw Supabase error on duplicate email — now surfaces a clear message pointing the admin to the Users page). **P30: design change, not a bug fix** — moved role change out of a one-click auto-submit inline dropdown into the explicit edit modal save flow. |
 | Features added | n/a | 13 (P11: auto-calculated discount; P13: VariantEditor table layout; P16: order delete restriction + product activity trail; P17: variants reflect MRP/Selling/Discount columns; P22: product CSV export + download button; P25: product activity log on edit page; P27: commission generation with global default rate + Generate All bulk action + Generated date column; P30: role change moved from inline dropdown to edit modal — safer UX, role-aware revalidation; P31: admin-driven password reset on /users + /staff edit modals with first-login forced setup via /auth/reset-password; P32: direct image upload in the product image picker — no need to visit /media first; P33: manager disable cascade (products → inactive, categories unassigned) with force-override toggle + category reassign + delete grace period; P34: app-wide + store-wide on/off toggles in the navbar (Super Admin / Manager) with reason + message + ETA, public /api/maintenance endpoint for Flutter, /maintenance public page; P35: navbar maintenance pills restyled as switch-slider buttons that toggle state immediately with optimistic UI + rollback, popover with interactive switch + remaining config (reason / message / ETA / save)) |
-| Migrations added | n/a | 13 (P12, P14, P15, P16, P17, P23, P25, P26, P28, P28 follow-up: 20260620000003_grant_manager_staff_module, P31: 20260620000004_add_must_reset_password, P33: 20260620000005_manager_disable_cascade, P34: 20260620000006_app_store_maintenance_settings). **P29, P30, P32 added no new migrations** — application-only. |
+| Migrations added | n/a | 14 (P12, P14, P15, P16, P17, P23, P25, P26, P28, P28 follow-up: 20260620000003_grant_manager_staff_module, P31: 20260620000004_add_must_reset_password, P33: 20260620000005_manager_disable_cascade, P34: 20260620000006_app_store_maintenance_settings, P38: 20260620000007_ensure_staff_type_column). **P29, P30, P32 added no new migrations** — application-only. |
 | Helper test bugs fixed | n/a | 1 (P20: helper digest check was a tautological false positive — test mock didn't match production) |
 | New helpers added | n/a | 5 (P19: `runServerAction`; P22: `csvEscape`; P23: `getCategoriesForStore`; P25: `logActivity` + `getEntityActivityLog`; P27: `resolveCommissionRate` + `resolveUserId` + `generateForSingleStore` extracted) |
 | API routes covered | 0/3 | 1/3 (P22: products export) |
@@ -2759,9 +2759,102 @@ try {
 | `curl https://hyperlocal-backend-u51x.onrender.com/api/maintenance` | returns `{"app":{"enabled":false,...},"stores":{}}` |
 | Production URL | live |
 
+## P38 — Bug fix: `staff_type` column missing + duplicate-email UX (DONE)
+
+**User report (live, post-P37 deploy):**
+
+```
+⨯ Error: Could not find the 'staff_type' column of 'profiles' in the schema cache
+Failed to fetch staff: { code: '42703', message: 'column profiles.staff_type does not exist' }
+⨯ Error: A user with this email address has already been registered
+production error while creating staff
+```
+
+### Two production issues, one phase
+
+**Issue A: `staff_type` column missing in the live DB.** The migration `20260613000001_add_staff_type.sql` was committed to the project but not applied to the production Supabase database. Every `getStaff`, `createStaff`, `updateStaff` call failed with Postgres error 42703.
+
+**Issue B: `createStaff` / `createUser` didn't handle duplicate emails.** When the email already existed in `auth.users`, `supabase.auth.admin.createUser` returned a generic "A user with this email address has already been registered" error. The admin/manager had no clear next step.
+
+### The fixes
+
+#### Part 1: Idempotent migration to add the missing column + force PostgREST cache reload
+
+`supabase/migrations/20260620000007_ensure_staff_type_column.sql`:
+
+```sql
+-- P38: ensure profiles.staff_type column exists and refresh the
+-- PostgREST schema cache. The original migration
+-- 20260613000001_add_staff_type.sql adds the same column with the
+-- same constraint, but if it was never applied to a given
+-- environment the staff module fails with
+-- `Could not find the 'staff_type' column of 'profiles' in the
+-- schema cache` (Postgres error 42703).
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS staff_type TEXT CHECK (staff_type IN ('packing', 'delivery'));
+
+NOTIFY pgrst, 'reload schema';
+```
+
+The `IF NOT EXISTS` clause makes the migration a no-op on environments where the column already exists. The `NOTIFY pgrst, 'reload schema'` forces PostgREST to refresh its in-memory schema cache immediately, so the column is queryable the moment the migration runs (no manual API restart needed).
+
+#### Part 2: Clearer error for duplicate email
+
+Both `src/app/(admin)/staff/actions.ts` (`createStaff`) and `src/app/(admin)/users/actions.ts` (`createUser`) now detect the "already been registered" error and re-throw with a clearer message that tells the admin/manager the next step:
+
+```ts
+if (authError) {
+  if (authError.message.toLowerCase().includes("already been registered")) {
+    throw new Error(
+      "A user with this email already exists. To convert them to staff, use the Users page to change their role.",
+    );
+  }
+  throw new Error(authError.message);
+}
+```
+
+#### Part 3: Test mock now supports one-shot `auth.admin.createUser` errors
+
+`test/mocks/supabase.ts` gained `setNextCreateUserError(err)`. The next `createUser` call returns `{ data: { user: null }, error: err }` and clears the flag. The pre-P38 tests had to work around this limitation (the comment in `staff/actions.test.ts:298-310` said: "We can't easily inject an error into auth.admin.createUser in the current mock"). Now they can.
+
+### Tests added (+4, 882 total)
+
+| File | Test | What it asserts |
+|---|---|---|
+| `staff/actions.test.ts` | "throws when auth.admin.createUser returns an error and does not insert a profile" | Generic error path: no profile insert, no auth delete |
+| `staff/actions.test.ts` | "surfaces a clear message when the email is already registered and does not insert a profile" | Duplicate-email UX: clear error, no profile insert, no auth delete (we never created the auth user) |
+| `staff/actions.test.ts` | "makes the auth.createUser call BEFORE the profile insert (call order matters for FK integrity)" | Replaces the old "workaround" test with a real assertion on the call order in the shared `calls` array |
+| `users/actions.test.ts` | "surfaces a clear message when the email is already registered and does not insert a profile" | Same duplicate-email UX on the Users page |
+| `users/actions.test.ts` | "rolls back the auth user when the profile insert fails" | Profile-insert failure path: auth user is deleted so we don't leave an orphan account |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `npm test -- --run` | **882 / 882** passing (was 878) |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 52 warnings (no new warnings) |
+| `npm run build` | succeeded (43s, 30 static pages) |
+| `npm test -- --run src/lib/supabase/middleware.test.ts` | 8/8 passing (regression check) |
+| `npm test -- --run src/app/(admin)/staff/actions.test.ts` | 47/47 passing (was 45) |
+| `npm test -- --run src/app/(admin)/users/actions.test.ts` | 59/59 passing (was 57) |
+
+### Deploy steps
+
+1. Apply the migration to the live Supabase project:
+   ```bash
+   supabase db push
+   # or copy the SQL into the Supabase SQL editor and run it
+   ```
+2. Push the new code (Render will auto-deploy):
+   ```bash
+   git push origin main
+   ```
+3. The `staff_type` errors stop immediately after the migration runs. The `NOTIFY` reloads the cache, so no Supabase API restart is needed.
+
 ## Next Step
 
-All 36 phases complete. **Test suite is production-ready.**
+All 37 phases complete. **Test suite is production-ready.**
 
 Future work (out of test-scope):
 1. **Fix the remaining 22 source bugs** documented in the consolidated "Source Bugs Surfaced" table. **B1 is production-blocking** — change `assertPermission("notifications", "create")` to `"send"`. **B2–B5 are data-leakage bugs** — store-scoped admins see all GST data, not their own.

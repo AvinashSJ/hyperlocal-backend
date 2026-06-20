@@ -49,6 +49,12 @@ export type MockSupabaseHandle = {
   setBuckets: (buckets: { name: string }[]) => void;
   setFiles: (bucket: string, files: any[]) => void;
   setRpcResult: (name: string, response: Response) => void;
+  /**
+   * P38: make the next `auth.admin.createUser` call return an error
+   * (e.g. duplicate email). The flag is consumed by the next call
+   * and cleared, so subsequent calls succeed again.
+   */
+  setNextCreateUserError: (err: { message: string } | null) => void;
   reset: () => void;
   /** Return all chains for a given table (each `.from()` call is one chain). */
   chainsForTable: (table: string) => ChainCall[][];
@@ -62,6 +68,7 @@ export function createMockSupabase(): MockSupabaseHandle {
   let users: MockSupabaseUser[] = [];
   let buckets: { name: string }[] = [];
   let filesByBucket: Record<string, any[]> = {};
+  let nextCreateUserError: { message: string } | null = null;
 
   function take(): Response {
     if (responseIndex >= responseQueue.length) {
@@ -171,6 +178,11 @@ export function createMockSupabase(): MockSupabaseHandle {
         },
         async createUser(payload: { email: string; [k: string]: unknown }) {
           calls.push({ method: "auth.admin.createUser", args: [payload] });
+          if (nextCreateUserError) {
+            const err = nextCreateUserError;
+            nextCreateUserError = null;
+            return { data: { user: null }, error: err };
+          }
           const user: MockSupabaseUser = {
             id: `user-${users.length + 1}-${Date.now()}`,
             email: payload.email,
@@ -259,12 +271,16 @@ export function createMockSupabase(): MockSupabaseHandle {
     setRpcResult(name, response) {
       rpcResults[name] = response;
     },
+    setNextCreateUserError(err) {
+      nextCreateUserError = err;
+    },
     reset() {
       responseQueue = [];
       responseIndex = 0;
       users = [];
       buckets = [];
       filesByBucket = {};
+      nextCreateUserError = null;
       calls.length = 0;
     },
     chainsForTable(table) {

@@ -852,6 +852,58 @@ describe("createUser", () => {
     await runAction(createUser, fd);
     expect(revalidatePathMock).toHaveBeenCalledWith("/users");
   });
+
+  it("surfaces a clear message when the email is already registered and does not insert a profile", async () => {
+    asAdmin({ users: ["create"] });
+    const admin = getAdminClient();
+    admin.setNextCreateUserError({
+      message: "A user with this email address has already been registered",
+    });
+
+    const fd = buildFormData({
+      email: "dup@example.com",
+      password: "secret",
+      full_name: "Dup",
+      role_id: "2",
+    });
+    await expect(createUser(fd)).rejects.toThrow(
+      /A user with this email already exists\. To change their role or details, use the edit action/,
+    );
+
+    // No profile insert, no auth delete (we never created the auth user).
+    expect(admin.chainsForTable("profiles").length).toBe(0);
+    const deleteCalls = admin.calls.filter(
+      (c) => c.method === "auth.admin.deleteUser",
+    );
+    expect(deleteCalls.length).toBe(0);
+  });
+
+  it("rolls back the auth user when the profile insert fails", async () => {
+    asAdmin({ users: ["create"] });
+    const admin = getAdminClient();
+    // 1) auth.createUser succeeds
+    // 2) roles lookup returns Admin
+    // 3) profiles insert fails
+    admin.setResponses(
+      { data: { name: "Admin" }, error: null },
+      { data: null, error: { message: "fk violation" } },
+    );
+
+    const fd = buildFormData({
+      email: "x@example.com",
+      password: "secret",
+      full_name: "X",
+      role_id: "2",
+    });
+    await expect(createUser(fd)).rejects.toThrow(/fk violation/);
+
+    // The auth user must be deleted so we don't leave an orphan
+    // account that can't log in to anything.
+    const deleteCalls = admin.calls.filter(
+      (c) => c.method === "auth.admin.deleteUser",
+    );
+    expect(deleteCalls.length).toBe(1);
+  });
 });
 
 // P31: password reset. Sets a new temporary password via

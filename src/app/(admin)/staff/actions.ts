@@ -120,6 +120,14 @@ export async function createStaff(formData: FormData) {
   });
 
   if (authError) {
+    // P38: surface a clearer message for the "email already exists"
+    // case so the manager knows the next step (convert via /users
+    // rather than create a new account).
+    if (authError.message.toLowerCase().includes("already been registered")) {
+      throw new Error(
+        "A user with this email already exists. To convert them to staff, use the Users page to change their role.",
+      );
+    }
     throw new Error(authError.message);
   }
 
