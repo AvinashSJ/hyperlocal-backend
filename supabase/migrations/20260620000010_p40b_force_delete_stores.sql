@@ -2,9 +2,9 @@
 -- P40b: Force-delete all stores (P40 follow-up)
 -- ----------------------------------------------------------------------------
 -- DELETES (in this exact order, all in one transaction):
---   1. profiles.store_id = NULL  (breaks the link from storemanager@test.com
---                                  to its store; the profile ROW stays)
---   2. banners.store_id = NULL   (orphan the banners to a no-store state)
+--   1. profiles.store_id = NULL   (breaks the link from any profile to its
+--                                  store; the profile ROWs stay)
+--   2. banners.store_id = NULL    (orphan the banners to a no-store state)
 --   3. delivery_zones.store_id = NULL  (same)
 --   4. gst_numbers.store_id = NULL     (same)
 --   5. delivery_slots               (whole table — all become orphans since
@@ -14,7 +14,6 @@
 --
 -- KEEPS:
 --   - Super Admin profile + auth.users entries
---   - storemanager@test.com profile + auth.users entry (with store_id = NULL)
 --   - Other profiles whose role is NULL (e.g. orphaned customers from P40)
 --   - Roles (Super Admin, Manager, Staff)
 --   - Settings
@@ -24,6 +23,8 @@
 --   - inventory_log (P15 SET NULL — product_id/variant_id already nulled by P40)
 --   - activity_logs (P25 — user_id already nulled by P40)
 --   - Supabase Storage files (not touched)
+--   NOTE: storemanager@test.com was already deleted by P40 (Manager role,
+--   not Super Admin). The user said it can be left out — no assertion on it.
 --
 -- SAFETY:
 --   - Single BEGIN; ... COMMIT; transaction
@@ -34,7 +35,6 @@
 --   - Section 3.4d: dynamic in-transaction check before the DELETE
 --   - Section 3.5: hard assertions
 --       - 0 stores after delete
---       - storemanager@test.com profile still exists with store_id = NULL
 --       - Super Admin count > 0
 --   - Take a Supabase backup BEFORE running: Dashboard > Database > Backups
 -- ============================================================================
@@ -51,8 +51,6 @@ DECLARE
   v_gst_with_store      BIGINT;
   v_slots_total         BIGINT;
   v_commissions_total   BIGINT;
-  v_sm_exists           BIGINT;
-  v_sm_has_store        BIGINT;
   v_sa_count            BIGINT;
   v_profiles_total      BIGINT;
 BEGIN
@@ -63,14 +61,6 @@ BEGIN
   SELECT COUNT(*) INTO v_gst_with_store      FROM public.gst_numbers     WHERE store_id IS NOT NULL;
   SELECT COUNT(*) INTO v_slots_total         FROM public.delivery_slots;
   SELECT COUNT(*) INTO v_commissions_total   FROM public.store_commissions;
-  SELECT COUNT(*) INTO v_sm_exists
-    FROM public.profiles p
-    JOIN auth.users u ON u.id = p.id
-    WHERE u.email = 'storemanager@test.com';
-  SELECT COUNT(*) INTO v_sm_has_store
-    FROM public.profiles p
-    JOIN auth.users u ON u.id = p.id
-    WHERE u.email = 'storemanager@test.com' AND p.store_id IS NOT NULL;
   SELECT COUNT(*) INTO v_sa_count FROM (
     SELECT id FROM public.profiles WHERE role = 'superadmin'
     UNION
@@ -94,8 +84,6 @@ BEGIN
   RAISE NOTICE '  delivery_slots (whole table):         % rows', v_slots_total;
   RAISE NOTICE '  store_commissions (whole table):      % rows', v_commissions_total;
   RAISE NOTICE 'KEEP CHECKS:';
-  RAISE NOTICE '  storemanager@test.com profile:        % (1 = OK, will keep with store_id=NULL)', v_sm_exists;
-  RAISE NOTICE '    ... with non-NULL store_id (will become NULL): %', v_sm_has_store;
   RAISE NOTICE '  Super Admin profiles (KEEP):          % (must be > 0)', v_sa_count;
   RAISE NOTICE '  Total profiles remaining after NULLs: %', v_profiles_total;
   RAISE NOTICE '============================================================';
@@ -132,9 +120,9 @@ ORDER BY table_name, constraint_name;
 -- ============================================================================
 BEGIN;
 
--- 3.1 NULL out profiles.store_id. The storemanager@test.com profile
--- stays (asserted in 3.5); their store_id is just cleared because the
--- store they're linked to is being deleted.
+-- 3.1 NULL out profiles.store_id. Any profile linked to a store has
+-- its store_id cleared (the profile ROW stays; only the link is
+-- broken so the store can be deleted).
 UPDATE public.profiles       SET store_id = NULL WHERE store_id IS NOT NULL;
 
 -- 3.2 NULL out other child FKs to stores. The rows themselves stay
@@ -195,32 +183,22 @@ END $$;
 -- categories trigger was special).
 DELETE FROM public.stores;
 
--- 3.6 Hard assertions. The transaction rolls back on any of these.
+-- 3.6 Hard assertions. The transaction rolls back on stores count
+-- and Super Admin count only. (storemanager@test.com is no longer
+-- asserted — it was deleted by P40 and the user said it can be
+-- left out.)
 DO $$
 DECLARE
-  v_stores      BIGINT;
-  v_sm_exists   BIGINT;
-  v_sm_store_id TEXT;
-  v_sa_count    BIGINT;
+  v_stores        BIGINT;
+  v_sa_count      BIGINT;
 BEGIN
-  -- 0 stores must remain
+  -- 0 stores must remain (HARD assertion)
   SELECT COUNT(*) INTO v_stores FROM public.stores;
   IF v_stores <> 0 THEN
     RAISE EXCEPTION 'ABORT: % stores still remain after delete. Rolling back.', v_stores;
   END IF;
 
-  -- storemanager@test.com must still exist with store_id = NULL
-  SELECT p.store_id::text INTO v_sm_store_id
-    FROM public.profiles p
-    JOIN auth.users u ON u.id = p.id
-    WHERE u.email = 'storemanager@test.com';
-  IF v_sm_store_id IS NULL THEN
-    RAISE EXCEPTION 'ABORT: storemanager@test.com profile is missing. Rolling back.';
-  ELSIF v_sm_store_id <> '' THEN
-    RAISE EXCEPTION 'ABORT: storemanager@test.com still has store_id = %. Rolling back.', v_sm_store_id;
-  END IF;
-
-  -- Super Admin must still exist
+  -- Super Admin must still exist (HARD assertion)
   SELECT COUNT(*) INTO v_sa_count FROM (
     SELECT id FROM public.profiles WHERE role = 'superadmin'
     UNION
@@ -234,7 +212,6 @@ BEGIN
 
   RAISE NOTICE 'ASSERTION PASSED:';
   RAISE NOTICE '  stores remaining: 0';
-  RAISE NOTICE '  storemanager@test.com: kept (store_id = NULL)';
   RAISE NOTICE '  Super Admin profiles: %', v_sa_count;
 END $$;
 
@@ -251,7 +228,6 @@ DECLARE
   v_inventory_log  BIGINT;
   v_activity_logs  BIGINT;
   v_stores_kept    BIGINT;
-  v_sm_final       BIGINT;
   v_sa_final       BIGINT;
 BEGIN
   SELECT COUNT(*) INTO v_stores         FROM public.stores;
@@ -264,9 +240,6 @@ BEGIN
   SELECT COUNT(*) INTO v_inventory_log  FROM public.inventory_log;
   SELECT COUNT(*) INTO v_activity_logs  FROM public.activity_logs;
   SELECT COUNT(*) INTO v_stores_kept    FROM public.profiles WHERE store_id IS NOT NULL;
-  SELECT COUNT(*) INTO v_sm_final FROM public.profiles p
-    JOIN auth.users u ON u.id = p.id
-    WHERE u.email = 'storemanager@test.com';
   SELECT COUNT(*) INTO v_sa_final FROM (
     SELECT id FROM public.profiles WHERE role = 'superadmin'
     UNION
@@ -282,7 +255,6 @@ BEGIN
   RAISE NOTICE '  delivery_slots remaining:              0 (target)';
   RAISE NOTICE '  store_commissions remaining:           0 (target)';
   RAISE NOTICE '  profiles with non-NULL store_id:       % (target: 0)', v_stores_kept;
-  RAISE NOTICE '  storemanager@test.com profile:         % (target: 1)', v_sm_final;
   RAISE NOTICE '  Super Admin profiles:                  % (target: >= 1)', v_sa_final;
   RAISE NOTICE '  total profiles remaining:              %', v_profiles_total;
   RAISE NOTICE 'KEEPS (rows preserved, references NULLed):';
