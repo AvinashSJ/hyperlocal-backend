@@ -146,8 +146,8 @@ END $$;
 
 -- ============================================================================
 -- SECTION 2: FK SAFETY CHECK — list any NO ACTION FK constraints
--- to profiles that we haven't pre-nulled. If anything shows up here,
--- STOP and add it to Section 3.1 before running.
+-- to profiles OR auth.users that we haven't pre-nulled. If anything
+-- shows up here, STOP and add it to Section 3.4c before running.
 -- ============================================================================
 SELECT
   con.conrelid::regclass AS table_name,
@@ -158,7 +158,11 @@ JOIN pg_class c ON c.oid = con.conrelid
 WHERE c.relnamespace = 'public'::regnamespace
   AND con.contype = 'f'
   AND con.confdeltype = 'a'  -- NO ACTION
-  AND pg_get_constraintdef(con.oid) LIKE '%profiles%';
+  AND (
+    pg_get_constraintdef(con.oid) LIKE '%profiles%'
+    OR pg_get_constraintdef(con.oid) LIKE '%auth.users%'
+  )
+ORDER BY table_name, constraint_name;
 
 -- ============================================================================
 -- SECTION 3: ACTUAL DELETION
