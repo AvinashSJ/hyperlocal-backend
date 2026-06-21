@@ -55,6 +55,9 @@ DECLARE
   v_categories        BIGINT;
   v_store_categories  BIGINT;
   v_inventory_log     BIGINT;
+  v_inventory_log_adj BIGINT;
+  v_addresses         BIGINT;
+  v_notifications     BIGINT;
   v_profiles_total    BIGINT;
   v_profiles_sa       BIGINT;
   v_profiles_mgr      BIGINT;
@@ -74,6 +77,9 @@ BEGIN
   SELECT COUNT(*) INTO v_categories    FROM public.categories;
   SELECT COUNT(*) INTO v_store_categories FROM public.store_categories;
   SELECT COUNT(*) INTO v_inventory_log FROM public.inventory_log;
+  SELECT COUNT(*) INTO v_inventory_log_adj FROM public.inventory_log WHERE adjusted_by IS NOT NULL;
+  SELECT COUNT(*) INTO v_addresses     FROM public.addresses;
+  SELECT COUNT(*) INTO v_notifications FROM public.notifications;
 
   SELECT COUNT(*) INTO v_profiles_total FROM public.profiles;
   SELECT COUNT(*) INTO v_profiles_sa FROM (
@@ -127,7 +133,11 @@ BEGIN
   RAISE NOTICE 'AUTH USERS:';
   RAISE NOTICE '  total auth.users:  %', v_auth_total;
   RAISE NOTICE 'INVENTORY LOG (NOT deleted, just nulled by P15 FK):';
-  RAISE NOTICE '  inventory_log rows: % (stays, product_id/variant_id set NULL)', v_inventory_log;
+  RAISE NOTICE '  inventory_log rows:                       % (stays, product_id/variant_id set NULL)', v_inventory_log;
+  RAISE NOTICE '  inventory_log rows with adjusted_by set:  % (will be NULLed in 3.4c)', v_inventory_log_adj;
+  RAISE NOTICE 'CUSTOMER-SIDE DATA:';
+  RAISE NOTICE '  addresses:      % (will be DELETED in 3.1)', v_addresses;
+  RAISE NOTICE '  notifications:  % (user_id will be NULLed in 3.1/3.4c)', v_notifications;
   RAISE NOTICE '============================================================';
   RAISE NOTICE 'REVIEW THE COUNTS ABOVE. If they look right, scroll to';
   RAISE NOTICE 'SECTION 3 and uncomment the COMMIT; line.';
@@ -214,12 +224,17 @@ UPDATE public.stores SET owner_id = NULL WHERE owner_id IS NOT NULL;
 -- 3.4c Pre-null remaining NO ACTION FKs to profiles / auth.users that we
 -- discovered during the P40 live run. Defensive — if any other table
 -- has a default-NO-ACTION FK to profiles, this catches it.
---   - addresses.user_id   (default NO ACTION on the original schema)
---   - notifications.user_id (already nulled above, repeated for safety)
---   - activity_logs.user_id is already ON DELETE SET NULL — no NULL needed
+--   - addresses.user_id      (default NO ACTION on the original schema)
+--   - notifications.user_id  (already nulled above, repeated for safety)
+--   - inventory_log.adjusted_by (default NO ACTION — caught by Section 2)
+--   - activity_logs.user_id  is already ON DELETE SET NULL — no NULL needed
 --   - product_reviews.user_id is already CASCADE — no NULL needed
-UPDATE public.addresses     SET user_id = NULL WHERE user_id IS NOT NULL;
-UPDATE public.notifications SET user_id = NULL WHERE user_id IS NOT NULL;
+--   - orders.user_id         is NO ACTION but orders are deleted in 3.1
+--                            before this point, so the rows are already
+--                            gone — no NULL needed here.
+UPDATE public.addresses     SET user_id      = NULL WHERE user_id      IS NOT NULL;
+UPDATE public.notifications SET user_id      = NULL WHERE user_id      IS NOT NULL;
+UPDATE public.inventory_log SET adjusted_by  = NULL WHERE adjusted_by  IS NOT NULL;
 
 -- 3.4d In-transaction row-level check. Verifies that the columns we just
 -- NULLed (3.4 / 3.4b / 3.4c) actually have no non-NULL values left. If
@@ -234,21 +249,24 @@ DECLARE
   v_store_comm       BIGINT;
   v_comm_payments    BIGINT;
   v_stores           BIGINT;
+  v_inventory_log    BIGINT;
 BEGIN
-  SELECT COUNT(*) INTO v_addresses     FROM public.addresses         WHERE user_id    IS NOT NULL;
-  SELECT COUNT(*) INTO v_notifications FROM public.notifications     WHERE user_id    IS NOT NULL;
-  SELECT COUNT(*) INTO v_store_comm    FROM public.store_commissions  WHERE created_by IS NOT NULL;
+  SELECT COUNT(*) INTO v_addresses     FROM public.addresses         WHERE user_id     IS NOT NULL;
+  SELECT COUNT(*) INTO v_notifications FROM public.notifications     WHERE user_id     IS NOT NULL;
+  SELECT COUNT(*) INTO v_store_comm    FROM public.store_commissions  WHERE created_by  IS NOT NULL;
   SELECT COUNT(*) INTO v_comm_payments FROM public.commission_payments WHERE created_by IS NOT NULL;
-  SELECT COUNT(*) INTO v_stores        FROM public.stores             WHERE owner_id   IS NOT NULL;
+  SELECT COUNT(*) INTO v_stores        FROM public.stores             WHERE owner_id    IS NOT NULL;
+  SELECT COUNT(*) INTO v_inventory_log FROM public.inventory_log      WHERE adjusted_by IS NOT NULL;
   RAISE NOTICE 'Pre-delete row counts (should all be 0):';
-  RAISE NOTICE '  addresses.user_id non-null:        %', v_addresses;
-  RAISE NOTICE '  notifications.user_id non-null:    %', v_notifications;
-  RAISE NOTICE '  store_commissions.created_by non-null: %', v_store_comm;
+  RAISE NOTICE '  addresses.user_id non-null:             %', v_addresses;
+  RAISE NOTICE '  notifications.user_id non-null:         %', v_notifications;
+  RAISE NOTICE '  store_commissions.created_by non-null:  %', v_store_comm;
   RAISE NOTICE '  commission_payments.created_by non-null: %', v_comm_payments;
-  RAISE NOTICE '  stores.owner_id non-null:         %', v_stores;
-  IF v_addresses + v_notifications + v_store_comm + v_comm_payments + v_stores > 0 THEN
+  RAISE NOTICE '  stores.owner_id non-null:               %', v_stores;
+  RAISE NOTICE '  inventory_log.adjusted_by non-null:     %', v_inventory_log;
+  IF v_addresses + v_notifications + v_store_comm + v_comm_payments + v_stores + v_inventory_log > 0 THEN
     RAISE EXCEPTION
-      'ABORT: non-zero pre-delete row counts above. The auth.users DELETE would violate a NO ACTION FK. This means a table I did not pre-NULL is referencing profiles. Inspect the failing table and add an `UPDATE ... SET <fk_col> = NULL` to Section 3.4c.';
+      'ABORT: non-zero pre-delete row counts above. The auth.users DELETE would violate a NO ACTION FK. This means a table I did not pre-NULL is referencing profiles. Inspect the failing table and add an `UPDATE ... SET <fk_col> = NULL` to Section 3.4c before re-running.';
   END IF;
 END $$;
 
