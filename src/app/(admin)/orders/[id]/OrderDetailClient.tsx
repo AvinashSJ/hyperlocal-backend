@@ -254,11 +254,21 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
             </div>
           </div>
 
-          {(order.status !== "cancelled" && order.status !== "returned" && order.status !== "delivered") && (
-            <div className="mt-2">
-              <Link href={`/invoices?order_id=${order.id}`} className="btn btn-sm btn-outline-success w-100">
+          {order.invoice_id && (
+            <div className="mt-2 d-flex gap-2">
+              <Link
+                href={`/invoices/${order.invoice_id}`}
+                className="btn btn-sm btn-outline-success flex-grow-1"
+              >
                 <Icon icon="ri:file-text-line" width={16} className="me-1" />View Invoice
               </Link>
+              <a
+                href={`/api/invoices/${order.invoice_id}/pdf`}
+                className="btn btn-sm btn-success flex-grow-1"
+                title="Download Invoice PDF"
+              >
+                <Icon icon="ri:download-2-line" width={16} className="me-1" />Download
+              </a>
             </div>
           )}
         </div>

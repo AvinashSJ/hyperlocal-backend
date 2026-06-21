@@ -10,8 +10,35 @@ const InvoicePDF = dynamic(() => import("./InvoicePDF"), { ssr: false });
 
 export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetail }) {
   const [showPdf, setShowPdf] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const order = invoice.orders;
   const addr = order?.addresses;
+
+  async function handleDownload() {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch(`/api/invoices/${invoice.id}/pdf`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || `Download failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${invoice.invoice_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? err.message : "Download failed");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <>
@@ -25,11 +52,34 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
             {invoice.status}
           </span>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowPdf(!showPdf)}>
-          <Icon icon={showPdf ? "ri:file-text-line" : "ri:file-pdf-line"} width={16} className="me-1" />
-          {showPdf ? "Show Details" : "Preview PDF"}
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setShowPdf(!showPdf)}
+            aria-label={showPdf ? "Show details" : "Show PDF preview"}
+          >
+            <Icon icon={showPdf ? "ri:file-text-line" : "ri:file-pdf-line"} width={16} className="me-1" />
+            {showPdf ? "Show Details" : "Preview PDF"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={handleDownload}
+            disabled={downloading}
+            data-testid="download-invoice-btn"
+          >
+            <Icon icon="ri:download-2-line" width={16} className="me-1" />
+            {downloading ? "Downloading…" : "Download PDF"}
+          </button>
+        </div>
       </div>
+
+      {downloadError && (
+        <div className="alert alert-danger py-2 mb-3" role="alert">
+          {downloadError}
+        </div>
+      )}
 
       {showPdf ? (
         <div className="card">
@@ -69,6 +119,21 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
               </div>
             </div>
           </div>
+          {invoice.store && (
+            <div className="col-12">
+              <div className="card">
+                <div className="card-header"><strong>Seller</strong></div>
+                <div className="card-body">
+                  <p className="mb-1 fw-semibold">{invoice.store.legal_name ?? invoice.store.name}</p>
+                  {invoice.store.address && <p className="mb-1">{invoice.store.address}</p>}
+                  <p className="mb-1">
+                    {[invoice.store.city, invoice.store.state, invoice.store.pincode].filter(Boolean).join(", ")}
+                  </p>
+                  {invoice.store.gstin && <p className="mb-0 small text-muted">GSTIN: {invoice.store.gstin}</p>}
+                </div>
+              </div>
+            </div>
+          )}
           {addr && (
             <div className="col-12">
               <div className="card">

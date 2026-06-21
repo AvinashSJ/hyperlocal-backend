@@ -80,13 +80,23 @@ export default function InvoicesClient({ invoices }: { invoices: InvoiceListItem
                   })}
                 </td>
                 <td className="text-center">
-                  <Link
-                    href={`/invoices/${inv.id}`}
-                    className="btn btn-sm btn-outline-primary"
-                    title="View Invoice"
-                  >
-                    <Icon icon="ri:file-text-line" width={16} />
-                  </Link>
+                  <div className="btn-group btn-group-sm" role="group">
+                    <Link
+                      href={`/invoices/${inv.id}`}
+                      className="btn btn-outline-primary"
+                      title="View Invoice"
+                    >
+                      <Icon icon="ri:file-text-line" width={16} />
+                    </Link>
+                    <a
+                      href={`/api/invoices/${inv.id}/pdf`}
+                      className="btn btn-outline-success"
+                      title="Download Invoice PDF"
+                      data-testid="row-download-invoice"
+                    >
+                      <Icon icon="ri:download-2-line" width={16} />
+                    </a>
+                  </div>
                 </td>
               </tr>
             ))}

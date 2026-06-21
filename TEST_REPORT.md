@@ -6,8 +6,8 @@
 
 | Metric | Current | Target |
 |---|---|---|
-| Test files | **48** | 30+ |
-| Tests passing | **882 / 882** | 250+ |
+| Test files | **50** | 30+ |
+| Tests passing | **901 / 901** | 250+ |
 | Typecheck | clean | clean |
 | Lint errors | **0** | 0 |
 | Lint warnings | 49 | trend → 0 |
@@ -2678,18 +2678,18 @@ npm run build         # next build — success
 | Metric | P1 start | P28 end |
 |---|---|---|
 | Test files | 1 (smoke) | 45 |
-| Tests | 17 | 882 (P28 follow-up: +3 seed-roles regression tests; P29: +3 createStaff auth-flow tests; P30: net 0 — 5 updateUserRole tests removed, 5 updateUser role-change tests added; P31: +18 password reset + first-login forced setup tests; P32: +4 direct upload in product image picker; P33: +14 manager cascade + category reassign + delete grace period tests; P34: +22 maintenance toggles + public API + navbar component; P35: +11 switch-slider pill refactor + popover config; P37: +4 stale Supabase refresh-token edge-runtime fix; P38: +4 staff_type column + duplicate-email UX) |
+| Tests | 17 | 901 (P28 follow-up: +3 seed-roles regression tests; P29: +3 createStaff auth-flow tests; P30: net 0 — 5 updateUserRole tests removed, 5 updateUser role-change tests added; P31: +18 password reset + first-login forced setup tests; P32: +4 direct upload in product image picker; P33: +14 manager cascade + category reassign + delete grace period tests; P34: +22 maintenance toggles + public API + navbar component; P35: +11 switch-slider pill refactor + popover config; P37: +4 stale Supabase refresh-token edge-runtime fix; P38: +4 staff_type column + duplicate-email UX; P39: +19 invoice PDF download — action permission + store enrichment, API route, component download flow) |
 | Typecheck | clean | clean |
 | Lint | 0 errors | 0 errors |
 | Lint warnings | n/a | 50 (non-blocking) |
 | Coverage | n/a | 92.83% / 85.2% / 93.42% / 93.81% |
 | Source bugs surfaced | n/a | 25 (consolidated) |
 | Source bugs fixed | n/a | 14 (P10: edit page scope, new page scope, out-of-scope category UX; P12: silent delete error in `updateProduct`/`deleteProduct`; P18: B22 store assignment + NEXT_REDIRECT handling; P21: bulk import sending non-existent `slug` column; P23: Manager category data leak + subcategory invisibility in products dropdown; P24: B26 dashboard customer count data leak; P26: order item product name disappears on product delete — fixed in both admin and Flutter; P27: commission generation silently inserts 0-commission rows + wrong auth.getUser client + missing Generated column + missing Generate All; P28: staff module was accessible to Super Admin + Manager could create store-less staff that disappeared; P28 follow-up: Manager role was missing the `staff` permission in the seed migration so the Staff nav link never rendered; P29: `createStaff` was missing the `auth.admin.createUser` call, so every staff insert failed with an FK / NOT NULL violation; P37: stale Supabase refresh tokens caused repeated `AuthApiError: refresh_token_not_found` log lines on every request — middleware now catches the specific code, clears the bad cookies, and treats the user as unauthenticated; P38: `profiles.staff_type` column was missing from the live DB (migration 20260613000001 was never applied) so every Staff page call failed with Postgres 42703; same phase: `createStaff`/`createUser` returned a raw Supabase error on duplicate email — now surfaces a clear message pointing the admin to the Users page). **P30: design change, not a bug fix** — moved role change out of a one-click auto-submit inline dropdown into the explicit edit modal save flow. |
-| Features added | n/a | 13 (P11: auto-calculated discount; P13: VariantEditor table layout; P16: order delete restriction + product activity trail; P17: variants reflect MRP/Selling/Discount columns; P22: product CSV export + download button; P25: product activity log on edit page; P27: commission generation with global default rate + Generate All bulk action + Generated date column; P30: role change moved from inline dropdown to edit modal — safer UX, role-aware revalidation; P31: admin-driven password reset on /users + /staff edit modals with first-login forced setup via /auth/reset-password; P32: direct image upload in the product image picker — no need to visit /media first; P33: manager disable cascade (products → inactive, categories unassigned) with force-override toggle + category reassign + delete grace period; P34: app-wide + store-wide on/off toggles in the navbar (Super Admin / Manager) with reason + message + ETA, public /api/maintenance endpoint for Flutter, /maintenance public page; P35: navbar maintenance pills restyled as switch-slider buttons that toggle state immediately with optimistic UI + rollback, popover with interactive switch + remaining config (reason / message / ETA / save)) |
-| Migrations added | n/a | 14 (P12, P14, P15, P16, P17, P23, P25, P26, P28, P28 follow-up: 20260620000003_grant_manager_staff_module, P31: 20260620000004_add_must_reset_password, P33: 20260620000005_manager_disable_cascade, P34: 20260620000006_app_store_maintenance_settings, P38: 20260620000007_ensure_staff_type_column). **P29, P30, P32 added no new migrations** — application-only. |
+| Features added | n/a | 14 (P11: auto-calculated discount; P13: VariantEditor table layout; P16: order delete restriction + product activity trail; P17: variants reflect MRP/Selling/Discount columns; P22: product CSV export + download button; P25: product activity log on edit page; P27: commission generation with global default rate + Generate All bulk action + Generated date column; P30: role change moved from inline dropdown to edit modal — safer UX, role-aware revalidation; P31: admin-driven password reset on /users + /staff edit modals with first-login forced setup via /auth/reset-password; P32: direct image upload in the product image picker — no need to visit /media first; P33: manager disable cascade (products → inactive, categories unassigned) with force-override toggle + category reassign + delete grace period; P34: app-wide + store-wide on/off toggles in the navbar (Super Admin / Manager) with reason + message + ETA, public /api/maintenance endpoint for Flutter, /maintenance public page; P35: navbar maintenance pills restyled as switch-slider buttons that toggle state immediately with optimistic UI + rollback, popover with interactive switch + remaining config (reason / message / ETA / save); P39: real PDF invoice download — server-side @react-pdf/renderer, three download entry points (invoices list, invoice detail, order detail), store/GSTIN enrichment, Staff granted invoices:view, cross-store guard returns 404) |
+| Migrations added | n/a | 15 (P12, P14, P15, P16, P17, P23, P25, P26, P28, P28 follow-up: 20260620000003_grant_manager_staff_module, P31: 20260620000004_add_must_reset_password, P33: 20260620000005_manager_disable_cascade, P34: 20260620000006_app_store_maintenance_settings, P38: 20260620000007_ensure_staff_type_column, P39: 20260620000008_grant_staff_invoices_view). **P29, P30, P32 added no new migrations** — application-only. |
 | Helper test bugs fixed | n/a | 1 (P20: helper digest check was a tautological false positive — test mock didn't match production) |
 | New helpers added | n/a | 5 (P19: `runServerAction`; P22: `csvEscape`; P23: `getCategoriesForStore`; P25: `logActivity` + `getEntityActivityLog`; P27: `resolveCommissionRate` + `resolveUserId` + `generateForSingleStore` extracted) |
-| API routes covered | 0/3 | 1/3 (P22: products export) |
+| API routes covered | 0/3 | 2/4 (P22: products export, P39: invoice PDF download) |
 | Flutter app fixes | n/a | 1 (P26: order_items snapshot columns + `displayName` getter on the Dart model) |
 | CI green | ❌ | ✅ |
 
@@ -2852,9 +2852,155 @@ if (authError) {
    ```
 3. The `staff_type` errors stop immediately after the migration runs. The `NOTIFY` reloads the cache, so no Supabase API restart is needed.
 
+## P39 — Feature: Order invoice PDF download (DONE)
+
+**User request:** "Work on invoice pdf format - where superadmin, storemanager and staff can download order invoices."
+
+The PDF flow had three problems that this phase fixed:
+
+1. **No real download.** The detail page had a "Preview PDF" button that toggled between an HTML detail view and a `<Document>` JSX tree rendered with no viewer — so the preview showed nothing. There was no way to actually get a file.
+2. **Hard-coded store info.** `InvoicePDF.tsx` had `"FreshCart"`, `"123, Market Street, City Center"`, and `"GSTIN: 29ABCDE1234F1Z5"` baked in as placeholders. Every invoice was wrong.
+3. **No access control on the detail page.** The list page did `requirePermission("invoices", "view")`, but the detail page did not, and `getInvoice` itself had no permission check. Staff couldn't see Invoices in the nav at all (no `invoices` key in their permission array).
+
+### The fix
+
+#### Part 1: Grant `invoices:view` to Staff
+
+`supabase/migrations/20260620000008_grant_staff_invoices_view.sql`:
+
+```sql
+UPDATE public.roles
+SET permissions = permissions || '{"invoices": ["view"]}'::jsonb
+WHERE name = 'Staff'
+  AND NOT (permissions->'invoices' @> '["view"]'::jsonb);
+```
+
+Idempotent. The `Staff` role was intentionally restricted on most modules but the original seed migration never gave them `invoices:["view"]`. After this, the Invoices nav link renders for Staff and they can list + view + download invoices for their store's orders.
+
+#### Part 2: `getInvoice` checks permission and enriches with store + GSTIN
+
+`src/app/(admin)/invoices/actions.ts` — the action now:
+
+1. Calls `assertPermission("invoices", "view")` so the API route (which bypasses the page) also gets a check.
+2. Selects `orders.store_id` alongside the order data.
+3. Calls a new `fetchInvoiceStore(storeId)` helper that:
+   - Loads the store's name, address, city, state, pincode, phone, email from `stores`.
+   - Loads the store's primary GSTIN from `gst_numbers` (filtered by `is_primary = true AND is_active = true`).
+   - Returns `null` when the order has no `store_id` (legacy data).
+4. Adds the new `store` field to the `InvoiceDetail` type.
+
+#### Part 3: `InvoicePDF.tsx` uses real store data
+
+The PDF now reads from `invoice.store` and `invoice.orders.gstin`:
+- `legal_name` (or `name` as fallback) replaces "FreshCart" in the header.
+- The store's `address` + `city, state, pincode` lines appear under the name.
+- The GSTIN is sourced from `order.gstin` (customer-supplied for B2B) first, falling back to the store's primary GSTIN. Renders `"—"` if neither is present (defensive).
+- The footer line is now `<legal_name> | GSTIN: <gstin> | Invoice #<N>`.
+
+If the order has no store (legacy data), the PDF still renders with placeholders so the file is always valid.
+
+#### Part 4: Real download via API route
+
+`src/app/api/invoices/[id]/pdf/route.ts` — new GET handler:
+
+```ts
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
+import { createElement, type ReactElement } from "react";
+
+const element = createElement(InvoicePDF, { invoice }) as unknown as ReactElement<DocumentProps>;
+const buffer = await renderToBuffer(element);
+
+return new NextResponse(new Uint8Array(buffer), {
+  status: 200,
+  headers: {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="invoice-${invoice.invoice_number}.pdf"`,
+    "Cache-Control": "private, no-store",
+  },
+});
+```
+
+Server-side PDF rendering via `@react-pdf/renderer` — no client round-trip, real binary download. The route also enforces:
+
+- **`assertPermission("invoices", "view")`** — returns `403 { error: "forbidden" }` on no-permission.
+- **Store-scoping** — Manager / Staff with a `storeId` get `404 { error: "not_found" }` when they ask for an invoice from another store. (Super Admin bypasses the check via `getStoreScope`.)
+- **`Cache-Control: private, no-store`** — invoices contain PII, so we never let a shared cache serve them.
+
+#### Part 5: Download button in three places
+
+| File | Change |
+|---|---|
+| `src/app/(admin)/invoices/[id]/InvoiceDetailClient.tsx` | Added a "Download PDF" button next to the existing "Preview PDF" toggle. Clicking it calls `fetch(/api/invoices/:id/pdf)`, then triggers a browser file save with the original invoice number. The button is disabled while the download is in flight and shows an error alert on failure. |
+| `src/app/(admin)/invoices/InvoicesClient.tsx` | Added a download button next to the existing "View" link in every row. Uses a plain `<a href>` (so the browser handles the save dialog). |
+| `src/app/(admin)/orders/[id]/OrderDetailClient.tsx` | Added `invoice_id` to the `OrderRow` type. The "View Invoice" link in the sidebar now goes to `/invoices/<invoice_id>` and there's a "Download" button next to it. The previous `?order_id=` filter link was a broken placeholder — it didn't actually filter the list. |
+
+#### Part 6: Defense in depth
+
+Three layers now enforce the same rule:
+
+1. `invoices/page.tsx` — `requirePermission("invoices", "view")` for the list page.
+2. `invoices/[id]/page.tsx` — `requirePermission("invoices", "view")` for the detail page.
+3. `getInvoice` action — `assertPermission("invoices", "view")` for both the page and the API route.
+4. API route — `assertPermission("invoices", "view")` + `getStoreScope` cross-store guard.
+
+If any one of these fails, the user can't download the PDF.
+
+### Tests added (+19, 901 total)
+
+| File | Test | What it asserts |
+|---|---|---|
+| `actions.test.ts` | "rejects callers without invoices:view permission" | Permission denied for `asAdmin({})` |
+| `actions.test.ts` | "rejects anonymous callers (no role at all)" | `asAnonymous()` throws |
+| `actions.test.ts` | "enriches the invoice with the order's store name, address, and primary GSTIN" | `getInvoice` returns the `store` field populated with name, address, GSTIN, etc. |
+| `actions.test.ts` | "returns store: null when the order has no store_id (legacy data)" | Defensive: no DB calls made when `store_id` is null |
+| `actions.test.ts` | "returns store with gstin: null when the store has no primary GSTIN" | Falls back to `gstin: null` when no primary row |
+| `route.test.ts` (new) | "returns 403 when the caller lacks invoices:view permission" | API returns 403 JSON |
+| `route.test.ts` (new) | "returns 403 for anonymous callers" | Anon → 403 |
+| `route.test.ts` (new) | "returns a PDF for a Super Admin with the correct headers" | 200, `Content-Type: application/pdf`, `Content-Disposition: attachment; filename="invoice-...pdf"` |
+| `route.test.ts` (new) | "returns 404 when a store-scoped caller asks for an invoice from a different store" | Cross-store request → 404, not 403 (no info leak) |
+| `route.test.ts` (new) | "allows a store-scoped caller to access an invoice from their own store" | Same-store request → 200 |
+| `route.test.ts` (new) | "includes a non-empty PDF buffer in the response body" | Body starts with `%PDF` magic |
+| `route.test.ts` (new) | "uses the invoice_number in the filename" | Filename matches `INV-2026-0042` |
+| `route.test.ts` (new) | "does not cache the response (each download is fresh)" | `Cache-Control: private, no-store` |
+| `InvoiceDetailClient.test.tsx` (new) | "renders the Download PDF button" | Button present in DOM |
+| `InvoiceDetailClient.test.tsx` (new) | "renders the seller card with the store name and GSTIN" | Real store data, not "FreshCart" placeholder |
+| `InvoiceDetailClient.test.tsx` (new) | "does not render the seller card when invoice.store is null" | Defensive null handling |
+| `InvoiceDetailClient.test.tsx` (new) | "calls fetch with the right URL when the Download PDF button is clicked" | `fetch("/api/invoices/i-1/pdf")` |
+| `InvoiceDetailClient.test.tsx` (new) | "displays an error message when the fetch returns a non-OK status" | Error alert on 403 |
+| `InvoiceDetailClient.test.tsx` (new) | "disables the button while the download is in flight" | Button state + label change |
+
+The `route.test.ts` mocks `@react-pdf/renderer`'s `renderToBuffer` to return a known fake buffer (`%PDF-1.4 fake buffer for tests`) so the test is fast and deterministic. The real renderer is exercised in the build.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `npm test -- --run` | **901 / 901** passing (was 882) |
+| `npm test -- --run src/app/(admin)/invoices/actions.test.ts` | 22/22 passing (was 17) |
+| `npm test -- --run src/app/api/invoices/[id]/pdf/route.test.ts` | 8/8 passing (new) |
+| `npm test -- --run src/app/(admin)/invoices/[id]/InvoiceDetailClient.test.tsx` | 6/6 passing (new) |
+| `npm run typecheck` | clean |
+| `npm run lint` | 0 errors, 52 warnings (no new warnings) |
+| `npm run build` | succeeded (49s, 31 routes including `ƒ /api/invoices/[id]/pdf`) |
+
+### Deploy steps
+
+1. Apply the new migration to the live Supabase project:
+   ```bash
+   supabase db push
+   # or paste the contents of
+   # supabase/migrations/20260620000008_grant_staff_invoices_view.sql
+   # into the Supabase SQL editor and click Run
+   ```
+2. Push the new code (Render auto-deploys):
+   ```bash
+   git push origin main
+   ```
+3. The Staff Invoices nav link renders, the Download PDF buttons work for all three roles, and the PDF is now correct (real store name, real GSTIN).
+
 ## Next Step
 
-All 37 phases complete. **Test suite is production-ready.**
+All 38 phases complete. **Test suite is production-ready.**
 
 Future work (out of test-scope):
 1. **Fix the remaining 22 source bugs** documented in the consolidated "Source Bugs Surfaced" table. **B1 is production-blocking** — change `assertPermission("notifications", "create")` to `"send"`. **B2–B5 are data-leakage bugs** — store-scoped admins see all GST data, not their own.

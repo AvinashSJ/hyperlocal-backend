@@ -1,5 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
-import type { InvoiceDetail } from "../actions";
+import type { InvoiceDetail, InvoiceStore } from "../actions";
 
 Font.register({
   family: "Helvetica",
@@ -64,19 +64,54 @@ function numberToWords(n: number): string {
   return w + " Rupees" + (f > 0 ? " and " + convert(f) + " Paise" : "") + " Only";
 }
 
+/**
+ * P39: build the lines that appear under the store name in the
+ * PDF header. We prefer the customer-supplied GSTIN
+ * (`order.gstin`) when present (B2B buyers supply their own
+ * GSTIN), and fall back to the store's primary GSTIN from the
+ * `gst_numbers` table.
+ */
+function resolveGstin(order: InvoiceDetail["orders"], store: InvoiceStore | null): string | null {
+  return order?.gstin ?? store?.gstin ?? null;
+}
+
+function buildStoreAddressLines(store: InvoiceStore | null): string[] {
+  if (!store) return [];
+  const lines: string[] = [];
+  if (store.address) lines.push(store.address);
+  const cityLine = [store.city, store.state, store.pincode].filter(Boolean).join(", ");
+  if (cityLine) lines.push(cityLine);
+  if (store.phone) lines.push(`Phone: ${store.phone}`);
+  if (store.email) lines.push(`Email: ${store.email}`);
+  return lines;
+}
+
 export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
   const order = invoice.orders;
   const addr = order?.addresses;
   const items = order?.order_items ?? [];
+  const store = invoice.store;
+  const gstin = resolveGstin(order, store);
+  const storeAddressLines = buildStoreAddressLines(store);
+  // Fallback to "—" only if the store is unknown. In production
+  // every order has a store, so this is purely defensive.
+  const storeName = store?.name ?? "—";
+  const legalName = store?.legal_name ?? storeName;
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.storeName}>FreshCart</Text>
-            <Text style={styles.storeInfo}>123, Market Street, City Center</Text>
-            <Text style={styles.storeInfo}>GSTIN: 29ABCDE1234F1Z5</Text>
+            <Text style={styles.storeName}>{legalName}</Text>
+            {storeAddressLines.map((line, idx) => (
+              <Text key={idx} style={styles.storeInfo}>{line}</Text>
+            ))}
+            {gstin ? (
+              <Text style={styles.storeInfo}>GSTIN: {gstin}</Text>
+            ) : (
+              <Text style={styles.storeInfo}>GSTIN: —</Text>
+            )}
           </View>
           <View>
             <Text style={styles.invoiceTitle}>TAX INVOICE</Text>
@@ -167,7 +202,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
         </Text>
 
         <Text style={styles.footer}>
-          FreshCart | GSTIN: 29ABCDE1234F1Z5 | Invoice #{invoice.invoice_number}
+          {legalName}{gstin ? ` | GSTIN: ${gstin}` : ""} | Invoice #{invoice.invoice_number}
         </Text>
       </Page>
     </Document>

@@ -10,6 +10,7 @@ import {
 import { revalidatePathMock } from "../../../../test/mocks/next-cache";
 import {
   asAdmin,
+  asAnonymous,
   asSuperAdmin,
   resetPermissionMock,
   assertPermissionMock,
@@ -72,6 +73,9 @@ describe("getInvoice", () => {
     const invoice = makeInvoice({ id: "i-1" });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: invoice, error: null });
+    // P39: getInvoice now also fetches the store and primary GSTIN.
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
 
     const result = await getInvoice("i-1");
     expect(result.id).toBe("i-1");
@@ -86,6 +90,96 @@ describe("getInvoice", () => {
     });
 
     await expect(getInvoice("missing")).rejects.toThrow("Not found");
+  });
+
+  // P39: permission check
+  it("rejects callers without invoices:view permission", async () => {
+    asAdmin({});
+    await expect(getInvoice("i-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("rejects anonymous callers (no role at all)", async () => {
+    asAnonymous();
+    await expect(getInvoice("i-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  // P39: store enrichment
+  it("enriches the invoice with the order's store name, address, and primary GSTIN", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const invoice = makeInvoice({
+      id: "i-1",
+    });
+    // Patch the orders relation so it has a store_id
+    (invoice as { orders?: { store_id: string | null } }).orders = { store_id: "s-1" };
+    admin.enqueueResponse({ data: invoice, error: null });
+    // store fetch
+    admin.enqueueResponse({
+      data: {
+        name: "Test Store",
+        address: "123 Main St",
+        city: "Bangalore",
+        state: "KA",
+        pincode: "560001",
+        phone: "+911234567890",
+        email: "store@example.com",
+      },
+      error: null,
+    });
+    // primary GSTIN fetch
+    admin.enqueueResponse({
+      data: { gstin: "29ABCDE1234F1Z5", legal_name: "Test Store Pvt Ltd" },
+      error: null,
+    });
+
+    const result = await getInvoice("i-1");
+    expect(result.store).toEqual({
+      name: "Test Store",
+      address: "123 Main St",
+      city: "Bangalore",
+      state: "KA",
+      pincode: "560001",
+      phone: "+911234567890",
+      email: "store@example.com",
+      gstin: "29ABCDE1234F1Z5",
+      legal_name: "Test Store Pvt Ltd",
+    });
+  });
+
+  it("returns store: null when the order has no store_id (legacy data)", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const invoice = makeInvoice({ id: "i-1" });
+    (invoice as { orders?: { store_id: string | null } }).orders = { store_id: null };
+    admin.enqueueResponse({ data: invoice, error: null });
+
+    const result = await getInvoice("i-1");
+    expect(result.store).toBeNull();
+  });
+
+  it("returns store with gstin: null when the store has no primary GSTIN", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const invoice = makeInvoice({ id: "i-1" });
+    (invoice as { orders?: { store_id: string | null } }).orders = { store_id: "s-1" };
+    admin.enqueueResponse({ data: invoice, error: null });
+    admin.enqueueResponse({
+      data: {
+        name: "Test Store",
+        address: "123 Main St",
+        city: "Bangalore",
+        state: "KA",
+        pincode: "560001",
+        phone: null,
+        email: null,
+      },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null }); // no GSTIN row
+
+    const result = await getInvoice("i-1");
+    expect(result.store?.name).toBe("Test Store");
+    expect(result.store?.gstin).toBeNull();
   });
 });
 

@@ -18,6 +18,9 @@ type OrderRow = {
   delivery_date: string | null;
   placed_at: string;
   created_at: string;
+  // P39: the generated invoice's id, if any. Used to drive the
+  // "Download Invoice" button on the order detail page.
+  invoice_id: string | null;
 };
 
 export type OrderListItem = OrderRow & { profiles: { full_name: string | null; phone: string | null } | null };
