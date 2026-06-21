@@ -236,6 +236,10 @@ UPDATE public.stores SET owner_id = NULL WHERE owner_id IS NOT NULL;
 --   - orders.user_id         is NO ACTION but orders are deleted in 3.1
 --                            before this point, so the rows are already
 --                            gone — no NULL needed here.
+--   - order_tracks.created_by is NO ACTION to auth.users(id) but
+--                              order_tracks is deleted in 3.1, so by the
+--                              time we get to 3.5 the rows are already
+--                              gone — no NULL needed here.
 UPDATE public.addresses     SET user_id      = NULL WHERE user_id      IS NOT NULL;
 UPDATE public.notifications SET user_id      = NULL WHERE user_id      IS NOT NULL;
 UPDATE public.inventory_log SET adjusted_by  = NULL WHERE adjusted_by  IS NOT NULL;
