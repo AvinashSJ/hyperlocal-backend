@@ -127,9 +127,13 @@ UPDATE public.profiles       SET store_id = NULL WHERE store_id IS NOT NULL;
 
 -- 3.2 NULL out other child FKs to stores. The rows themselves stay
 -- (per "KEEPS" above); they just lose the store reference.
+-- delivery_slots is also NULLed here as a belt-and-suspenders even
+-- though 3.3 deletes the whole table — covers future schema changes
+-- where 3.3 might be conditional.
 UPDATE public.banners        SET store_id = NULL WHERE store_id IS NOT NULL;
 UPDATE public.delivery_zones SET store_id = NULL WHERE store_id IS NOT NULL;
 UPDATE public.gst_numbers    SET store_id = NULL WHERE store_id IS NOT NULL;
+UPDATE public.delivery_slots SET store_id = NULL WHERE store_id IS NOT NULL;
 
 -- 3.3 Delete child tables that are fully orphaned by the NULLs above.
 -- delivery_slots references delivery_zones; once a zone has no store
