@@ -244,38 +244,52 @@ UPDATE public.addresses     SET user_id      = NULL WHERE user_id      IS NOT NU
 UPDATE public.notifications SET user_id      = NULL WHERE user_id      IS NOT NULL;
 UPDATE public.inventory_log SET adjusted_by  = NULL WHERE adjusted_by  IS NOT NULL;
 
--- 3.4d In-transaction row-level check. Verifies that the columns we just
--- NULLed (3.4 / 3.4b / 3.4c) actually have no non-NULL values left. If
--- any do, the script is broken — abort before the auth.users delete.
--- This is the "belt"; the actual DELETE is the "suspenders" (if there's
--- a NO ACTION FK we missed, the DELETE fails and the transaction
--- rolls back, surfacing the error in the output).
+-- 3.4d In-transaction row-level check. Iterates over every NO ACTION FK
+-- to profiles/auth.users in the public schema, counts non-NULL values in
+-- the FK column, and aborts if any are non-zero. This is the "belt";
+-- the actual DELETE is the "suspenders" (if a future migration adds a
+-- NO ACTION FK and we don't have a NULL for it, the DELETE fails
+-- and the transaction rolls back, surfacing the error in the output).
+-- The hardcoded list in 3.4 / 3.4b / 3.4c is intentionally explicit
+-- for readability; this dynamic check is the safety net.
 DO $$
 DECLARE
-  v_addresses        BIGINT;
-  v_notifications    BIGINT;
-  v_store_comm       BIGINT;
-  v_comm_payments    BIGINT;
-  v_stores           BIGINT;
-  v_inventory_log    BIGINT;
+  v_rec RECORD;
+  v_count BIGINT;
+  v_violations TEXT := '';
+  v_total_checked INT := 0;
 BEGIN
-  SELECT COUNT(*) INTO v_addresses     FROM public.addresses         WHERE user_id     IS NOT NULL;
-  SELECT COUNT(*) INTO v_notifications FROM public.notifications     WHERE user_id     IS NOT NULL;
-  SELECT COUNT(*) INTO v_store_comm    FROM public.store_commissions  WHERE created_by  IS NOT NULL;
-  SELECT COUNT(*) INTO v_comm_payments FROM public.commission_payments WHERE created_by IS NOT NULL;
-  SELECT COUNT(*) INTO v_stores        FROM public.stores             WHERE owner_id    IS NOT NULL;
-  SELECT COUNT(*) INTO v_inventory_log FROM public.inventory_log      WHERE adjusted_by IS NOT NULL;
-  RAISE NOTICE 'Pre-delete row counts (should all be 0):';
-  RAISE NOTICE '  addresses.user_id non-null:             %', v_addresses;
-  RAISE NOTICE '  notifications.user_id non-null:         %', v_notifications;
-  RAISE NOTICE '  store_commissions.created_by non-null:  %', v_store_comm;
-  RAISE NOTICE '  commission_payments.created_by non-null: %', v_comm_payments;
-  RAISE NOTICE '  stores.owner_id non-null:               %', v_stores;
-  RAISE NOTICE '  inventory_log.adjusted_by non-null:     %', v_inventory_log;
-  IF v_addresses + v_notifications + v_store_comm + v_comm_payments + v_stores + v_inventory_log > 0 THEN
+  FOR v_rec IN
+    SELECT
+      con.conrelid::regclass::text AS table_name,
+      (SELECT a.attname
+         FROM unnest(con.conkey) AS ak
+         JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = ak
+         LIMIT 1) AS fk_column
+    FROM pg_constraint con
+    JOIN pg_class c ON c.oid = con.conrelid
+    WHERE c.relnamespace = 'public'::regnamespace
+      AND con.contype = 'f'
+      AND con.confdeltype = 'a'  -- NO ACTION
+      AND (
+        pg_get_constraintdef(con.oid) LIKE '%profiles%'
+        OR pg_get_constraintdef(con.oid) LIKE '%auth.users%'
+      )
+  LOOP
+    v_total_checked := v_total_checked + 1;
+    IF v_rec.fk_column IS NOT NULL THEN
+      EXECUTE format('SELECT COUNT(*) FROM %I WHERE %I IS NOT NULL', v_rec.table_name, v_rec.fk_column)
+        INTO v_count;
+      IF v_count > 0 THEN
+        v_violations := v_violations || format('%s.%s=%s rows; ', v_rec.table_name, v_rec.fk_column, v_count);
+      END IF;
+    END IF;
+  END LOOP;
+  IF length(v_violations) > 0 THEN
     RAISE EXCEPTION
-      'ABORT: non-zero pre-delete row counts above. The auth.users DELETE would violate a NO ACTION FK. This means a table I did not pre-NULL is referencing profiles. Inspect the failing table and add an `UPDATE ... SET <fk_col> = NULL` to Section 3.4c before re-running.';
+      'ABORT: NO ACTION FKs to profiles/auth.users still have non-null references: %. Add the appropriate `UPDATE ... SET <fk_col> = NULL` to Section 3.4c before re-running.', v_violations;
   END IF;
+  RAISE NOTICE 'Dynamic FK check passed: % NO ACTION FK(s) to profiles/auth.users verified NULL-safe.', v_total_checked;
 END $$;
 
 -- 3.5 Delete every auth.users entry that is NOT a Super Admin profile.
