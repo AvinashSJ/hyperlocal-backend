@@ -65,6 +65,32 @@ describe("getInvoices", () => {
 
     await expect(getInvoices()).rejects.toThrow("db boom");
   });
+
+  // P43: each invoice in the list exposes its store (name + code)
+  // joined through orders. Legacy invoices (no order store_id) get null.
+  it("P43: includes the store name and code for each invoice", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const inv = makeInvoice({ id: "i-1" });
+    // P43: the joined `orders.stores` is enriched from a JOIN that
+    // makeInvoice doesn't pre-populate. Cast through unknown (AGENTS.md
+    // pattern) since makeInvoice is a generic factory.
+    (inv as unknown as { orders: { store_id: string | null; stores: { name: string; code: string } | null } }).orders = {
+      store_id: "s-1",
+      stores: { name: "FreshCart", code: "A1B2C3D4" },
+    };
+    const inv2 = makeInvoice({ id: "i-2" });
+    (inv2 as unknown as { orders: { store_id: string | null; stores: { name: string; code: string } | null } }).orders = {
+      store_id: null,
+      stores: null,
+    };
+    admin.enqueueResponse({ data: [inv, inv2], error: null });
+
+    const result = await getInvoices();
+    expect(result).toHaveLength(2);
+    expect(result[0].orders?.stores).toEqual({ name: "FreshCart", code: "A1B2C3D4" });
+    expect(result[1].orders?.stores).toBeNull();
+  });
 });
 
 describe("getInvoice", () => {
@@ -196,14 +222,17 @@ describe("generateInvoice", () => {
     await expect(generateInvoice("o-1")).rejects.toBeInstanceOf(PermissionError);
   });
 
-  it("computes invoice number in INV-YYYY-NNNN format", async () => {
+  it("P43: uses INV-ORPHAN-{year}-{seq} when the order has no store_id (legacy data)", async () => {
     asAdmin({ invoices: ["create"] });
     const admin = getAdminClient();
+    // Order with no store_id (legacy / orphaned).
     admin.enqueueResponse({
       data: makeOrderWithItems(1180, 100, [{ gst_amount: 180 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0, error: null }, error: null });
+    // Count of existing ORPHAN invoices for this year. P43: count is
+    // a top-level response property.
+    admin.enqueueResponse({ count: 0, data: null, error: null });
     admin.enqueueResponse({ data: { id: "new-invoice-1" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -212,7 +241,86 @@ describe("generateInvoice", () => {
     const insertArg = admin.chainsForTable("invoices").slice(-1)[0]
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
     const year = new Date().getFullYear();
-    expect(insertArg.invoice_number).toBe(`INV-${year}-0001`);
+    expect(insertArg.invoice_number).toBe(`INV-ORPHAN-${year}-0001`);
+  });
+
+  it("P43: uses INV-{storeCode}-{year}-{seq} when the order has a store (per-store numbering)", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    // Order with a store_id; the join returns the store's code.
+    admin.enqueueResponse({
+      data: {
+        ...makeOrder({ id: "o-1", total_amount: 1180, delivery_charge: 100, store_id: "s-1" }),
+        order_items: [{ ...makeOrderItem(), gst_amount: 180 }],
+        stores: { code: "A1B2C3D4" },
+      },
+      error: null,
+    });
+    // Count of existing per-store invoices (INV-A1B2C3D4-{year}-%).
+    // P43: count is a top-level response property (matches the real
+    // Supabase client), NOT nested inside `data`.
+    admin.enqueueResponse({ count: 5, data: null, error: null });
+    admin.enqueueResponse({ data: { id: "new-invoice-1" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await generateInvoice("o-1");
+
+    const insertArg = admin.chainsForTable("invoices").slice(-1)[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    const year = new Date().getFullYear();
+    expect(insertArg.invoice_number).toBe(`INV-A1B2C3D4-${year}-0006`);
+
+    // Verify the per-store count query was issued with the right
+    // invoice_number LIKE pattern.
+    const invoiceChains = admin.chainsForTable("invoices");
+    const countChain = invoiceChains.find((ch) =>
+      ch.some((c) => c.method === "like"),
+    );
+    expect(countChain).toBeDefined();
+    const likeCall = countChain!.find((c) => c.method === "like")!;
+    expect(likeCall.args[0]).toBe("invoice_number");
+    expect(likeCall.args[1]).toBe(`INV-A1B2C3D4-${year}-%`);
+  });
+
+  it("P43: per-store numbering is independent — two stores both start at 0001", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    // First store
+    admin.enqueueResponse({
+      data: {
+        ...makeOrder({ id: "o-1", total_amount: 100, store_id: "s-1" }),
+        order_items: [{ ...makeOrderItem(), gst_amount: 0 }],
+        stores: { code: "STORE_A" },
+      },
+      error: null,
+    });
+    // P43: count is a top-level response property.
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    admin.enqueueResponse({ data: { id: "i-1" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await generateInvoice("o-1");
+    let insertArg = admin.chainsForTable("invoices").slice(-1)[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.invoice_number).toBe(`INV-STORE_A-${new Date().getFullYear()}-0001`);
+
+    // Second store — independent counter
+    admin.enqueueResponse({
+      data: {
+        ...makeOrder({ id: "o-2", total_amount: 200, store_id: "s-2" }),
+        order_items: [{ ...makeOrderItem(), gst_amount: 0 }],
+        stores: { code: "STORE_B" },
+      },
+      error: null,
+    });
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    admin.enqueueResponse({ data: { id: "i-2" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await generateInvoice("o-2");
+    insertArg = admin.chainsForTable("invoices").slice(-1)[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.invoice_number).toBe(`INV-STORE_B-${new Date().getFullYear()}-0001`);
   });
 
   it("computes taxable_amount as total - delivery_charge", async () => {
@@ -360,7 +468,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(100, 0, [{ gst_amount: 0 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ count: 0, data: null, error: null });
     admin.enqueueResponse({ data: null, error: { message: "insert failed" } });
 
     await expect(generateInvoice("o-1")).rejects.toThrow("insert failed");

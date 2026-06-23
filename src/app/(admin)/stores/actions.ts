@@ -8,6 +8,9 @@ export type StoreRow = {
   id: string;
   name: string;
   slug: string;
+  // P43: short unique code used for per-store invoice numbering
+  // (INV-{code}-{year}-{seq}). 4-16 chars, uppercase letters/digits/_.
+  code: string;
   logo_url: string | null;
   banner_url: string | null;
   phone: string | null;

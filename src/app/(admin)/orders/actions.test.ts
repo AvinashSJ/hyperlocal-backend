@@ -74,6 +74,27 @@ describe("getOrders", () => {
 
     await expect(getOrders()).rejects.toThrow("db boom");
   });
+
+  // P43: the orders list now joins with stores(name, code) so the
+  // table can show which store each order belongs to.
+  it("P43: returns the store name and code for each order", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const o1 = makeOrder({ id: "o-1" });
+    (o1 as { stores?: { name: string; code: string } | null }).stores = {
+      name: "FreshCart",
+      code: "A1B2C3D4",
+    };
+    const o2 = makeOrder({ id: "o-2" });
+    // No store (legacy / orphaned).
+    (o2 as { stores?: { name: string; code: string } | null }).stores = null;
+    admin.enqueueResponse({ data: [o1, o2], error: null });
+
+    const result = await getOrders();
+    expect(result).toHaveLength(2);
+    expect(result[0].stores).toEqual({ name: "FreshCart", code: "A1B2C3D4" });
+    expect(result[1].stores).toBeNull();
+  });
 });
 
 describe("getOrder", () => {

@@ -96,6 +96,21 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
               <table className="table table-sm mb-0">
                 <tbody>
                   <tr><td className="text-muted" style={{ width: 120 }}>Order #</td><td className="fw-semibold">{order.order_number}</td></tr>
+                  {/* P43: store this order belongs to. Renders "No store"
+                      for legacy orders (store_id NULL). */}
+                  <tr>
+                    <td className="text-muted">Store</td>
+                    <td>
+                      {order.stores ? (
+                        <span className="d-inline-flex align-items-center gap-1">
+                          <span className="fw-semibold">{order.stores.name}</span>
+                          <code className="text-muted small">{order.stores.code}</code>
+                        </span>
+                      ) : (
+                        <span className="text-muted">No store</span>
+                      )}
+                    </td>
+                  </tr>
                   <tr><td className="text-muted">Placed At</td><td>{new Date(order.placed_at).toLocaleString("en-IN")}</td></tr>
                   <tr><td className="text-muted">Payment</td><td><span className={`badge ${order.payment_status === "paid" ? "bg-success" : "bg-warning text-dark"}`}>{order.payment_status}</span></td></tr>
                   <tr><td className="text-muted">Method</td><td>{order.payment_method ?? "—"}</td></tr>

@@ -44,6 +44,8 @@ const fakeInvoice: InvoiceDetail = {
     placed_at: "2026-06-21T00:00:00.000Z",
     gstin: null,
     store_id: "s-1",
+    // P43: the order's store is now also joined and exposed.
+    stores: { name: "FreshCart", code: "A1B2C3D4" },
     profiles: { full_name: "Alice", phone: "+911234567890" },
     addresses: {
       full_name: "Alice",

@@ -49,6 +49,8 @@ export default function InvoicesClient({ invoices }: { invoices: InvoiceListItem
           <thead className="table-light">
             <tr>
               <th>Invoice #</th>
+              {/* P43: new column showing which store the invoice belongs to. */}
+              <th>Store</th>
               <th>Order #</th>
               <th>Customer</th>
               <th>Amount</th>
@@ -60,12 +62,24 @@ export default function InvoicesClient({ invoices }: { invoices: InvoiceListItem
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4">No invoices found</td>
+                <td colSpan={8} className="text-center text-muted py-4">No invoices found</td>
               </tr>
             )}
             {filtered.map((inv) => (
               <tr key={inv.id}>
                 <td className="fw-semibold">{inv.invoice_number}</td>
+                <td>
+                  {/* P43: store name + code. Renders "No store" for
+                      legacy invoices whose order has no store_id. */}
+                  {inv.orders?.stores ? (
+                    <span className="d-inline-flex align-items-center gap-1">
+                      <span className="fw-medium">{inv.orders.stores.name}</span>
+                      <code className="text-muted small">{inv.orders.stores.code}</code>
+                    </span>
+                  ) : (
+                    <span className="text-muted">No store</span>
+                  )}
+                </td>
                 <td>{inv.orders?.order_number ?? "—"}</td>
                 <td>{inv.orders?.profiles?.full_name ?? "—"}</td>
                 <td>₹{Number(inv.total_amount).toLocaleString()}</td>

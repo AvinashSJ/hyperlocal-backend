@@ -18,18 +18,29 @@ type OrderRow = {
   delivery_date: string | null;
   placed_at: string;
   created_at: string;
+  // P43: the store this order belongs to. NULL for legacy orders
+  // (P40b) or orders placed before stores existed. Renders as
+  // "No store" in the UI.
+  store_id: string | null;
   // P39: the generated invoice's id, if any. Used to drive the
   // "Download Invoice" button on the order detail page.
   invoice_id: string | null;
 };
 
-export type OrderListItem = OrderRow & { profiles: { full_name: string | null; phone: string | null } | null };
+export type OrderListItem = OrderRow & {
+  profiles: { full_name: string | null; phone: string | null } | null;
+  // P43: store info. NULL for legacy orders with no store_id.
+  stores: { name: string; code: string } | null;
+};
 
 export async function getOrders(storeId?: string | null) {
   const supabase = createAdminClient();
   let query = supabase
     .from("orders")
-    .select("*, profiles(full_name, phone)")
+    // P43: join with stores so the list page can show which store the
+    // order belongs to. The join is `stores!orders_store_id_fkey` to
+    // match the FK column name (orders.store_id references stores.id).
+    .select("*, profiles(full_name, phone), stores!orders_store_id_fkey(name, code)")
     .order("placed_at", { ascending: false });
   if (storeId) query = query.eq("store_id", storeId);
   const { data, error } = await query;
@@ -44,6 +55,8 @@ export type OrderDetail = OrderRow & {
   delivery_charge: number;
   gstin: string | null;
   profiles: { full_name: string | null; phone: string | null; email: string | null } | null;
+  // P43: store info for the order detail page.
+  stores: { name: string; code: string } | null;
   addresses: {
     full_name: string; phone: string; address_line1: string; address_line2: string | null;
     landmark: string | null; city: string; state: string; pincode: string;
@@ -70,7 +83,9 @@ export async function getOrder(id: string) {
     // P26: include the snapshot columns (product_name, product_sku, variant_name,
     // product_hsn_code). The products JOIN is kept as a fallback for legacy rows
     // that have NULL snapshots.
-    .select("*, profiles(full_name, phone, email), addresses(*), order_items(*, products(name, sku), product_variants(name)), order_tracks(*)")
+    // P43: also join with stores(name, code) so the order detail page
+    // can show which store the order belongs to.
+    .select("*, profiles(full_name, phone, email), stores!orders_store_id_fkey(name, code), addresses(*), order_items(*, products(name, sku), product_variants(name)), order_tracks(*)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);

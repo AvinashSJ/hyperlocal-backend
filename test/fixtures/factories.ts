@@ -42,6 +42,10 @@ export function makeStore(overrides: Partial<{
   id: string;
   name: string;
   slug: string;
+  // P43: short unique code for per-store invoice numbering.
+  // Defaults to the first 8 chars of the id uppercased, matching
+  // the migration backfill.
+  code: string;
   logo_url: string | null;
   banner_url: string | null;
   owner_id: string | null;
@@ -63,6 +67,7 @@ export function makeStore(overrides: Partial<{
     id: overrides.id ?? uid("store"),
     name: overrides.name ?? "Test Store",
     slug: overrides.slug ?? "test-store",
+    code: overrides.code ?? (overrides.id ?? uid("store")).substring(0, 8).toUpperCase(),
     logo_url: overrides.logo_url ?? null,
     banner_url: overrides.banner_url ?? null,
     owner_id: overrides.owner_id ?? null,

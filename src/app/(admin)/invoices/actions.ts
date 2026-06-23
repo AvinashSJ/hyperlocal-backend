@@ -19,7 +19,16 @@ type InvoiceRow = {
   pdf_url: string | null;
   invoice_date: string;
   created_at: string;
-  orders: { order_number: string; user_id: string; store_id: string | null; profiles: { full_name: string | null } | null } | null;
+  // P43: also join with stores(name, code) so the list page can show
+  // which store each invoice belongs to. The store_id is on the order
+  // (orders.store_id); we join through it.
+  orders: {
+    order_number: string;
+    user_id: string;
+    store_id: string | null;
+    profiles: { full_name: string | null } | null;
+    stores: { name: string; code: string } | null;
+  } | null;
 };
 
 export type InvoiceListItem = InvoiceRow;
@@ -28,7 +37,9 @@ export async function getInvoices(storeId?: string | null) {
   const supabase = createAdminClient();
   let query = supabase
     .from("invoices")
-    .select("*, orders!invoices_order_id_fkey!inner(store_id, order_number, user_id, profiles(full_name))")
+    // P43: also join with stores(name, code) through the order so
+    // the list page can show which store the invoice belongs to.
+    .select("*, orders!invoices_order_id_fkey!inner(store_id, order_number, user_id, profiles(full_name), stores!orders_store_id_fkey(name, code))")
     .order("created_at", { ascending: false });
   if (storeId) query = query.eq("orders.store_id", storeId);
   const { data, error } = await query;
@@ -146,13 +157,41 @@ export async function generateInvoice(orderId: string) {
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("*, order_items(*, products(name, hsn_code, gst_rate), product_variants(name)), profiles(full_name, phone)")
+    // P43: also join with stores(code) so we can compose the
+    // per-store invoice number. The store's code column is NOT NULL
+    // and unique (see migration 20260623000001_add_stores_code.sql).
+    .select("*, order_items(*, products(name, hsn_code, gst_rate), product_variants(name)), profiles(full_name, phone), stores!orders_store_id_fkey(code)")
     .eq("id", orderId)
     .single();
   if (orderError) throw new Error(orderError.message);
 
-  const invCount = await supabase.from("invoices").select("id", { count: "exact", head: true });
-  const invNum = `INV-${new Date().getFullYear()}-${String((invCount.count ?? 0) + 1).padStart(4, "0")}`;
+  // P43: per-store invoice numbering. Each establishment has its own
+  // yearly sequence: INV-{storeCode}-{year}-{seq}, e.g. INV-A1B2C3D4-2026-0001.
+  //
+  // For orders without a store (legacy / orphaned), fall back to a
+  // global sequence "INV-ORPHAN-{year}-{seq}" so the invoice is still
+  // generated and is clearly marked as orphaned.
+  const year = new Date().getFullYear();
+  const storeCode = (order as { stores?: { code?: string } | null }).stores?.code ?? null;
+  let invNum: string;
+  if (storeCode) {
+    // Count invoices for THIS store + THIS year.
+    const { count: storeCount } = await supabase
+      .from("invoices")
+      .select("id, orders!inner(store_id)", { count: "exact", head: true })
+      .eq("orders.store_id", order.store_id)
+      .like("invoice_number", `INV-${storeCode}-${year}-%`);
+    invNum = `INV-${storeCode}-${year}-${String((storeCount ?? 0) + 1).padStart(4, "0")}`;
+  } else {
+    // Orphan fallback. The store was deleted or never set on this
+    // order. Use a clearly-labeled global sequence so the operator
+    // knows this invoice needs follow-up.
+    const { count: orphanCount } = await supabase
+      .from("invoices")
+      .select("id", { count: "exact", head: true })
+      .like("invoice_number", `INV-ORPHAN-${year}-%`);
+    invNum = `INV-ORPHAN-${year}-${String((orphanCount ?? 0) + 1).padStart(4, "0")}`;
+  }
 
   const taxableAmount = Number(order.total_amount) - Number(order.delivery_charge);
   const gstTotal = order.order_items.reduce((sum: number, item: { gst_amount: number }) => sum + Number(item.gst_amount), 0);

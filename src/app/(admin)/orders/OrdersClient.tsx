@@ -32,15 +32,34 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  // P43: store filter. Built from the distinct stores in the data so
+  // we don't need a separate `getStores` call. Empty string = "All
+  // stores".
+  const [storeFilter, setStoreFilter] = useState("");
   const [deleting, setDeleting] = useState<{ id: string; orderNumber: string } | null>(null);
+
+  // P43: distinct list of stores present in the data, sorted by name.
+  // Used to populate the store filter dropdown.
+  const availableStores = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; code: string }>();
+    for (const o of orders) {
+      if (o.stores && o.store_id) {
+        if (!map.has(o.store_id)) {
+          map.set(o.store_id, { id: o.store_id, name: o.stores.name, code: o.stores.code });
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [orders]);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
       if (search && !o.order_number.toLowerCase().includes(search.toLowerCase())) return false;
       if (statusFilter && o.status !== statusFilter) return false;
+      if (storeFilter && o.store_id !== storeFilter) return false;
       return true;
     });
-  }, [orders, search, statusFilter]);
+  }, [orders, search, statusFilter, storeFilter]);
 
   const confirmDelete = useCallback(async () => {
     if (!deleting) return;
@@ -57,7 +76,7 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
     <>
       <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
         <h5 className="mb-0">All Orders ({filtered.length})</h5>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap">
           <input
             type="text"
             className="form-control form-control-sm"
@@ -77,6 +96,26 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
               <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
             ))}
           </select>
+          {/* P43: store filter. Only renders when there's ≥ 1 store in
+              the data; for a Manager (store-scoped) the page already
+              filters to their store at the action layer, so this
+              dropdown would only show their one store. */}
+          {availableStores.length > 0 && (
+            <select
+              className="form-select form-select-sm"
+              style={{ width: 200 }}
+              value={storeFilter}
+              onChange={(e) => setStoreFilter(e.target.value)}
+              aria-label="Filter by store"
+            >
+              <option value="">All stores</option>
+              {availableStores.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
       <div className="table-responsive">
@@ -84,6 +123,8 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
           <thead className="table-light">
             <tr>
               <th>Order #</th>
+              {/* P43: new column showing which store the order belongs to. */}
+              <th>Store</th>
               <th>Customer</th>
               <th>Amount</th>
               <th>Payment</th>
@@ -95,7 +136,7 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4">No orders found</td>
+                <td colSpan={8} className="text-center text-muted py-4">No orders found</td>
               </tr>
             )}
             {filtered.map((order) => (
@@ -106,6 +147,18 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
               >
                 <td>
                   <span className="fw-semibold">{order.order_number}</span>
+                </td>
+                <td>
+                  {/* P43: store name + code. Renders "No store" for
+                      legacy orders with no store_id. */}
+                  {order.stores ? (
+                    <span className="d-inline-flex align-items-center gap-1">
+                      <span className="fw-medium">{order.stores.name}</span>
+                      <code className="text-muted small">{order.stores.code}</code>
+                    </span>
+                  ) : (
+                    <span className="text-muted">No store</span>
+                  )}
                 </td>
                 <td>{order.profiles?.full_name ?? "—"}</td>
                 <td>₹{Number(order.total_amount).toLocaleString()}</td>

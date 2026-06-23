@@ -18,6 +18,11 @@ type Chainable = {
   lt: (col: string, val: unknown) => Chainable;
   not: (col: string, op: string, val: unknown) => Chainable;
   is: (col: string, val: unknown) => Chainable;
+  // P43: like/ilike SQL LIKE filters. The mock accepts and records
+  // the call; the response (count) is what the action uses to
+  // compute the next invoice number.
+  like: (col: string, pattern: string) => Chainable;
+  ilike: (col: string, pattern: string) => Chainable;
   order: (col: string, opts?: { ascending?: boolean }) => Chainable;
   limit: (n: number) => Chainable;
   range: (from: number, to: number) => Chainable;
@@ -105,6 +110,8 @@ export function createMockSupabase(): MockSupabaseHandle {
       "is",
       "or",
       "filter",
+      "like",
+      "ilike",
       "order",
       "limit",
       "range",
