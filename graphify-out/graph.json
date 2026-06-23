@@ -2875,12 +2875,75 @@
       "norm_label": "ActionPermissions"
     },
     {
+      "id": "src_app_admin_stores_id_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/stores/[id]/page.tsx",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_stores_id_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/[id]/page.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_stores_id_storedetailclient_test_tsx",
+      "label": "StoreDetailClient.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/stores/[id]/StoreDetailClient.test.tsx",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_stores_id_storedetailclient_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/[id]/StoreDetailClient.test.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_stores_id_storedetailclient_tsx",
+      "label": "StoreDetailClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/stores/[id]/StoreDetailClient.tsx",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "StoreDetailClient"
+    },
+    {
+      "id": "src_app_admin_stores_id_storedetailclient_tsx_storedetailclient",
+      "label": "StoreDetailClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/[id]/StoreDetailClient.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "StoreDetailClient"
+    },
+    {
+      "id": "src_app_admin_stores_id_storedetailclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/[id]/StoreDetailClient.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "ActionPermissions"
+    },
+    {
       "id": "src_app_admin_stores_actions_test_ts",
       "label": "actions.test.ts",
       "file_type": "server_component",
       "source_file": "app/(admin)/stores/actions.test.ts",
       "source_location": "L1",
-      "community": 25,
+      "community": 26,
       "norm_label": "actions.test"
     },
     {
@@ -2889,7 +2952,7 @@
       "file_type": "server_action",
       "source_file": "app/(admin)/stores/actions.ts",
       "source_location": "L1",
-      "community": 25,
+      "community": 26,
       "norm_label": "getStores"
     },
     {
@@ -2898,8 +2961,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/actions.ts",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "getStores"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_getstorebyid",
+      "label": "getStoreById",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "getStoreById"
     },
     {
       "id": "src_app_admin_stores_actions_ts_getstorerelations",
@@ -2907,7 +2979,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/actions.ts",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "getStoreRelations"
     },
     {
@@ -2916,7 +2988,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/actions.ts",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "deleteStore"
     },
     {
@@ -2925,7 +2997,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/actions.ts",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "getStoreCategories"
     },
     {
@@ -2934,17 +3006,8 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/actions.ts",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "getLockedStoreCategories"
-    },
-    {
-      "id": "src_app_admin_stores_actions_ts_assertcategoriesremovable",
-      "label": "assertCategoriesRemovable",
-      "file_type": "export",
-      "source_file": "app/(admin)/stores/actions.ts",
-      "source_location": "L0",
-      "community": 25,
-      "norm_label": "assertCategoriesRemovable"
     },
     {
       "id": "src_app_admin_stores_page_tsx",
@@ -2952,7 +3015,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/stores/page.tsx",
       "source_location": "L1",
-      "community": 25,
+      "community": 26,
       "norm_label": "async"
     },
     {
@@ -2961,7 +3024,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/page.tsx",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "async"
     },
     {
@@ -2970,7 +3033,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/stores/StoresClient.tsx",
       "source_location": "L1",
-      "community": 25,
+      "community": 26,
       "norm_label": "StoresClient"
     },
     {
@@ -2979,7 +3042,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/StoresClient.tsx",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "StoresClient"
     },
     {
@@ -2988,7 +3051,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/StoresClient.tsx",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "CategoryOption"
     },
     {
@@ -2997,7 +3060,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/stores/StoresClient.tsx",
       "source_location": "L0",
-      "community": 25,
+      "community": 26,
       "norm_label": "ActionPermissions"
     },
     {
@@ -3006,7 +3069,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/unassigned-store/page.tsx",
       "source_location": "L1",
-      "community": 26,
+      "community": 27,
       "norm_label": "async"
     },
     {
@@ -3015,7 +3078,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/unassigned-store/page.tsx",
       "source_location": "L0",
-      "community": 26,
+      "community": 27,
       "norm_label": "async"
     },
     {
@@ -3024,7 +3087,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/users/actions.test.ts",
       "source_location": "L1",
-      "community": 27,
+      "community": 28,
       "norm_label": "actions.test"
     },
     {
@@ -3033,7 +3096,7 @@
       "file_type": "server_action",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L1",
-      "community": 27,
+      "community": 28,
       "norm_label": "getRoles"
     },
     {
@@ -3042,7 +3105,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "getRoles"
     },
     {
@@ -3051,7 +3114,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "getStoresLight"
     },
     {
@@ -3060,7 +3123,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "getUsers"
     },
     {
@@ -3069,7 +3132,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "toggleUserActive"
     },
     {
@@ -3078,7 +3141,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "toggleManagerActiveWithCascade"
     },
     {
@@ -3087,7 +3150,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/actions.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "deleteUser"
     },
     {
@@ -3096,7 +3159,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/users/page.tsx",
       "source_location": "L1",
-      "community": 27,
+      "community": 28,
       "norm_label": "async"
     },
     {
@@ -3105,7 +3168,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/page.tsx",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "async"
     },
     {
@@ -3114,7 +3177,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/users/UsersClient.tsx",
       "source_location": "L1",
-      "community": 27,
+      "community": 28,
       "norm_label": "UsersClient"
     },
     {
@@ -3123,7 +3186,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/UsersClient.tsx",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "UsersClient"
     },
     {
@@ -3132,7 +3195,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/users/UsersClient.tsx",
       "source_location": "L0",
-      "community": 27,
+      "community": 28,
       "norm_label": "ActionPermissions"
     },
     {
@@ -3141,7 +3204,7 @@
       "file_type": "server_component",
       "source_file": "app/api/admin/products/export/route.test.ts",
       "source_location": "L1",
-      "community": 28,
+      "community": 29,
       "norm_label": "route.test"
     },
     {
@@ -3150,7 +3213,7 @@
       "file_type": "server_component",
       "source_file": "app/api/admin/products/export/route.ts",
       "source_location": "L1",
-      "community": 28,
+      "community": 29,
       "norm_label": "GET"
     },
     {
@@ -3159,7 +3222,7 @@
       "file_type": "export",
       "source_file": "app/api/admin/products/export/route.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 29,
       "norm_label": "GET"
     },
     {
@@ -3168,7 +3231,7 @@
       "file_type": "export",
       "source_file": "app/api/admin/products/export/route.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 29,
       "norm_label": "ProductRow"
     },
     {
@@ -3177,7 +3240,7 @@
       "file_type": "server_component",
       "source_file": "app/api/invoices/[id]/pdf/route.test.ts",
       "source_location": "L1",
-      "community": 29,
+      "community": 30,
       "norm_label": "route.test"
     },
     {
@@ -3186,7 +3249,7 @@
       "file_type": "server_component",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L1",
-      "community": 29,
+      "community": 30,
       "norm_label": "GET"
     },
     {
@@ -3195,7 +3258,7 @@
       "file_type": "export",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L0",
-      "community": 29,
+      "community": 30,
       "norm_label": "GET"
     },
     {
@@ -3204,7 +3267,7 @@
       "file_type": "export",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L0",
-      "community": 29,
+      "community": 30,
       "norm_label": "NextRequest"
     },
     {
@@ -3213,7 +3276,7 @@
       "file_type": "export",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L0",
-      "community": 29,
+      "community": 30,
       "norm_label": "DocumentProps"
     },
     {
@@ -3222,7 +3285,7 @@
       "file_type": "export",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L0",
-      "community": 29,
+      "community": 30,
       "norm_label": "ReactElement"
     },
     {
@@ -3231,7 +3294,7 @@
       "file_type": "export",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L0",
-      "community": 29,
+      "community": 30,
       "norm_label": "narrows"
     },
     {
@@ -3240,7 +3303,7 @@
       "file_type": "export",
       "source_file": "app/api/invoices/[id]/pdf/route.ts",
       "source_location": "L0",
-      "community": 29,
+      "community": 30,
       "norm_label": "for"
     },
     {
@@ -3249,7 +3312,7 @@
       "file_type": "server_component",
       "source_file": "app/api/maintenance/route.test.ts",
       "source_location": "L1",
-      "community": 30,
+      "community": 31,
       "norm_label": "route.test"
     },
     {
@@ -3258,7 +3321,7 @@
       "file_type": "server_component",
       "source_file": "app/api/maintenance/route.ts",
       "source_location": "L1",
-      "community": 30,
+      "community": 31,
       "norm_label": "GET"
     },
     {
@@ -3267,7 +3330,7 @@
       "file_type": "export",
       "source_file": "app/api/maintenance/route.ts",
       "source_location": "L0",
-      "community": 30,
+      "community": 31,
       "norm_label": "GET"
     },
     {
@@ -3276,7 +3339,7 @@
       "file_type": "export",
       "source_file": "app/api/maintenance/route.ts",
       "source_location": "L0",
-      "community": 30,
+      "community": 31,
       "norm_label": "Reason"
     },
     {
@@ -3285,7 +3348,7 @@
       "file_type": "export",
       "source_file": "app/api/maintenance/route.ts",
       "source_location": "L0",
-      "community": 30,
+      "community": 31,
       "norm_label": "MaintenanceValue"
     },
     {
@@ -3294,7 +3357,7 @@
       "file_type": "server_component",
       "source_file": "app/api/migrate-wishlist/route.ts",
       "source_location": "L1",
-      "community": 31,
+      "community": 32,
       "norm_label": "POST"
     },
     {
@@ -3303,7 +3366,7 @@
       "file_type": "export",
       "source_file": "app/api/migrate-wishlist/route.ts",
       "source_location": "L0",
-      "community": 31,
+      "community": 32,
       "norm_label": "POST"
     },
     {
@@ -3312,7 +3375,7 @@
       "file_type": "server_component",
       "source_file": "app/api/upload/route.ts",
       "source_location": "L1",
-      "community": 32,
+      "community": 33,
       "norm_label": "POST"
     },
     {
@@ -3321,7 +3384,7 @@
       "file_type": "export",
       "source_file": "app/api/upload/route.ts",
       "source_location": "L0",
-      "community": 32,
+      "community": 33,
       "norm_label": "POST"
     },
     {
@@ -3330,7 +3393,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/actions.test.ts",
       "source_location": "L1",
-      "community": 33,
+      "community": 34,
       "norm_label": "actions.test"
     },
     {
@@ -3339,7 +3402,7 @@
       "file_type": "server_action",
       "source_file": "app/auth/actions.ts",
       "source_location": "L1",
-      "community": 33,
+      "community": 34,
       "norm_label": "signIn"
     },
     {
@@ -3348,7 +3411,7 @@
       "file_type": "export",
       "source_file": "app/auth/actions.ts",
       "source_location": "L0",
-      "community": 33,
+      "community": 34,
       "norm_label": "signIn"
     },
     {
@@ -3357,7 +3420,7 @@
       "file_type": "export",
       "source_file": "app/auth/actions.ts",
       "source_location": "L0",
-      "community": 33,
+      "community": 34,
       "norm_label": "signOut"
     },
     {
@@ -3366,7 +3429,7 @@
       "file_type": "export",
       "source_file": "app/auth/actions.ts",
       "source_location": "L0",
-      "community": 33,
+      "community": 34,
       "norm_label": "updateOwnPassword"
     },
     {
@@ -3375,7 +3438,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/login/api/route.ts",
       "source_location": "L1",
-      "community": 34,
+      "community": 35,
       "norm_label": "POST"
     },
     {
@@ -3384,7 +3447,7 @@
       "file_type": "export",
       "source_file": "app/auth/login/api/route.ts",
       "source_location": "L0",
-      "community": 34,
+      "community": 35,
       "norm_label": "POST"
     },
     {
@@ -3393,7 +3456,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/login/LoginForm.tsx",
       "source_location": "L1",
-      "community": 35,
+      "community": 36,
       "norm_label": "LoginForm"
     },
     {
@@ -3402,7 +3465,7 @@
       "file_type": "export",
       "source_file": "app/auth/login/LoginForm.tsx",
       "source_location": "L0",
-      "community": 35,
+      "community": 36,
       "norm_label": "LoginForm"
     },
     {
@@ -3411,7 +3474,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/login/page.tsx",
       "source_location": "L1",
-      "community": 35,
+      "community": 36,
       "norm_label": "async"
     },
     {
@@ -3420,7 +3483,7 @@
       "file_type": "export",
       "source_file": "app/auth/login/page.tsx",
       "source_location": "L0",
-      "community": 35,
+      "community": 36,
       "norm_label": "async"
     },
     {
@@ -3429,7 +3492,7 @@
       "file_type": "export",
       "source_file": "app/auth/login/page.tsx",
       "source_location": "L0",
-      "community": 35,
+      "community": 36,
       "norm_label": "LoginPageProps"
     },
     {
@@ -3438,7 +3501,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/reset-password/page.tsx",
       "source_location": "L1",
-      "community": 36,
+      "community": 37,
       "norm_label": "async"
     },
     {
@@ -3447,7 +3510,7 @@
       "file_type": "export",
       "source_file": "app/auth/reset-password/page.tsx",
       "source_location": "L0",
-      "community": 36,
+      "community": 37,
       "norm_label": "async"
     },
     {
@@ -3456,7 +3519,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/reset-password/ResetPasswordForm.tsx",
       "source_location": "L1",
-      "community": 36,
+      "community": 37,
       "norm_label": "ResetPasswordForm"
     },
     {
@@ -3465,7 +3528,7 @@
       "file_type": "export",
       "source_file": "app/auth/reset-password/ResetPasswordForm.tsx",
       "source_location": "L0",
-      "community": 36,
+      "community": 37,
       "norm_label": "ResetPasswordForm"
     },
     {
@@ -3474,7 +3537,7 @@
       "file_type": "server_component",
       "source_file": "app/layout.tsx",
       "source_location": "L1",
-      "community": 37,
+      "community": 38,
       "norm_label": "RootLayout"
     },
     {
@@ -3483,7 +3546,7 @@
       "file_type": "export",
       "source_file": "app/layout.tsx",
       "source_location": "L0",
-      "community": 37,
+      "community": 38,
       "norm_label": "RootLayout"
     },
     {
@@ -3492,7 +3555,7 @@
       "file_type": "server_component",
       "source_file": "app/maintenance/MaintenanceView.tsx",
       "source_location": "L1",
-      "community": 38,
+      "community": 39,
       "norm_label": "MaintenanceView"
     },
     {
@@ -3501,7 +3564,7 @@
       "file_type": "export",
       "source_file": "app/maintenance/MaintenanceView.tsx",
       "source_location": "L0",
-      "community": 38,
+      "community": 39,
       "norm_label": "MaintenanceView"
     },
     {
@@ -3510,7 +3573,7 @@
       "file_type": "export",
       "source_file": "app/maintenance/MaintenanceView.tsx",
       "source_location": "L0",
-      "community": 38,
+      "community": 39,
       "norm_label": "MaintenanceValue"
     },
     {
@@ -3519,7 +3582,7 @@
       "file_type": "server_component",
       "source_file": "app/maintenance/page.tsx",
       "source_location": "L1",
-      "community": 38,
+      "community": 39,
       "norm_label": "async"
     },
     {
@@ -3528,7 +3591,7 @@
       "file_type": "export",
       "source_file": "app/maintenance/page.tsx",
       "source_location": "L0",
-      "community": 38,
+      "community": 39,
       "norm_label": "async"
     },
     {
@@ -3537,7 +3600,7 @@
       "file_type": "export",
       "source_file": "app/maintenance/page.tsx",
       "source_location": "L0",
-      "community": 38,
+      "community": 39,
       "norm_label": "Reason"
     },
     {
@@ -3546,7 +3609,7 @@
       "file_type": "export",
       "source_file": "app/maintenance/page.tsx",
       "source_location": "L0",
-      "community": 38,
+      "community": 39,
       "norm_label": "MaintenanceValue"
     },
     {
@@ -3555,7 +3618,7 @@
       "file_type": "server_component",
       "source_file": "app/page.tsx",
       "source_location": "L1",
-      "community": 37,
+      "community": 38,
       "norm_label": "async"
     },
     {
@@ -3564,7 +3627,7 @@
       "file_type": "export",
       "source_file": "app/page.tsx",
       "source_location": "L0",
-      "community": 37,
+      "community": 38,
       "norm_label": "async"
     },
     {
@@ -3573,7 +3636,7 @@
       "file_type": "server_component",
       "source_file": "app/StoreProvider.tsx",
       "source_location": "L1",
-      "community": 37,
+      "community": 38,
       "norm_label": "StoreProvider"
     },
     {
@@ -3582,7 +3645,7 @@
       "file_type": "export",
       "source_file": "app/StoreProvider.tsx",
       "source_location": "L0",
-      "community": 37,
+      "community": 38,
       "norm_label": "StoreProvider"
     },
     {
@@ -3591,7 +3654,7 @@
       "file_type": "server_component",
       "source_file": "app/unauthorized/page.tsx",
       "source_location": "L1",
-      "community": 39,
+      "community": 40,
       "norm_label": "UnauthorizedPage"
     },
     {
@@ -3600,7 +3663,7 @@
       "file_type": "export",
       "source_file": "app/unauthorized/page.tsx",
       "source_location": "L0",
-      "community": 39,
+      "community": 40,
       "norm_label": "UnauthorizedPage"
     },
     {
@@ -3609,7 +3672,7 @@
       "file_type": "server_component",
       "source_file": "components/BootstrapClient.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "BootstrapClient"
     },
     {
@@ -3618,7 +3681,7 @@
       "file_type": "export",
       "source_file": "components/BootstrapClient.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "BootstrapClient"
     },
     {
@@ -3627,7 +3690,7 @@
       "file_type": "server_component",
       "source_file": "components/ImagePickerModal.test.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "RootLike"
     },
     {
@@ -3636,7 +3699,7 @@
       "file_type": "export",
       "source_file": "components/ImagePickerModal.test.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "RootLike"
     },
     {
@@ -3645,7 +3708,7 @@
       "file_type": "server_component",
       "source_file": "components/ImagePickerModal.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "ImagePickerModal"
     },
     {
@@ -3654,7 +3717,7 @@
       "file_type": "export",
       "source_file": "components/ImagePickerModal.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "ImagePickerModal"
     },
     {
@@ -3663,7 +3726,7 @@
       "file_type": "export",
       "source_file": "components/ImagePickerModal.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "MediaFile"
     },
     {
@@ -3672,7 +3735,7 @@
       "file_type": "export",
       "source_file": "components/ImagePickerModal.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "Props"
     },
     {
@@ -3681,7 +3744,7 @@
       "file_type": "server_component",
       "source_file": "components/MaintenanceStatus.test.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "RootLike"
     },
     {
@@ -3690,7 +3753,7 @@
       "file_type": "export",
       "source_file": "components/MaintenanceStatus.test.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "RootLike"
     },
     {
@@ -3699,7 +3762,7 @@
       "file_type": "server_component",
       "source_file": "components/MaintenanceStatus.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "MaintenanceStatus"
     },
     {
@@ -3708,7 +3771,7 @@
       "file_type": "export",
       "source_file": "components/MaintenanceStatus.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "MaintenanceStatus"
     },
     {
@@ -3717,7 +3780,7 @@
       "file_type": "export",
       "source_file": "components/MaintenanceStatus.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "AppMaintenanceValue"
     },
     {
@@ -3726,7 +3789,7 @@
       "file_type": "export",
       "source_file": "components/MaintenanceStatus.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "StoreMaintenanceValue"
     },
     {
@@ -3735,7 +3798,7 @@
       "file_type": "export",
       "source_file": "components/MaintenanceStatus.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "Props"
     },
     {
@@ -3744,7 +3807,7 @@
       "file_type": "server_component",
       "source_file": "components/MasterLayout.test.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "MasterLayout.test"
     },
     {
@@ -3753,7 +3816,7 @@
       "file_type": "server_component",
       "source_file": "components/MasterLayout.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "MasterLayout"
     },
     {
@@ -3762,7 +3825,7 @@
       "file_type": "export",
       "source_file": "components/MasterLayout.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "MasterLayout"
     },
     {
@@ -3771,7 +3834,7 @@
       "file_type": "export",
       "source_file": "components/MasterLayout.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "NavItem"
     },
     {
@@ -3780,7 +3843,7 @@
       "file_type": "server_component",
       "source_file": "components/PlaceholderPage.test.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "PlaceholderPage.test"
     },
     {
@@ -3789,7 +3852,7 @@
       "file_type": "server_component",
       "source_file": "components/PlaceholderPage.tsx",
       "source_location": "L1",
-      "community": 40,
+      "community": 41,
       "norm_label": "PlaceholderPage"
     },
     {
@@ -3798,7 +3861,7 @@
       "file_type": "export",
       "source_file": "components/PlaceholderPage.tsx",
       "source_location": "L0",
-      "community": 40,
+      "community": 41,
       "norm_label": "PlaceholderPage"
     },
     {
@@ -3807,7 +3870,7 @@
       "file_type": "server_component",
       "source_file": "lib/activity-log.test.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "activity-log.test"
     },
     {
@@ -3816,7 +3879,7 @@
       "file_type": "server_component",
       "source_file": "lib/activity-log.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "logActivity"
     },
     {
@@ -3825,7 +3888,7 @@
       "file_type": "export",
       "source_file": "lib/activity-log.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "logActivity"
     },
     {
@@ -3834,7 +3897,7 @@
       "file_type": "export",
       "source_file": "lib/activity-log.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "getEntityActivityLog"
     },
     {
@@ -3843,7 +3906,7 @@
       "file_type": "export",
       "source_file": "lib/activity-log.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "ActivityAction"
     },
     {
@@ -3852,7 +3915,7 @@
       "file_type": "export",
       "source_file": "lib/activity-log.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "ActivityLogWithUser"
     },
     {
@@ -3861,7 +3924,7 @@
       "file_type": "server_component",
       "source_file": "lib/categories.test.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "categories.test"
     },
     {
@@ -3870,7 +3933,7 @@
       "file_type": "server_component",
       "source_file": "lib/categories.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "getCategoriesForStore"
     },
     {
@@ -3879,7 +3942,7 @@
       "file_type": "export",
       "source_file": "lib/categories.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "getCategoriesForStore"
     },
     {
@@ -3888,7 +3951,7 @@
       "file_type": "export",
       "source_file": "lib/categories.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "buildEffectiveStoresMap"
     },
     {
@@ -3897,7 +3960,7 @@
       "file_type": "export",
       "source_file": "lib/categories.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "CategoryNode"
     },
     {
@@ -3906,7 +3969,7 @@
       "file_type": "export",
       "source_file": "lib/categories.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "EffectiveStores"
     },
     {
@@ -3915,7 +3978,7 @@
       "file_type": "server_component",
       "source_file": "lib/permissions.test.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "permissions.test"
     },
     {
@@ -3924,7 +3987,7 @@
       "file_type": "server_component",
       "source_file": "lib/permissions.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "hasPermission"
     },
     {
@@ -3933,7 +3996,7 @@
       "file_type": "export",
       "source_file": "lib/permissions.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "hasPermission"
     },
     {
@@ -3942,7 +4005,7 @@
       "file_type": "export",
       "source_file": "lib/permissions.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "canAccess"
     },
     {
@@ -3951,7 +4014,7 @@
       "file_type": "export",
       "source_file": "lib/permissions.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "PermissionModule"
     },
     {
@@ -3960,7 +4023,7 @@
       "file_type": "export",
       "source_file": "lib/permissions.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "PermissionAction"
     },
     {
@@ -3969,7 +4032,7 @@
       "file_type": "export",
       "source_file": "lib/permissions.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "RolePermissions"
     },
     {
@@ -3978,7 +4041,7 @@
       "file_type": "server_component",
       "source_file": "lib/redux/api/baseApi.ts",
       "source_location": "L1",
-      "community": 42,
+      "community": 43,
       "norm_label": "baseApi"
     },
     {
@@ -3987,7 +4050,7 @@
       "file_type": "server_component",
       "source_file": "lib/redux/hooks.ts",
       "source_location": "L1",
-      "community": 43,
+      "community": 44,
       "norm_label": "hooks"
     },
     {
@@ -3996,7 +4059,7 @@
       "file_type": "server_component",
       "source_file": "lib/redux/store.ts",
       "source_location": "L1",
-      "community": 43,
+      "community": 44,
       "norm_label": "AppStore"
     },
     {
@@ -4005,7 +4068,7 @@
       "file_type": "export",
       "source_file": "lib/redux/store.ts",
       "source_location": "L0",
-      "community": 43,
+      "community": 44,
       "norm_label": "AppStore"
     },
     {
@@ -4014,7 +4077,7 @@
       "file_type": "export",
       "source_file": "lib/redux/store.ts",
       "source_location": "L0",
-      "community": 43,
+      "community": 44,
       "norm_label": "RootState"
     },
     {
@@ -4023,7 +4086,7 @@
       "file_type": "export",
       "source_file": "lib/redux/store.ts",
       "source_location": "L0",
-      "community": 43,
+      "community": 44,
       "norm_label": "AppDispatch"
     },
     {
@@ -4032,7 +4095,7 @@
       "file_type": "server_component",
       "source_file": "lib/require-permission.test.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "require-permission.test"
     },
     {
@@ -4041,7 +4104,7 @@
       "file_type": "server_component",
       "source_file": "lib/require-permission.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "requirePermission"
     },
     {
@@ -4050,7 +4113,7 @@
       "file_type": "export",
       "source_file": "lib/require-permission.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "requirePermission"
     },
     {
@@ -4059,7 +4122,7 @@
       "file_type": "export",
       "source_file": "lib/require-permission.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "assertPermission"
     },
     {
@@ -4068,7 +4131,7 @@
       "file_type": "export",
       "source_file": "lib/require-permission.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "getActionPermissions"
     },
     {
@@ -4077,7 +4140,7 @@
       "file_type": "export",
       "source_file": "lib/require-permission.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "PermissionResult"
     },
     {
@@ -4086,7 +4149,7 @@
       "file_type": "export",
       "source_file": "lib/require-permission.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "ActionPermissions"
     },
     {
@@ -4095,7 +4158,7 @@
       "file_type": "server_component",
       "source_file": "lib/run-server-action.test.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "run-server-action.test"
     },
     {
@@ -4104,7 +4167,7 @@
       "file_type": "server_component",
       "source_file": "lib/run-server-action.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "runServerAction"
     },
     {
@@ -4113,7 +4176,7 @@
       "file_type": "export",
       "source_file": "lib/run-server-action.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "runServerAction"
     },
     {
@@ -4122,7 +4185,7 @@
       "file_type": "server_component",
       "source_file": "lib/store-scope.test.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "store-scope.test"
     },
     {
@@ -4131,7 +4194,7 @@
       "file_type": "server_component",
       "source_file": "lib/store-scope.ts",
       "source_location": "L1",
-      "community": 41,
+      "community": 42,
       "norm_label": "getStoreScope"
     },
     {
@@ -4140,7 +4203,7 @@
       "file_type": "export",
       "source_file": "lib/store-scope.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "getStoreScope"
     },
     {
@@ -4149,7 +4212,7 @@
       "file_type": "export",
       "source_file": "lib/store-scope.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "assertStoreScope"
     },
     {
@@ -4158,7 +4221,7 @@
       "file_type": "export",
       "source_file": "lib/store-scope.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "withStoreScope"
     },
     {
@@ -4167,7 +4230,7 @@
       "file_type": "export",
       "source_file": "lib/store-scope.ts",
       "source_location": "L0",
-      "community": 41,
+      "community": 42,
       "norm_label": "StoreScope"
     },
     {
@@ -4176,7 +4239,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/admin.test.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "admin.test"
     },
     {
@@ -4185,7 +4248,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/admin.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "createAdminClient"
     },
     {
@@ -4194,7 +4257,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/admin.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "createAdminClient"
     },
     {
@@ -4203,7 +4266,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/client.test.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "client.test"
     },
     {
@@ -4212,7 +4275,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/client.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "createClient"
     },
     {
@@ -4221,7 +4284,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/client.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "createClient"
     },
     {
@@ -4230,7 +4293,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/middleware.test.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "AuthError"
     },
     {
@@ -4239,7 +4302,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.test.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "AuthError"
     },
     {
@@ -4248,7 +4311,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.test.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "GetUserResult"
     },
     {
@@ -4257,7 +4320,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.test.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "GetUserBehaviour"
     },
     {
@@ -4266,7 +4329,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/middleware.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "updateSession"
     },
     {
@@ -4275,7 +4338,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "updateSession"
     },
     {
@@ -4284,7 +4347,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "NextRequest"
     },
     {
@@ -4293,7 +4356,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/server.test.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "CookieRecord"
     },
     {
@@ -4302,7 +4365,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/server.test.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "CookieRecord"
     },
     {
@@ -4311,7 +4374,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/server.ts",
       "source_location": "L1",
-      "community": 44,
+      "community": 45,
       "norm_label": "createClient"
     },
     {
@@ -4320,7 +4383,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/server.ts",
       "source_location": "L0",
-      "community": 44,
+      "community": 45,
       "norm_label": "createClient"
     },
     {
@@ -4329,7 +4392,7 @@
       "file_type": "server_component",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L1",
-      "community": 45,
+      "community": 46,
       "norm_label": "Profile"
     },
     {
@@ -4338,7 +4401,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 45,
+      "community": 46,
       "norm_label": "Profile"
     },
     {
@@ -4347,7 +4410,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 45,
+      "community": 46,
       "norm_label": "Store"
     },
     {
@@ -4356,7 +4419,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 45,
+      "community": 46,
       "norm_label": "Category"
     },
     {
@@ -4365,7 +4428,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 45,
+      "community": 46,
       "norm_label": "Product"
     },
     {
@@ -4374,7 +4437,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 45,
+      "community": 46,
       "norm_label": "ProductVariant"
     },
     {
@@ -4383,7 +4446,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 45,
+      "community": 46,
       "norm_label": "ProductImage"
     }
   ],

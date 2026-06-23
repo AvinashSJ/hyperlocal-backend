@@ -5,12 +5,11 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
-import type { StoreRow, StoreRelations, StoreCustomerRow } from "./actions";
+import type { StoreRow } from "./actions";
 import {
   getStoreCategories,
   setStoreCategories,
   getLockedStoreCategories,
-  getStoreRelations,
 } from "./actions";
 import type { LockedCategory } from "./actions";
 
@@ -77,10 +76,7 @@ export default function StoresClient({
 }) {
   const isSuperAdmin = roleName === "Super Admin";
   const [search, setSearch] = useState("");
-  // P49: viewing now includes the relations (orders, customers,
-  // invoices, products) so the modal can show the per-store drill-down
-  // (summary cards + 4 scrollable tables). Fetched lazily on click.
-  const [viewing, setViewing] = useState<{ store: StoreRow; relations: StoreRelations | null; loadingRelations: boolean } | null>(null);
+  const [viewing, setViewing] = useState<StoreRow | null>(null);
   const [assignedIds, setAssignedIds] = useState<string[]>([]);
   const [lockedCategories, setLockedCategories] = useState<LockedCategory[]>([]);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
@@ -101,8 +97,7 @@ export default function StoresClient({
   }, [stores, search]);
 
   const openView = useCallback((store: StoreRow) => {
-    // Reset state for the new store, mark relations as loading.
-    setViewing({ store, relations: null, loadingRelations: true });
+    setViewing(store);
     setEditingCategories(false);
     setPendingCategoryIds([]);
     setAssignedIds([]);
@@ -112,7 +107,7 @@ export default function StoresClient({
   useEffect(() => {
     if (!viewing) return;
     let cancelled = false;
-    const storeId = viewing.store.id;
+    const storeId = viewing.id;
     Promise.resolve().then(() => {
       if (cancelled) return;
       setLoadingAssigned(true);
@@ -120,18 +115,6 @@ export default function StoresClient({
     Promise.all([
       getStoreCategories(storeId),
       getLockedStoreCategories(storeId),
-      // P49: lazy-load the per-store relations. Fire-and-forget; we
-      // update the viewing state when it resolves. Errors are surfaced
-      // via toast but the modal still opens (categories work fine).
-      runServerAction(getStoreRelations, storeId).then((r) => {
-        if (cancelled) return;
-        if (r.ok) {
-          setViewing((v) => v ? { ...v, relations: r.value, loadingRelations: false } : v);
-        } else {
-          setViewing((v) => v ? { ...v, relations: null, loadingRelations: false } : v);
-          toast.error("Failed to load store relations");
-        }
-      }),
     ])
       .then(([assigned, locked]) => {
         if (cancelled) return;
@@ -158,8 +141,7 @@ export default function StoresClient({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewing?.store.id]);
+  }, [viewing]);
 
   const lockedIdSet = useMemo(
     () => new Set(lockedCategories.map((l) => l.categoryId)),
@@ -196,7 +178,7 @@ export default function StoresClient({
     setSavingCategories(true);
     const result = await runServerAction(
       setStoreCategories,
-      viewing.store.id,
+      viewing.id,
       pendingCategoryIds,
     );
     if (result.ok) {
@@ -301,47 +283,52 @@ export default function StoresClient({
       </div>
 
       {viewing && (
-        <Modal title={viewing.store.name} onClose={() => setViewing(null)}>
-          {viewing.store.logo_url && (
+        <Modal title={viewing.name} onClose={() => setViewing(null)}>
+          {viewing.logo_url && (
             <div className="text-center mb-3">
-              <img src={viewing.store.logo_url} alt="Logo" className="border rounded" style={{ maxHeight: 80 }} />
+              <img src={viewing.logo_url} alt="Logo" className="border rounded" style={{ maxHeight: 80 }} />
             </div>
           )}
-          <DetailRow label="Name" value={viewing.store.name} />
-          <DetailRow label="Slug" value={<code>{viewing.store.slug}</code>} />
-          <DetailRow label="Phone" value={viewing.store.phone} />
-          <DetailRow label="Email" value={viewing.store.email} />
-          <DetailRow label="Address" value={viewing.store.address} />
-          <DetailRow label="City" value={viewing.store.city} />
-          <DetailRow label="State" value={viewing.store.state} />
-          <DetailRow label="Delivery Radius" value={viewing.store.delivery_radius_km ? `${viewing.store.delivery_radius_km} km` : null} />
-          <DetailRow label="Commission Rate" value={viewing.store.commission_rate ? `${viewing.store.commission_rate}%` : null} />
+          <DetailRow label="Name" value={viewing.name} />
+          <DetailRow label="Slug" value={<code>{viewing.slug}</code>} />
+          <DetailRow label="Phone" value={viewing.phone} />
+          <DetailRow label="Email" value={viewing.email} />
+          <DetailRow label="Address" value={viewing.address} />
+          <DetailRow label="City" value={viewing.city} />
+          <DetailRow label="State" value={viewing.state} />
+          <DetailRow label="Delivery Radius" value={viewing.delivery_radius_km ? `${viewing.delivery_radius_km} km` : null} />
+          <DetailRow label="Commission Rate" value={viewing.commission_rate ? `${viewing.commission_rate}%` : null} />
           <DetailRow label="Open" value={
-            <span className={`badge ${viewing.store.is_open ? "bg-success" : "bg-secondary"}`}>
-              {viewing.store.is_open ? "Yes" : "No"}
+            <span className={`badge ${viewing.is_open ? "bg-success" : "bg-secondary"}`}>
+              {viewing.is_open ? "Yes" : "No"}
             </span>
           } />
           <DetailRow label="Active" value={
-            <span className={`badge ${viewing.store.is_active ? "bg-success" : "bg-secondary"}`}>
-              {viewing.store.is_active ? "Yes" : "No"}
+            <span className={`badge ${viewing.is_active ? "bg-success" : "bg-secondary"}`}>
+              {viewing.is_active ? "Yes" : "No"}
             </span>
           } />
-          <DetailRow label="Created" value={new Date(viewing.store.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} />
-          <DetailRow label="Last Updated" value={new Date(viewing.store.updated_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} />
+          <DetailRow label="Created" value={new Date(viewing.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} />
+          <DetailRow label="Last Updated" value={new Date(viewing.updated_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} />
 
-          {/* P49: per-store drill-down — 4 summary cards + 4 scrollable
-              tables (orders, customers, invoices, products). Data is
-              fetched lazily on modal open. While loading, show a
-              spinner. On error, the cards/tables show empty data
-              (the categories + edit-stuff above still work). */}
+          {/* P49: link to the per-store detail page. The modal stays
+              compact (attributes + categories); the heavy data
+              (orders, customers, invoices, products) lives on the
+              full page. Super Admin only — the link is hidden for
+              Manager/Staff since they already have the scoped views
+              on /orders, /customers, /invoices, /products. */}
 
-          {viewing.loadingRelations || !viewing.relations ? (
-            <div className="text-center text-muted small py-3" data-testid="store-relations-loading">
-              <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-              Loading store data...
+          {isSuperAdmin && (
+            <div className="d-flex justify-content-end mt-2 mb-2">
+              <Link
+                href={`/stores/${viewing.id}`}
+                className="btn btn-sm btn-outline-info"
+                data-testid="view-store-details-link"
+              >
+                <Icon icon="ri:external-link-line" className="me-1" />
+                View Details
+              </Link>
             </div>
-          ) : (
-            <StoreRelationsSections relations={viewing.relations} />
           )}
 
           <div className="row mb-2 mt-2">
@@ -432,230 +419,13 @@ export default function StoresClient({
           )}
 
           <div className="d-flex gap-2 justify-content-end mt-3 pt-3 border-top">
-            <Link href={`/settings?store_id=${viewing.store.id}`} className="btn btn-primary">
+            <Link href={`/settings?store_id=${viewing.id}`} className="btn btn-primary">
               <Icon icon="ri:pencil-line" width={16} className="me-1" />Edit Store
             </Link>
           </div>
         </Modal>
       )}
 
-    </div>
-  );
-}
-
-/**
- * P49: Renders the per-store drill-down content inside the view modal.
- * Composed of:
- *   1. A 4-card summary strip (Orders | Customers | Invoices | Products)
- *   2. Four scrollable sections, one per data type. Each is a small
- *      Bootstrap table with the top N rows fetched by getStoreRelations.
- *
- * Kept as a separate component so the parent modal stays readable and
- * the test surface is small.
- */
-function StoreRelationsSections({ relations }: { relations: StoreRelations }) {
-  const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-  const fmtDateTime = (s: string) => new Date(s).toLocaleString("en-IN");
-
-  return (
-    <div className="mt-3" data-testid="store-relations-sections">
-      {/* Summary strip — 4 small cards */}
-      <div className="row g-2 mb-3">
-        <SummaryStat label="Orders" value={relations.orderCount} icon="ri:shopping-cart-2-line" />
-        <SummaryStat label="Customers" value={relations.customerCount} icon="ri:user-line" />
-        <SummaryStat label="Invoices" value={relations.invoiceCount} icon="ri:file-text-line" />
-        <SummaryStat label="Products" value={relations.productCount} icon="ri:box-3-line" />
-      </div>
-
-      {/* Recent orders (showing 10 of {orderCount}) */}
-      <div className="mb-3">
-        <h6 className="text-muted small mb-2">
-          Recent Orders
-          {relations.orderCount > relations.orders.length && (
-            <span className="ms-1">(showing {relations.orders.length} of {relations.orderCount})</span>
-          )}
-        </h6>
-        {relations.orders.length === 0 ? (
-          <div className="text-muted small">No orders</div>
-        ) : (
-          <div className="table-responsive" style={{ maxHeight: 240 }}>
-            <table className="table table-sm table-bordered mb-0 align-middle">
-              <thead className="table-light position-sticky top-0">
-                <tr>
-                  <th>Order #</th>
-                  <th>Customer</th>
-                  <th className="text-end">Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {relations.orders.map((o) => (
-                  <tr key={o.id} data-testid={`store-order-row-${o.id}`}>
-                    <td>
-                      <Link href={`/orders/${o.id}`} className="text-decoration-none">
-                        {o.order_number}
-                      </Link>
-                    </td>
-                    <td>{o.customer_name ?? "—"}</td>
-                    <td className="text-end">{fmtMoney(o.total_amount)}</td>
-                    <td>
-                      <span className="badge bg-secondary bg-opacity-10 text-secondary text-capitalize">
-                        {o.status.replace("_", " ")}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Top customers (showing {len} of {count}) */}
-      <div className="mb-3">
-        <h6 className="text-muted small mb-2">
-          Top Customers
-          {relations.customerCount > relations.customers.length && (
-            <span className="ms-1">(showing {relations.customers.length} of {relations.customerCount})</span>
-          )}
-        </h6>
-        {relations.customers.length === 0 ? (
-          <div className="text-muted small">No customers</div>
-        ) : (
-          <div className="table-responsive" style={{ maxHeight: 200 }}>
-            <table className="table table-sm table-bordered mb-0 align-middle">
-              <thead className="table-light position-sticky top-0">
-                <tr>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Email</th>
-                  <th className="text-center">Orders</th>
-                </tr>
-              </thead>
-              <tbody>
-                {relations.customers.map((c: StoreCustomerRow) => (
-                  <tr key={c.id}>
-                    <td>{c.full_name ?? "—"}</td>
-                    <td className="text-muted small">{c.phone ?? "—"}</td>
-                    <td className="text-muted small">{c.email ?? "—"}</td>
-                    <td className="text-center">
-                      <span className="badge bg-primary bg-opacity-10 text-primary">
-                        {c.order_count}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Recent invoices (showing 10 of {count}) */}
-      <div className="mb-3">
-        <h6 className="text-muted small mb-2">
-          Recent Invoices
-          {relations.invoiceCount > relations.invoices.length && (
-            <span className="ms-1">(showing {relations.invoices.length} of {relations.invoiceCount})</span>
-          )}
-        </h6>
-        {relations.invoices.length === 0 ? (
-          <div className="text-muted small">No invoices</div>
-        ) : (
-          <div className="table-responsive" style={{ maxHeight: 240 }}>
-            <table className="table table-sm table-bordered mb-0 align-middle">
-              <thead className="table-light position-sticky top-0">
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Order #</th>
-                  <th className="text-end">Amount</th>
-                  <th>Status</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {relations.invoices.map((i) => (
-                  <tr key={i.id}>
-                    <td>
-                      <Link href={`/invoices/${i.id}`} className="text-decoration-none">
-                        {i.invoice_number}
-                      </Link>
-                    </td>
-                    <td>{i.order_number ?? "—"}</td>
-                    <td className="text-end">{fmtMoney(i.total_amount)}</td>
-                    <td>
-                      <span className="badge bg-secondary bg-opacity-10 text-secondary text-capitalize">
-                        {i.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="text-muted small">{fmtDateTime(i.created_at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Products (showing 20 of {count}) */}
-      <div className="mb-3">
-        <h6 className="text-muted small mb-2">
-          Products
-          {relations.productCount > relations.products.length && (
-            <span className="ms-1">(showing {relations.products.length} of {relations.productCount})</span>
-          )}
-        </h6>
-        {relations.products.length === 0 ? (
-          <div className="text-muted small">No products</div>
-        ) : (
-          <div className="table-responsive" style={{ maxHeight: 240 }}>
-            <table className="table table-sm table-bordered mb-0 align-middle">
-              <thead className="table-light position-sticky top-0">
-                <tr>
-                  <th>Name</th>
-                  <th>SKU</th>
-                  <th className="text-end">MRP</th>
-                  <th className="text-end">Stock</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {relations.products.map((p) => (
-                  <tr key={p.id}>
-                    <td>
-                      <Link href={`/products/${p.id}`} className="text-decoration-none">
-                        {p.name}
-                      </Link>
-                    </td>
-                    <td className="text-muted small"><code>{p.sku ?? "—"}</code></td>
-                    <td className="text-end">{fmtMoney(p.mrp)}</td>
-                    <td className="text-end">{p.stock_quantity}</td>
-                    <td>
-                      <span className={`badge ${p.status === "active" ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary"} text-capitalize`}>
-                        {p.status.replace("_", " ")}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SummaryStat({ label, value, icon }: { label: string; value: number; icon: string }) {
-  return (
-    <div className="col-3">
-      <div className="card border-0 bg-light h-100">
-        <div className="card-body p-2 text-center">
-          <Icon icon={icon} className="text-muted" style={{ fontSize: 18 }} />
-          <div className="fw-bold fs-5 mt-1">{value.toLocaleString()}</div>
-          <div className="text-muted small">{label}</div>
-        </div>
-      </div>
     </div>
   );
 }

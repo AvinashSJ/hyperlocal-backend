@@ -261,22 +261,28 @@
       "ActionPermissions"
     ],
     "25": [
+      "async",
+      "Root",
+      "StoreDetailClient",
+      "ActionPermissions"
+    ],
+    "26": [
       "actions.test",
       "getStores",
+      "getStoreById",
       "getStoreRelations",
       "deleteStore",
       "getStoreCategories",
       "getLockedStoreCategories",
-      "assertCategoriesRemovable",
       "async",
       "StoresClient",
       "CategoryOption",
       "ActionPermissions"
     ],
-    "26": [
+    "27": [
       "async"
     ],
-    "27": [
+    "28": [
       "actions.test",
       "getRoles",
       "getStoresLight",
@@ -288,12 +294,12 @@
       "UsersClient",
       "ActionPermissions"
     ],
-    "28": [
+    "29": [
       "route.test",
       "GET",
       "ProductRow"
     ],
-    "29": [
+    "30": [
       "route.test",
       "GET",
       "NextRequest",
@@ -302,51 +308,51 @@
       "narrows",
       "for"
     ],
-    "30": [
+    "31": [
       "route.test",
       "GET",
       "Reason",
       "MaintenanceValue"
     ],
-    "31": [
-      "POST"
-    ],
     "32": [
       "POST"
     ],
     "33": [
+      "POST"
+    ],
+    "34": [
       "actions.test",
       "signIn",
       "signOut",
       "updateOwnPassword"
     ],
-    "34": [
+    "35": [
       "POST"
     ],
-    "35": [
+    "36": [
       "LoginForm",
       "async",
       "LoginPageProps"
     ],
-    "36": [
+    "37": [
       "async",
       "ResetPasswordForm"
     ],
-    "37": [
+    "38": [
       "RootLayout",
       "async",
       "StoreProvider"
     ],
-    "38": [
+    "39": [
       "MaintenanceView",
       "MaintenanceValue",
       "async",
       "Reason"
     ],
-    "39": [
+    "40": [
       "UnauthorizedPage"
     ],
-    "40": [
+    "41": [
       "BootstrapClient",
       "RootLike",
       "ImagePickerModal",
@@ -361,7 +367,7 @@
       "PlaceholderPage.test",
       "PlaceholderPage"
     ],
-    "41": [
+    "42": [
       "activity-log.test",
       "logActivity",
       "getEntityActivityLog",
@@ -392,16 +398,16 @@
       "withStoreScope",
       "StoreScope"
     ],
-    "42": [
+    "43": [
       "baseApi"
     ],
-    "43": [
+    "44": [
       "hooks",
       "AppStore",
       "RootState",
       "AppDispatch"
     ],
-    "44": [
+    "45": [
       "admin.test",
       "createAdminClient",
       "client.test",
@@ -413,7 +419,7 @@
       "NextRequest",
       "CookieRecord"
     ],
-    "45": [
+    "46": [
       "Profile",
       "Store",
       "Category",
