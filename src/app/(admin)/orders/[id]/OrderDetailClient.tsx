@@ -8,7 +8,6 @@ import { toast } from "react-toastify";
 import {
   updateOrderStatus,
   updatePaymentStatus,
-  generateInvoiceForOrder,
   type OrderDetail,
   type OrderStatus,
   type PaymentStatus,
@@ -39,10 +38,6 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
   const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus>(order.payment_status);
   const [savingPayment, setSavingPayment] = useState(false);
 
-  // P44: safety-net state for the "Generate Invoice" button (shown
-  // only when status === 'delivered' AND invoice_id IS NULL).
-  const [generatingInvoice, setGeneratingInvoice] = useState(false);
-
   const handleStatusUpdate = async () => {
     if (newStatus === order.status) return;
     setSaving(true);
@@ -56,9 +51,9 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
         toast.success("Status updated to delivered. Invoice generated.");
       } else if (newStatus === "delivered") {
         // Delivered but invoice generation was skipped (already
-        // had one) or failed. The order page will refresh; the
-        // PDF download is visible if an invoice exists, or the
-        // safety-net button is visible if it failed.
+        // had one) or failed silently. The order page will
+        // refresh; the PDF download card is visible if an invoice
+        // exists.
         toast.success("Status updated to delivered");
       } else {
         toast.success(`Status updated to ${newStatus}`);
@@ -70,26 +65,6 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
       toast.error("Failed to update status");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleGenerateInvoice = async () => {
-    setGeneratingInvoice(true);
-    try {
-      const { invoiceId } = await generateInvoiceForOrder(order.id);
-      toast.success("Invoice generated");
-      // revalidatePath is called server-side; refresh the page
-      // so the new invoice_id is picked up by the OrderDetail
-      // query and the Download button appears.
-      router.refresh();
-      // invoiceId is intentionally not used in the UI right now
-      // (the page re-renders with the new id), but the return
-      // value is useful for future deep-linking.
-      void invoiceId;
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to generate invoice");
-    } finally {
-      setGeneratingInvoice(false);
     }
   };
 
@@ -352,45 +327,6 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
                     View Invoice Details
                   </Link>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* P44: safety-net. Shown only when the order is delivered
-              but has no invoice — i.e., the auto-generation on
-              delivery failed (e.g., store was hard-deleted) or the
-              order was delivered before this feature shipped. The
-              manager can click to retry. */}
-          {order.status === "delivered" && !order.invoice_id && (
-            <div className="card mt-2 border-warning" data-testid="order-detail-generate-invoice-card">
-              <div className="card-header bg-warning-subtle text-warning d-flex align-items-center gap-2">
-                <Icon icon="ri:alert-line" width={18} />
-                <strong>Invoice Missing</strong>
-              </div>
-              <div className="card-body">
-                <p className="small text-muted mb-2">
-                  This order is delivered but has no invoice. Generate one now so you can
-                  download the PDF.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-warning w-100"
-                  onClick={handleGenerateInvoice}
-                  disabled={generatingInvoice}
-                  data-testid="order-detail-generate-invoice-btn"
-                >
-                  {generatingInvoice ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Icon icon="ri:file-text-line" width={16} className="me-2" />
-                      Generate Invoice
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           )}

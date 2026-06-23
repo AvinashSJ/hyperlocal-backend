@@ -187,7 +187,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
               <Text style={styles.totalValue}>₹{Number(invoice.igst).toFixed(2)}</Text>
             </View>
           )}
-          <View style={[styles.totalRow, styles.grandTotal]}>
+          <View style={{ ...styles.totalRow, ...styles.grandTotal }}>
             <Text>Total</Text>
             <Text>₹{Number(invoice.total_amount).toFixed(2)}</Text>
           </View>

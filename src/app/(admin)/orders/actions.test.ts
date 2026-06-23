@@ -23,7 +23,6 @@ import {
   getOrder,
   updateOrderStatus,
   updatePaymentStatus,
-  generateInvoiceForOrder,
   deleteOrder,
   type OrderStatus,
   type PaymentStatus,
@@ -314,60 +313,6 @@ describe("updateOrderStatus", () => {
     // and the status update resolves with { invoiceId: null }.
     const result = await updateOrderStatus("o-1", "delivered");
     expect(result.invoiceId).toBeNull();
-  });
-});
-
-describe("P44: generateInvoiceForOrder (manual safety-net)", () => {
-  it("rejects without invoices:create permission", async () => {
-    asAdmin({ orders: ["edit"] }); // no invoices:create
-    await expect(generateInvoiceForOrder("o-1")).rejects.toBeInstanceOf(PermissionError);
-  });
-
-  it("throws if the order does not exist", async () => {
-    asAdmin({ invoices: ["create"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: { message: "not found" } });
-    await expect(generateInvoiceForOrder("missing")).rejects.toThrow("not found");
-  });
-
-  it("throws if the order is not in 'delivered' status", async () => {
-    asAdmin({ invoices: ["create"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({ data: { status: "shipped", invoice_id: null }, error: null });
-    await expect(generateInvoiceForOrder("o-1")).rejects.toThrow(/delivered/);
-  });
-
-  it("throws if the order already has an invoice (idempotency guard)", async () => {
-    asAdmin({ invoices: ["create"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({ data: { status: "delivered", invoice_id: "i-existing" }, error: null });
-    await expect(generateInvoiceForOrder("o-1")).rejects.toThrow(/already has an invoice/);
-  });
-
-  it("creates the invoice on success and returns the id (P43 per-store numbering)", async () => {
-    asAdmin({ invoices: ["create"] });
-    const admin = getAdminClient();
-    // 1) order fetch in the safety-net guard
-    admin.enqueueResponse({ data: { status: "delivered", invoice_id: null }, error: null });
-    // 2) generateInvoice chain: order fetch + per-store count + insert + order.update
-    admin.enqueueResponse({
-      data: {
-        ...makeOrder({ id: "o-1", store_id: "s-1", total_amount: 1180, delivery_charge: 100 }),
-        order_items: [{ product_name: "X", hsn_code: "HSN1", gst_rate: 18, gst_amount: 180, total_price: 1080, unit_price: 1080, quantity: 1 }],
-        stores: { code: "FRESH01" },
-      },
-      error: null,
-    });
-    admin.enqueueResponse({ count: 0, data: null, error: null }); // per-store count
-    admin.enqueueResponse({ data: { id: "i-new" }, error: null }); // invoice insert
-    admin.enqueueResponse({ data: null, error: null }); // order.update
-
-    const result = await generateInvoiceForOrder("o-1");
-    expect(result.invoiceId).toBe("i-new");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/orders");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/orders/o-1");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/invoices/i-new");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/invoices");
   });
 });
 
