@@ -23,6 +23,7 @@ import {
   getOrder,
   updateOrderStatus,
   updatePaymentStatus,
+  generateInvoiceForOrder,
   deleteOrder,
   type OrderStatus,
   type PaymentStatus,
@@ -278,6 +279,95 @@ describe("updateOrderStatus", () => {
     admin.enqueueResponse({ data: null, error: { message: "track insert failed" } });
 
     await expect(updateOrderStatus("o-1", "processing")).rejects.toThrow("track insert failed");
+  });
+
+  // P44: auto-generate invoice on transition to 'delivered'.
+  // These tests need the caller to have BOTH orders:edit AND
+  // invoices:create permissions (the auto-gen path uses
+  // generateInvoice from invoices/actions.ts which checks
+  // invoices:create). The order tests use orders:["edit"] which
+  // is sufficient for status changes; the auto-gen will fail
+  // silently (per design) and the test still asserts the status
+  // update succeeded.
+
+  it("P44: status update succeeds even when the auto-invoice gen fails (no invoices:create perm)", async () => {
+    asAdmin({ orders: ["edit"] }); // no invoices:create
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    // The auto-gen will try to fetch the order then call generateInvoice
+    // (which asserts invoices:create). The test grants only orders:edit,
+    // so generateInvoice will throw PermissionError, which the
+    // action swallows + logs. The status update still returns
+    // { invoiceId: null }.
+    admin.enqueueResponse({ data: null, error: { message: "order re-fetch for invoice gen" } });
+    // We expect the status update to throw because the order
+    // re-fetch fails. To avoid that, let the re-fetch succeed:
+    admin.enqueueResponse({ data: makeOrder({ id: "o-1", status: "delivered", invoice_id: null }), error: null });
+
+    // The status update itself: orders.update + order_tracks.insert
+    // — these two have already been queued. Now the auto-gen runs,
+    // which calls generateInvoice. generateInvoice will:
+    //   1. Fetch the order (next queued response: success)
+    //   2. Try to assert invoices:create — throws PermissionError
+    // So the auto-gen throws, the outer try/catch swallows it,
+    // and the status update resolves with { invoiceId: null }.
+    const result = await updateOrderStatus("o-1", "delivered");
+    expect(result.invoiceId).toBeNull();
+  });
+});
+
+describe("P44: generateInvoiceForOrder (manual safety-net)", () => {
+  it("rejects without invoices:create permission", async () => {
+    asAdmin({ orders: ["edit"] }); // no invoices:create
+    await expect(generateInvoiceForOrder("o-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("throws if the order does not exist", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: { message: "not found" } });
+    await expect(generateInvoiceForOrder("missing")).rejects.toThrow("not found");
+  });
+
+  it("throws if the order is not in 'delivered' status", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "shipped", invoice_id: null }, error: null });
+    await expect(generateInvoiceForOrder("o-1")).rejects.toThrow(/delivered/);
+  });
+
+  it("throws if the order already has an invoice (idempotency guard)", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "delivered", invoice_id: "i-existing" }, error: null });
+    await expect(generateInvoiceForOrder("o-1")).rejects.toThrow(/already has an invoice/);
+  });
+
+  it("creates the invoice on success and returns the id (P43 per-store numbering)", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    // 1) order fetch in the safety-net guard
+    admin.enqueueResponse({ data: { status: "delivered", invoice_id: null }, error: null });
+    // 2) generateInvoice chain: order fetch + per-store count + insert + order.update
+    admin.enqueueResponse({
+      data: {
+        ...makeOrder({ id: "o-1", store_id: "s-1", total_amount: 1180, delivery_charge: 100 }),
+        order_items: [{ product_name: "X", hsn_code: "HSN1", gst_rate: 18, gst_amount: 180, total_price: 1080, unit_price: 1080, quantity: 1 }],
+        stores: { code: "FRESH01" },
+      },
+      error: null,
+    });
+    admin.enqueueResponse({ count: 0, data: null, error: null }); // per-store count
+    admin.enqueueResponse({ data: { id: "i-new" }, error: null }); // invoice insert
+    admin.enqueueResponse({ data: null, error: null }); // order.update
+
+    const result = await generateInvoiceForOrder("o-1");
+    expect(result.invoiceId).toBe("i-new");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/orders");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/orders/o-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/invoices/i-new");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/invoices");
   });
 });
 

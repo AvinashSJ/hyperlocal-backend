@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
-import { updateOrderStatus, updatePaymentStatus, type OrderDetail, type OrderStatus, type PaymentStatus } from "../actions";
+import {
+  updateOrderStatus,
+  updatePaymentStatus,
+  generateInvoiceForOrder,
+  type OrderDetail,
+  type OrderStatus,
+  type PaymentStatus,
+} from "../actions";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -32,12 +39,30 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
   const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus>(order.payment_status);
   const [savingPayment, setSavingPayment] = useState(false);
 
+  // P44: safety-net state for the "Generate Invoice" button (shown
+  // only when status === 'delivered' AND invoice_id IS NULL).
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+
   const handleStatusUpdate = async () => {
     if (newStatus === order.status) return;
     setSaving(true);
     try {
-      await updateOrderStatus(order.id, newStatus, statusNotes || undefined);
-      toast.success(`Status updated to ${newStatus}`);
+      const result = await updateOrderStatus(order.id, newStatus, statusNotes || undefined);
+      // P44: when transitioning to 'delivered', the action auto-
+      // generates the invoice. Show a toast confirming the new
+      // invoice so the manager knows to expect one in the PDF
+      // download section.
+      if (newStatus === "delivered" && result.invoiceId) {
+        toast.success("Status updated to delivered. Invoice generated.");
+      } else if (newStatus === "delivered") {
+        // Delivered but invoice generation was skipped (already
+        // had one) or failed. The order page will refresh; the
+        // PDF download is visible if an invoice exists, or the
+        // safety-net button is visible if it failed.
+        toast.success("Status updated to delivered");
+      } else {
+        toast.success(`Status updated to ${newStatus}`);
+      }
       setShowStatusModal(false);
       setStatusNotes("");
       router.refresh();
@@ -45,6 +70,26 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
       toast.error("Failed to update status");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerateInvoice = async () => {
+    setGeneratingInvoice(true);
+    try {
+      const { invoiceId } = await generateInvoiceForOrder(order.id);
+      toast.success("Invoice generated");
+      // revalidatePath is called server-side; refresh the page
+      // so the new invoice_id is picked up by the OrderDetail
+      // query and the Download button appears.
+      router.refresh();
+      // invoiceId is intentionally not used in the UI right now
+      // (the page re-renders with the new id), but the return
+      // value is useful for future deep-linking.
+      void invoiceId;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate invoice");
+    } finally {
+      setGeneratingInvoice(false);
     }
   };
 
@@ -269,21 +314,84 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
             </div>
           </div>
 
+          {/* P44: prominent Invoice card. Replaces the small inline
+              buttons that used to live here. Visible whenever the
+              order has an invoice_id (auto-generated on delivery
+              or pre-existing). The Download button is the primary
+              action — opens the PDF in a new tab with the
+              `download` attribute so the browser saves it
+              instead of navigating away. */}
           {order.invoice_id && (
-            <div className="mt-2 d-flex gap-2">
-              <Link
-                href={`/invoices/${order.invoice_id}`}
-                className="btn btn-sm btn-outline-success flex-grow-1"
-              >
-                <Icon icon="ri:file-text-line" width={16} className="me-1" />View Invoice
-              </Link>
-              <a
-                href={`/api/invoices/${order.invoice_id}/pdf`}
-                className="btn btn-sm btn-success flex-grow-1"
-                title="Download Invoice PDF"
-              >
-                <Icon icon="ri:download-2-line" width={16} className="me-1" />Download
-              </a>
+            <div className="card mt-2 border-success">
+              <div className="card-header bg-success-subtle text-success d-flex align-items-center gap-2">
+                <Icon icon="ri:file-text-line" width={18} />
+                <strong>Invoice</strong>
+              </div>
+              <div className="card-body">
+                <div className="mb-2 small text-muted">
+                  Invoice generated for this order.
+                </div>
+                <div className="d-grid gap-2">
+                  <a
+                    href={`/api/invoices/${order.invoice_id}/pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    className="btn btn-success"
+                    title="Download Invoice PDF"
+                    data-testid="order-detail-download-invoice"
+                  >
+                    <Icon icon="ri:download-2-line" width={16} className="me-2" />
+                    Download PDF
+                  </a>
+                  <Link
+                    href={`/invoices/${order.invoice_id}`}
+                    className="btn btn-outline-secondary btn-sm"
+                  >
+                    <Icon icon="ri:external-link-line" width={14} className="me-1" />
+                    View Invoice Details
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* P44: safety-net. Shown only when the order is delivered
+              but has no invoice — i.e., the auto-generation on
+              delivery failed (e.g., store was hard-deleted) or the
+              order was delivered before this feature shipped. The
+              manager can click to retry. */}
+          {order.status === "delivered" && !order.invoice_id && (
+            <div className="card mt-2 border-warning" data-testid="order-detail-generate-invoice-card">
+              <div className="card-header bg-warning-subtle text-warning d-flex align-items-center gap-2">
+                <Icon icon="ri:alert-line" width={18} />
+                <strong>Invoice Missing</strong>
+              </div>
+              <div className="card-body">
+                <p className="small text-muted mb-2">
+                  This order is delivered but has no invoice. Generate one now so you can
+                  download the PDF.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-warning w-100"
+                  onClick={handleGenerateInvoice}
+                  disabled={generatingInvoice}
+                  data-testid="order-detail-generate-invoice-btn"
+                >
+                  {generatingInvoice ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="ri:file-text-line" width={16} className="me-2" />
+                      Generate Invoice
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           )}
         </div>

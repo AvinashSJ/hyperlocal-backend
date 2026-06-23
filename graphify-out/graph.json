@@ -1696,15 +1696,6 @@
       "norm_label": "OrderDetailClient"
     },
     {
-      "id": "src_app_admin_orders_id_orderdetailclient_tsx_paymentstatus",
-      "label": "PaymentStatus",
-      "file_type": "export",
-      "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
-      "source_location": "L0",
-      "community": 16,
-      "norm_label": "PaymentStatus"
-    },
-    {
       "id": "src_app_admin_orders_id_page_tsx",
       "label": "page.tsx",
       "file_type": "server_component",
@@ -1768,6 +1759,15 @@
       "norm_label": "updateOrderStatus"
     },
     {
+      "id": "src_app_admin_orders_actions_ts_generateinvoicefororder",
+      "label": "generateInvoiceForOrder",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/actions.ts",
+      "source_location": "L0",
+      "community": 17,
+      "norm_label": "generateInvoiceForOrder"
+    },
+    {
       "id": "src_app_admin_orders_actions_ts_updatepaymentstatus",
       "label": "updatePaymentStatus",
       "file_type": "export",
@@ -1784,15 +1784,6 @@
       "source_location": "L0",
       "community": 17,
       "norm_label": "deleteOrder"
-    },
-    {
-      "id": "src_app_admin_orders_actions_ts_orderstatus",
-      "label": "OrderStatus",
-      "file_type": "export",
-      "source_file": "app/(admin)/orders/actions.ts",
-      "source_location": "L0",
-      "community": 17,
-      "norm_label": "OrderStatus"
     },
     {
       "id": "src_app_admin_orders_ordersclient_tsx",

@@ -262,6 +262,10 @@ export function makeOrder(overrides: Partial<{
   delivery_address_id: string | null;
   delivery_slot_id: string | null;
   delivery_date: string | null;
+  // P39: invoice_id is the FK from the generated invoice back to
+  // the order. P44 tests use it to assert idempotency in
+  // auto-invoice generation.
+  invoice_id: string | null;
   placed_at: string;
   created_at: string;
   updated_at: string;
@@ -282,6 +286,7 @@ export function makeOrder(overrides: Partial<{
     delivery_address_id: overrides.delivery_address_id ?? null,
     delivery_slot_id: overrides.delivery_slot_id ?? null,
     delivery_date: overrides.delivery_date ?? null,
+    invoice_id: overrides.invoice_id ?? null,
     placed_at: overrides.placed_at ?? nowISO(),
     created_at: overrides.created_at ?? nowISO(),
     updated_at: overrides.updated_at ?? nowISO(),

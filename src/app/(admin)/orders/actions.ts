@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission, PermissionError } from "@/lib/require-permission";
+import { generateInvoice } from "@/app/(admin)/invoices/actions";
 
 export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
@@ -92,7 +93,11 @@ export async function getOrder(id: string) {
   return order as OrderDetail;
 }
 
-export async function updateOrderStatus(id: string, status: OrderStatus, notes?: string) {
+export async function updateOrderStatus(
+  id: string,
+  status: OrderStatus,
+  notes?: string,
+): Promise<{ invoiceId: string | null }> {
   await assertPermission("orders", "edit");
   const supabase = createAdminClient();
   const updateFields: Record<string, string | null> = { status };
@@ -110,8 +115,95 @@ export async function updateOrderStatus(id: string, status: OrderStatus, notes?:
   });
   if (trackError) throw new Error(trackError.message);
 
+  // P44: auto-generate the invoice when the order transitions to
+  // "delivered". Idempotent — if the order already has an
+  // invoice_id, skip silently. Errors here are caught and logged
+  // so a failed invoice generation never blocks a successful
+  // status update (the manager can retry from the safety-net
+  // "Generate Invoice" button on the order detail page).
+  let invoiceId: string | null = null;
+  if (status === "delivered") {
+    try {
+      invoiceId = await maybeGenerateInvoiceForDeliveredOrder(id, supabase);
+    } catch (err) {
+      console.error(
+        `[updateOrderStatus] failed to auto-generate invoice for delivered order ${id}:`,
+        (err as Error).message,
+      );
+    }
+  }
+
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}`);
+  if (invoiceId) revalidatePath(`/invoices/${invoiceId}`);
+  return { invoiceId };
+}
+
+/**
+ * P44: helper that re-checks the order's current invoice_id and
+ * generates one if missing. Extracted so the safety-net
+ * generateInvoiceForOrder action and the auto-generation path
+ * can share the same idempotency logic.
+ *
+ * @param supabase  the admin client (passed in for testability)
+ * @returns the new invoice id, or null if the order already has one
+ * @throws re-throws generateInvoice errors so the caller can decide
+ *         whether to surface them
+ */
+async function maybeGenerateInvoiceForDeliveredOrder(
+  orderId: string,
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<string | null> {
+  // Re-fetch the order to get the current invoice_id (the UPDATE
+  // above didn't .select() it back).
+  const { data: current, error: fetchError } = await supabase
+    .from("orders")
+    .select("invoice_id, status")
+    .eq("id", orderId)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+  if (current?.invoice_id) return null; // already has an invoice — skip
+  return await generateInvoice(orderId);
+}
+
+/**
+ * P44: manual safety-net for orders that are delivered but have no
+ * invoice. Used when the auto-generation on delivery failed (e.g.,
+ * the order's store was hard-deleted between placement and delivery)
+ * or for backfilling older delivered orders.
+ *
+ * Idempotency guard: rejects if the order is not in 'delivered'
+ * status, or if it already has an invoice. Returns the new
+ * invoice id on success.
+ */
+export async function generateInvoiceForOrder(
+  orderId: string,
+): Promise<{ invoiceId: string }> {
+  await assertPermission("invoices", "create");
+  const supabase = createAdminClient();
+
+  // Idempotency / preconditions.
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("status, invoice_id")
+    .eq("id", orderId)
+    .single();
+  if (orderError) throw new Error(orderError.message);
+  if (!order) throw new Error("Order not found");
+  if (order.status !== "delivered") {
+    throw new Error("Invoice can only be generated for delivered orders");
+  }
+  if (order.invoice_id) {
+    throw new Error("Order already has an invoice");
+  }
+
+  const invoiceId = await generateInvoice(orderId);
+
+  revalidatePath("/orders");
+  revalidatePath(`/orders/${orderId}`);
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath("/invoices");
+  return { invoiceId };
 }
 
 export async function updatePaymentStatus(id: string, payment_status: PaymentStatus) {

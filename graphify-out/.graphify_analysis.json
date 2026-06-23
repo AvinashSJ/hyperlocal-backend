@@ -155,7 +155,6 @@
     ],
     "16": [
       "OrderDetailClient",
-      "PaymentStatus",
       "async"
     ],
     "17": [
@@ -163,9 +162,9 @@
       "getOrders",
       "getOrder",
       "updateOrderStatus",
+      "generateInvoiceForOrder",
       "updatePaymentStatus",
       "deleteOrder",
-      "OrderStatus",
       "OrdersClient",
       "PaymentStatus",
       "ActionPermissions",
