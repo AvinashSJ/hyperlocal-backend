@@ -4,7 +4,10 @@ import {
   getAdminClient,
   resetSupabaseClients,
 } from "../../test/mocks/supabase-clients";
-import { getCategoriesForStore, type CategoryNode } from "./categories";
+import {
+  getCategoriesForStore,
+  buildEffectiveStoresMap,
+} from "./categories";
 
 beforeEach(() => {
   resetSupabaseClients();
@@ -242,5 +245,141 @@ describe("getCategoriesForStore — sort order", () => {
     const result = await getCategoriesForStore("s-1");
     // The store-scoped branch sorts on the client
     expect(result.map((c) => c.id)).toEqual(["early", "a", "z"]);
+  });
+});
+
+describe("buildEffectiveStoresMap — root categories", () => {
+  it("returns an empty map for an empty input", () => {
+    const result = buildEffectiveStoresMap([]);
+    expect(result.size).toBe(0);
+  });
+
+  it("returns own stores for a single root (no parent)", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "a", parent_id: null, stores: ["Store A", "Store B"] },
+    ]);
+    expect(result.get("a")).toEqual({
+      stores: ["Store A", "Store B"],
+      inherited: false,
+    });
+  });
+
+  it("returns empty stores for a root with no own stores (not inherited)", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "a", parent_id: null, stores: [] },
+    ]);
+    expect(result.get("a")).toEqual({ stores: [], inherited: false });
+  });
+});
+
+describe("buildEffectiveStoresMap — subcategory inheritance", () => {
+  it("child inherits the parent's stores when child has no own stores", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "parent", parent_id: null, stores: ["Store A"] },
+      { id: "child", parent_id: "parent", stores: [] },
+    ]);
+    expect(result.get("parent")?.stores).toEqual(["Store A"]);
+    expect(result.get("parent")?.inherited).toBe(false);
+    expect(result.get("child")?.stores).toEqual(["Store A"]);
+    expect(result.get("child")?.inherited).toBe(true);
+  });
+
+  it("child's own stores are appended to the parent's (deduped)", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "parent", parent_id: null, stores: ["Store A", "Store B"] },
+      { id: "child", parent_id: "parent", stores: ["Store B", "Store C"] },
+    ]);
+    // Ancestor order preserved; child stores appended; duplicates removed
+    expect(result.get("child")?.stores).toEqual([
+      "Store A",
+      "Store B",
+      "Store C",
+    ]);
+    expect(result.get("child")?.inherited).toBe(true);
+  });
+
+  it("grandchild inherits through the chain (parent → child → grandchild)", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "p", parent_id: null, stores: ["Store P"] },
+      { id: "c", parent_id: "p", stores: ["Store C"] },
+      { id: "g", parent_id: "c", stores: [] },
+    ]);
+    expect(result.get("g")?.stores).toEqual(["Store P", "Store C"]);
+    expect(result.get("g")?.inherited).toBe(true);
+  });
+
+  it("child with own stores but empty parent → not inherited", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "p", parent_id: null, stores: [] },
+      { id: "c", parent_id: "p", stores: ["Store C"] },
+    ]);
+    expect(result.get("c")?.stores).toEqual(["Store C"]);
+    // Parent had no stores → nothing to inherit
+    expect(result.get("c")?.inherited).toBe(false);
+  });
+
+  it("child whose parent is not in the input array → treats parent as empty", () => {
+    // E.g. parent is in a different store's scope, so it's filtered out
+    // before the page passes rows to the helper.
+    const result = buildEffectiveStoresMap([
+      { id: "orphan-child", parent_id: "missing-parent", stores: ["Store A"] },
+    ]);
+    expect(result.get("orphan-child")?.stores).toEqual(["Store A"]);
+    expect(result.get("orphan-child")?.inherited).toBe(false);
+  });
+});
+
+describe("buildEffectiveStoresMap — robustness", () => {
+  it("dedupes the same store name appearing at both parent and child", () => {
+    const result = buildEffectiveStoresMap([
+      { id: "p", parent_id: null, stores: ["Store A"] },
+      { id: "c", parent_id: "p", stores: ["Store A", "Store A"] },
+    ]);
+    // Should be one entry only, not two
+    expect(result.get("c")?.stores).toEqual(["Store A"]);
+  });
+
+  it("preserves input order on resolve — parent before child", () => {
+    // Pass child first to verify resolve() is order-independent.
+    const result = buildEffectiveStoresMap([
+      { id: "c", parent_id: "p", stores: [] },
+      { id: "p", parent_id: null, stores: ["Store A"] },
+    ]);
+    expect(result.get("c")?.stores).toEqual(["Store A"]);
+    expect(result.get("c")?.inherited).toBe(true);
+  });
+
+  it("handles a deep chain (5 levels) without stack issues", () => {
+    const rows = [
+      { id: "l0", parent_id: null, stores: ["Root"] },
+      { id: "l1", parent_id: "l0", stores: [] },
+      { id: "l2", parent_id: "l1", stores: [] },
+      { id: "l3", parent_id: "l2", stores: [] },
+      { id: "l4", parent_id: "l3", stores: ["Leaf"] },
+    ];
+    const result = buildEffectiveStoresMap(rows);
+    expect(result.get("l4")?.stores).toEqual(["Root", "Leaf"]);
+    expect(result.get("l4")?.inherited).toBe(true);
+  });
+
+  it("defends against a cycle in the parent chain (does not infinite-loop)", () => {
+    // Build a cycle: a → b → a. In practice this shouldn't happen
+    // (categories are a strict tree) but the helper must not infinite-loop.
+    const start = Date.now();
+    const result = buildEffectiveStoresMap([
+      { id: "a", parent_id: "b", stores: ["Store A"] },
+      { id: "b", parent_id: "a", stores: ["Store B"] },
+    ]);
+    const elapsed = Date.now() - start;
+
+    // The key guarantee: returns within a sane budget. Cycle resolution
+    // is undefined beyond "contains own stores" — it can't happen in
+    // a real category tree.
+    expect(elapsed).toBeLessThan(100);
+    expect(result.has("a")).toBe(true);
+    expect(result.has("b")).toBe(true);
+    // At minimum, each category's own stores appear in its result.
+    expect(result.get("a")?.stores).toContain("Store A");
+    expect(result.get("b")?.stores).toContain("Store B");
   });
 });

@@ -87,3 +87,88 @@ export async function getCategoriesForStore(
     return a.name.localeCompare(b.name);
   });
 }
+
+export type EffectiveStores = {
+  /**
+   * Own stores ∪ all ancestors' stores, deduped (ancestor-first then own).
+   * For root categories this is just their own stores.
+   */
+  stores: string[];
+  /**
+   * True if the parent's stores contributed to this category's effective
+   * list. Used by the categories table to show an "(inherited)" hint on
+   * subcategories whose own store_categories is empty.
+   */
+  inherited: boolean;
+};
+
+/**
+ * Pure helper: given the already-fetched rows (with `stores` already
+ * populated by the categories page query), compute each row's effective
+ * store list by walking up the tree.
+ *
+ * Display-only: does NOT mutate `store_categories`. The customer app
+ * and the store-categories join table are unchanged. A subcategory with
+ * no own rows in `store_categories` will show its parent's stores in
+ * the "Stores" column, with an "(inherited)" hint.
+ *
+ * - Roots (parent_id is null) keep their own stores.
+ * - Children get their own stores appended to their parent's effective list.
+ * - Duplicate store names are removed (first occurrence wins, so the
+ *   closest ancestor's order is preserved).
+ * - Cycles are defended against (return own stores only).
+ * - Parents not present in `rows` are treated as "no inherited stores".
+ */
+export function buildEffectiveStoresMap(
+  rows: Array<{ id: string; parent_id: string | null; stores: string[] }>,
+): Map<string, EffectiveStores> {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+
+  const result = new Map<string, EffectiveStores>();
+  const visiting = new Set<string>();
+
+  const resolve = (id: string): EffectiveStores => {
+    const cached = result.get(id);
+    if (cached) return cached;
+    if (visiting.has(id)) {
+      // Cycle: bail out with own stores only. Category trees are not
+      // supposed to cycle, but the helper is safe even if the data is.
+      const node = byId.get(id);
+      return { stores: [...(node?.stores ?? [])], inherited: false };
+    }
+
+    const node = byId.get(id);
+    if (!node) {
+      return { stores: [], inherited: false };
+    }
+
+    visiting.add(id);
+    const own = node.stores ?? [];
+
+    let inherited = false;
+    let parentStores: string[] = [];
+    if (node.parent_id !== null && byId.has(node.parent_id)) {
+      const parentEffective = resolve(node.parent_id);
+      if (parentEffective.stores.length > 0) inherited = true;
+      parentStores = parentEffective.stores;
+    }
+
+    const merged: string[] = [];
+    const seen = new Set<string>();
+    for (const s of [...parentStores, ...own]) {
+      if (seen.has(s)) continue;
+      seen.add(s);
+      merged.push(s);
+    }
+
+    const effective: EffectiveStores = { stores: merged, inherited };
+    result.set(id, effective);
+    visiting.delete(id);
+    return effective;
+  };
+
+  for (const row of rows) {
+    resolve(row.id);
+  }
+  return result;
+}

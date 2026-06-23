@@ -1,7 +1,7 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreScope } from "@/lib/store-scope";
-import { getCategoriesForStore } from "@/lib/categories";
+import { getCategoriesForStore, buildEffectiveStoresMap } from "@/lib/categories";
 import CategoriesClient from "./CategoriesClient";
 
 type CategoryRow = {
@@ -18,7 +18,14 @@ type CategoryRow = {
   pending_deletion_at: string | null; // P33
   parent_name?: string | null;
   product_count: number;
+  /** Stores directly assigned via store_categories. Used by the delete modal. */
   stores: string[];
+  /** Stores actually shown in the Stores column (own ∪ parent's, display-only). */
+  effective_stores: string[];
+  /** True if `effective_stores` includes the parent's contribution. */
+  stores_inherited: boolean;
+  /** Number of direct subcategories. Used to block parent delete. */
+  children_count: number;
 };
 
 async function getCategoriesForAdmin(storeId: string | null) {
@@ -67,14 +74,42 @@ async function getCategoriesForAdmin(storeId: string | null) {
 
   const parentMap = new Map(allParents?.map((p) => [p.id, p.name]) ?? []);
 
-  const rows: CategoryRow[] = (categories ?? [])
-    .filter((cat) => visibleIds.has(cat.id))
-    .map((cat) => ({
+  // Direct-child counts per parent. We need a parent_id → childCount map
+  // for the "block parent delete" check.
+  const childrenCountMap = new Map<string, number>();
+  (categories ?? []).forEach((cat) => {
+    if (cat.parent_id) {
+      childrenCountMap.set(
+        cat.parent_id,
+        (childrenCountMap.get(cat.parent_id) ?? 0) + 1,
+      );
+    }
+  });
+
+  const visibleRows = (categories ?? []).filter((cat) => visibleIds.has(cat.id));
+
+  // Display-only inheritance: subcategory stores column shows own ∪ parent's.
+  // Built from the already-fetched rows — no extra query.
+  const effectiveStores = buildEffectiveStoresMap(
+    visibleRows.map((r) => ({
+      id: r.id,
+      parent_id: r.parent_id,
+      stores: storeNamesMap.get(r.id) ?? [],
+    })),
+  );
+
+  const rows: CategoryRow[] = visibleRows.map((cat) => {
+    const effective = effectiveStores.get(cat.id) ?? { stores: [], inherited: false };
+    return {
       ...cat,
       parent_name: cat.parent_id ? parentMap.get(cat.parent_id) ?? null : null,
       product_count: productCountMap.get(cat.id) ?? 0,
       stores: storeNamesMap.get(cat.id) ?? [],
-    }));
+      effective_stores: effective.stores,
+      stores_inherited: effective.inherited,
+      children_count: childrenCountMap.get(cat.id) ?? 0,
+    };
+  });
 
   return rows;
 }

@@ -1,79 +1,165 @@
 {
   "communities": {
     "0": [
+      "actions.test"
+    ],
+    "1": [
       "getBanners",
       "createBanner",
       "updateBanner",
       "deleteBanner",
       "reorderBanners",
-      "BannerInput"
-    ],
-    "1": [
+      "BannerInput",
       "BannerForm",
       "Banner",
       "BannersClient",
+      "ActionPermissions",
       "async"
     ],
     "2": [
+      "actions.test",
       "createCategory",
       "updateCategory",
       "deleteCategory",
+      "requestCategoryDeletion",
+      "cancelCategoryDeletion",
+      "forceUnassignCategory",
       "CategoriesClient",
       "Category",
+      "ActionPermissions",
       "CategoryForm",
       "async",
       "CategoryRow"
     ],
     "3": [
-      "CustomersPage"
+      "CommissionDetailClient",
+      "async"
     ],
     "4": [
-      "DashboardClient",
-      "MonthlyData",
-      "LowStockItem",
-      "Stats",
+      "actions.test",
+      "getStoresLight",
+      "getCommissions",
+      "getCommissionPayments",
+      "generateCommission",
+      "generateAllCommissions",
+      "recordPayment",
+      "Root",
+      "CommissionsClient",
       "async"
     ],
     "5": [
-      "DeliverySlotsPage"
+      "actions.test",
+      "getCustomers",
+      "CustomerUser",
+      "CustomersClient",
+      "async"
     ],
     "6": [
-      "DeliveryZonesPage"
+      "actions.test",
+      "getDashboardStats",
+      "MonthlyData",
+      "LowStockItem",
+      "RecentOrder",
+      "DashboardStats",
+      "DashboardClient",
+      "Stats",
+      "async"
     ],
     "7": [
-      "GSTNumbersPage"
+      "actions.test",
+      "getDeliverySlots",
+      "createDeliverySlot",
+      "updateDeliverySlot",
+      "deleteDeliverySlot",
+      "SlotInput",
+      "async",
+      "SlotForm",
+      "Slot",
+      "SlotsClient",
+      "ActionPermissions"
     ],
     "8": [
-      "InventoryLogPage"
+      "actions.test",
+      "getDeliveryZones",
+      "createDeliveryZone",
+      "updateDeliveryZone",
+      "deleteDeliveryZone",
+      "ZoneInput",
+      "async",
+      "ZoneForm",
+      "Zone",
+      "ZonesClient",
+      "ActionPermissions"
     ],
     "9": [
+      "actions.test",
+      "getGstNumbers",
+      "createGstNumber",
+      "updateGstNumber",
+      "deleteGstNumber",
+      "GstNumberInput",
+      "GstClient",
+      "GstNumber",
+      "ActionPermissions",
+      "GstForm",
+      "async"
+    ],
+    "10": [
+      "actions.test",
+      "getInventoryLogs",
+      "InventoryClient",
+      "Log",
+      "async"
+    ],
+    "11": [
+      "Root",
       "InvoiceDetailClient",
       "InvoicePDF",
       "async"
     ],
-    "10": [
+    "12": [
+      "actions.test",
       "getInvoices",
       "getInvoice",
       "generateInvoice",
       "InvoiceRow",
       "InvoiceListItem",
-      "InvoiceDetail",
+      "InvoiceStore",
       "InvoicesClient",
       "async"
     ],
-    "11": [
+    "13": [
       "async",
       "AdminPage"
     ],
-    "12": [
-      "NotificationsPage"
+    "14": [
+      "when",
+      "is",
+      "listMedia",
+      "uploadMedia",
+      "deleteMedia",
+      "MediaFile",
+      "MediaClient",
+      "async"
     ],
-    "13": [
+    "15": [
+      "string",
+      "getNotifications",
+      "createNotification",
+      "deleteNotification",
+      "NotificationInput",
+      "NotificationForm",
+      "NotificationsClient",
+      "Notification",
+      "async"
+    ],
+    "16": [
       "OrderDetailClient",
       "PaymentStatus",
       "async"
     ],
-    "14": [
+    "17": [
+      "actions.test",
       "getOrders",
       "getOrder",
       "updateOrderStatus",
@@ -82,74 +168,247 @@
       "OrderStatus",
       "OrdersClient",
       "PaymentStatus",
-      "async"
-    ],
-    "15": [
-      "async",
-      "Props"
-    ],
-    "16": [
-      "createProduct",
-      "updateProduct",
-      "deleteProduct",
-      "VariantInput",
-      "async",
-      "ProductForm",
-      "Product",
-      "ProductVariant",
-      "ProductImage",
-      "Category",
-      "ProductsClient",
-      "VariantEditor",
-      "Variant"
-    ],
-    "17": [
+      "ActionPermissions",
       "async"
     ],
     "18": [
-      "RolesPage"
+      "page.test",
+      "async",
+      "Props",
+      "ProductActivityLog.test",
+      "ProductActivityLog"
     ],
     "19": [
-      "SettingsPage"
+      "actions.test",
+      "createProduct",
+      "updateProduct",
+      "deleteProduct",
+      "getProductActivityTrail",
+      "bulkImportProducts",
+      "VariantInput",
+      "BulkImportModal",
+      "ImportResult",
+      "discount.test",
+      "computeDiscountPercent",
+      "formatDiscountLabel",
+      "async",
+      "Root",
+      "ProductVariant",
+      "Product",
+      "ProductForm",
+      "ProductImage",
+      "Category",
+      "ProductsClient",
+      "ActionPermissions",
+      "Variant",
+      "was",
+      "VariantEditor"
     ],
     "20": [
-      "UsersPage"
+      "page.test",
+      "async"
     ],
     "21": [
-      "signIn",
-      "signOut"
+      "actions.test",
+      "getRevenueSummary",
+      "getRevenueByStore",
+      "getRevenueByMethod",
+      "getMonthlyRevenue",
+      "getGSTSummary",
+      "getGSTMonthly",
+      "async",
+      "ReportsClient",
+      "Tab"
     ],
     "22": [
+      "actions.test",
+      "getRoles",
+      "createRole",
+      "updateRole",
+      "deleteRole",
+      "RoleRow",
+      "async",
+      "RolesClient",
+      "ActionPermissions"
+    ],
+    "23": [
+      "actions.test",
+      "getStoreSettings",
+      "updateStore",
+      "createStore",
+      "updateStoreSetting",
+      "getAppMaintenance",
+      "getStoreMaintenanceMap",
+      "async",
+      "SettingsClient",
+      "ZoneRow",
+      "SlotRow",
+      "GstRow",
+      "CategoryOption",
+      "ManagerOption"
+    ],
+    "24": [
+      "in",
+      "getStoresLight",
+      "getStaff",
+      "createStaff",
+      "updateStaff",
+      "toggleStaffActive",
+      "deleteStaff",
+      "async",
+      "StaffClient",
+      "ActionPermissions"
+    ],
+    "25": [
+      "actions.test",
+      "getStores",
+      "getStoreRelations",
+      "deleteStore",
+      "getStoreCategories",
+      "getLockedStoreCategories",
+      "assertCategoriesRemovable",
+      "async",
+      "StoresClient",
+      "CategoryOption",
+      "ActionPermissions"
+    ],
+    "26": [
+      "actions.test",
+      "getRoles",
+      "getStoresLight",
+      "getUsers",
+      "toggleUserActive",
+      "toggleManagerActiveWithCascade",
+      "deleteUser",
+      "async",
+      "UsersClient",
+      "ActionPermissions"
+    ],
+    "27": [
+      "route.test",
+      "GET",
+      "ProductRow"
+    ],
+    "28": [
+      "route.test",
+      "GET",
+      "NextRequest",
+      "DocumentProps",
+      "ReactElement",
+      "narrows",
+      "for"
+    ],
+    "29": [
+      "route.test",
+      "GET",
+      "Reason",
+      "MaintenanceValue"
+    ],
+    "30": [
+      "POST"
+    ],
+    "31": [
+      "POST"
+    ],
+    "32": [
+      "actions.test",
+      "signIn",
+      "signOut",
+      "updateOwnPassword"
+    ],
+    "33": [
+      "POST"
+    ],
+    "34": [
+      "LoginForm",
       "async",
       "LoginPageProps"
     ],
-    "23": [
+    "35": [
+      "async",
+      "ResetPasswordForm"
+    ],
+    "36": [
       "RootLayout",
       "async",
       "StoreProvider"
     ],
-    "24": [
+    "37": [
+      "MaintenanceView",
+      "MaintenanceValue",
+      "async",
+      "Reason"
+    ],
+    "38": [
+      "UnauthorizedPage"
+    ],
+    "39": [
       "BootstrapClient",
+      "RootLike",
+      "ImagePickerModal",
+      "MediaFile",
+      "Props",
+      "MaintenanceStatus",
+      "AppMaintenanceValue",
+      "StoreMaintenanceValue",
+      "MasterLayout.test",
       "MasterLayout",
       "NavItem",
+      "PlaceholderPage.test",
       "PlaceholderPage"
     ],
-    "25": [
+    "40": [
+      "activity-log.test",
+      "logActivity",
+      "getEntityActivityLog",
+      "ActivityAction",
+      "ActivityLogWithUser",
+      "categories.test",
+      "getCategoriesForStore",
+      "buildEffectiveStoresMap",
+      "CategoryNode",
+      "EffectiveStores",
+      "permissions.test",
+      "hasPermission",
+      "canAccess",
+      "PermissionModule",
+      "PermissionAction",
+      "RolePermissions",
+      "require-permission.test",
+      "requirePermission",
+      "assertPermission",
+      "getActionPermissions",
+      "PermissionResult",
+      "ActionPermissions",
+      "run-server-action.test",
+      "runServerAction",
+      "store-scope.test",
+      "getStoreScope",
+      "withStoreScope",
+      "StoreScope"
+    ],
+    "41": [
       "baseApi"
     ],
-    "26": [
+    "42": [
       "hooks",
       "AppStore",
       "RootState",
       "AppDispatch"
     ],
-    "27": [
+    "43": [
+      "admin.test",
       "createAdminClient",
+      "client.test",
       "createClient",
+      "AuthError",
+      "GetUserResult",
+      "GetUserBehaviour",
       "updateSession",
-      "NextRequest"
+      "NextRequest",
+      "CookieRecord"
     ],
-    "28": [
+    "44": [
       "Profile",
       "Store",
       "Category",

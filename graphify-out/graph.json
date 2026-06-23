@@ -4,12 +4,21 @@
   "graph": {},
   "nodes": [
     {
+      "id": "src_app_admin_banners_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/banners/actions.test.ts",
+      "source_location": "L1",
+      "community": 0,
+      "norm_label": "actions.test"
+    },
+    {
       "id": "src_app_admin_banners_actions_ts",
       "label": "actions.ts",
       "file_type": "server_action",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L1",
-      "community": 0,
+      "community": 1,
       "norm_label": "getBanners"
     },
     {
@@ -18,7 +27,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L0",
-      "community": 0,
+      "community": 1,
       "norm_label": "getBanners"
     },
     {
@@ -27,7 +36,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L0",
-      "community": 0,
+      "community": 1,
       "norm_label": "createBanner"
     },
     {
@@ -36,7 +45,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L0",
-      "community": 0,
+      "community": 1,
       "norm_label": "updateBanner"
     },
     {
@@ -45,7 +54,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L0",
-      "community": 0,
+      "community": 1,
       "norm_label": "deleteBanner"
     },
     {
@@ -54,7 +63,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L0",
-      "community": 0,
+      "community": 1,
       "norm_label": "reorderBanners"
     },
     {
@@ -63,7 +72,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/banners/actions.ts",
       "source_location": "L0",
-      "community": 0,
+      "community": 1,
       "norm_label": "BannerInput"
     },
     {
@@ -121,6 +130,15 @@
       "norm_label": "Banner"
     },
     {
+      "id": "src_app_admin_banners_bannersclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/banners/BannersClient.tsx",
+      "source_location": "L0",
+      "community": 1,
+      "norm_label": "ActionPermissions"
+    },
+    {
       "id": "src_app_admin_banners_page_tsx",
       "label": "page.tsx",
       "file_type": "server_component",
@@ -137,6 +155,15 @@
       "source_location": "L0",
       "community": 1,
       "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_categories_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/categories/actions.test.ts",
+      "source_location": "L1",
+      "community": 2,
+      "norm_label": "actions.test"
     },
     {
       "id": "src_app_admin_categories_actions_ts",
@@ -175,6 +202,33 @@
       "norm_label": "deleteCategory"
     },
     {
+      "id": "src_app_admin_categories_actions_ts_requestcategorydeletion",
+      "label": "requestCategoryDeletion",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "requestCategoryDeletion"
+    },
+    {
+      "id": "src_app_admin_categories_actions_ts_cancelcategorydeletion",
+      "label": "cancelCategoryDeletion",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "cancelCategoryDeletion"
+    },
+    {
+      "id": "src_app_admin_categories_actions_ts_forceunassigncategory",
+      "label": "forceUnassignCategory",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/actions.ts",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "forceUnassignCategory"
+    },
+    {
       "id": "src_app_admin_categories_categoriesclient_tsx",
       "label": "CategoriesClient.tsx",
       "file_type": "server_component",
@@ -200,6 +254,15 @@
       "source_location": "L0",
       "community": 2,
       "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_categories_categoriesclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoriesClient.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "ActionPermissions"
     },
     {
       "id": "src_app_admin_categories_categoryform_tsx",
@@ -256,22 +319,301 @@
       "norm_label": "CategoryRow"
     },
     {
+      "id": "src_app_admin_commissions_id_commissiondetailclient_tsx",
+      "label": "CommissionDetailClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/[id]/CommissionDetailClient.tsx",
+      "source_location": "L1",
+      "community": 3,
+      "norm_label": "CommissionDetailClient"
+    },
+    {
+      "id": "src_app_admin_commissions_id_commissiondetailclient_tsx_commissiondetailclient",
+      "label": "CommissionDetailClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/[id]/CommissionDetailClient.tsx",
+      "source_location": "L0",
+      "community": 3,
+      "norm_label": "CommissionDetailClient"
+    },
+    {
+      "id": "src_app_admin_commissions_id_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/[id]/page.tsx",
+      "source_location": "L1",
+      "community": 3,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_commissions_id_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/[id]/page.tsx",
+      "source_location": "L0",
+      "community": 3,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/actions.test.ts",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "getStoresLight"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts_getstoreslight",
+      "label": "getStoresLight",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "getStoresLight"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts_getcommissions",
+      "label": "getCommissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "getCommissions"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts_getcommissionpayments",
+      "label": "getCommissionPayments",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "getCommissionPayments"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts_generatecommission",
+      "label": "generateCommission",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "generateCommission"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts_generateallcommissions",
+      "label": "generateAllCommissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "generateAllCommissions"
+    },
+    {
+      "id": "src_app_admin_commissions_actions_ts_recordpayment",
+      "label": "recordPayment",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "recordPayment"
+    },
+    {
+      "id": "src_app_admin_commissions_commissionsclient_test_tsx",
+      "label": "CommissionsClient.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/CommissionsClient.test.tsx",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_commissions_commissionsclient_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/CommissionsClient.test.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_commissions_commissionsclient_tsx",
+      "label": "CommissionsClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/CommissionsClient.tsx",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "CommissionsClient"
+    },
+    {
+      "id": "src_app_admin_commissions_commissionsclient_tsx_commissionsclient",
+      "label": "CommissionsClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/CommissionsClient.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "CommissionsClient"
+    },
+    {
+      "id": "src_app_admin_commissions_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/page.tsx",
+      "source_location": "L1",
+      "community": 4,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_commissions_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/page.tsx",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_customers_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/customers/actions.test.ts",
+      "source_location": "L1",
+      "community": 5,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_customers_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/customers/actions.ts",
+      "source_location": "L1",
+      "community": 5,
+      "norm_label": "getCustomers"
+    },
+    {
+      "id": "src_app_admin_customers_actions_ts_getcustomers",
+      "label": "getCustomers",
+      "file_type": "export",
+      "source_file": "app/(admin)/customers/actions.ts",
+      "source_location": "L0",
+      "community": 5,
+      "norm_label": "getCustomers"
+    },
+    {
+      "id": "src_app_admin_customers_actions_ts_customeruser",
+      "label": "CustomerUser",
+      "file_type": "export",
+      "source_file": "app/(admin)/customers/actions.ts",
+      "source_location": "L0",
+      "community": 5,
+      "norm_label": "CustomerUser"
+    },
+    {
+      "id": "src_app_admin_customers_customersclient_tsx",
+      "label": "CustomersClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/customers/CustomersClient.tsx",
+      "source_location": "L1",
+      "community": 5,
+      "norm_label": "CustomersClient"
+    },
+    {
+      "id": "src_app_admin_customers_customersclient_tsx_customersclient",
+      "label": "CustomersClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/customers/CustomersClient.tsx",
+      "source_location": "L0",
+      "community": 5,
+      "norm_label": "CustomersClient"
+    },
+    {
       "id": "src_app_admin_customers_page_tsx",
       "label": "page.tsx",
       "file_type": "server_component",
       "source_file": "app/(admin)/customers/page.tsx",
       "source_location": "L1",
-      "community": 3,
-      "norm_label": "CustomersPage"
+      "community": 5,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_customers_page_tsx_customerspage",
-      "label": "CustomersPage",
+      "id": "src_app_admin_customers_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/customers/page.tsx",
       "source_location": "L0",
-      "community": 3,
-      "norm_label": "CustomersPage"
+      "community": 5,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/dashboard/actions.test.ts",
+      "source_location": "L1",
+      "community": 6,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/dashboard/actions.ts",
+      "source_location": "L1",
+      "community": 6,
+      "norm_label": "getDashboardStats"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_ts_getdashboardstats",
+      "label": "getDashboardStats",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/actions.ts",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "getDashboardStats"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_ts_monthlydata",
+      "label": "MonthlyData",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/actions.ts",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "MonthlyData"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_ts_lowstockitem",
+      "label": "LowStockItem",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/actions.ts",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "LowStockItem"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_ts_recentorder",
+      "label": "RecentOrder",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/actions.ts",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "RecentOrder"
+    },
+    {
+      "id": "src_app_admin_dashboard_actions_ts_dashboardstats",
+      "label": "DashboardStats",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/actions.ts",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "DashboardStats"
     },
     {
       "id": "src_app_admin_dashboard_dashboardclient_tsx",
@@ -279,7 +621,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
       "source_location": "L1",
-      "community": 4,
+      "community": 6,
       "norm_label": "DashboardClient"
     },
     {
@@ -288,7 +630,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
       "source_location": "L0",
-      "community": 4,
+      "community": 6,
       "norm_label": "DashboardClient"
     },
     {
@@ -297,7 +639,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
       "source_location": "L0",
-      "community": 4,
+      "community": 6,
       "norm_label": "MonthlyData"
     },
     {
@@ -306,8 +648,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
       "source_location": "L0",
-      "community": 4,
+      "community": 6,
       "norm_label": "LowStockItem"
+    },
+    {
+      "id": "src_app_admin_dashboard_dashboardclient_tsx_recentorder",
+      "label": "RecentOrder",
+      "file_type": "export",
+      "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
+      "source_location": "L0",
+      "community": 6,
+      "norm_label": "RecentOrder"
     },
     {
       "id": "src_app_admin_dashboard_dashboardclient_tsx_stats",
@@ -315,7 +666,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/dashboard/DashboardClient.tsx",
       "source_location": "L0",
-      "community": 4,
+      "community": 6,
       "norm_label": "Stats"
     },
     {
@@ -324,7 +675,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/dashboard/page.tsx",
       "source_location": "L1",
-      "community": 4,
+      "community": 6,
       "norm_label": "async"
     },
     {
@@ -333,8 +684,71 @@
       "file_type": "export",
       "source_file": "app/(admin)/dashboard/page.tsx",
       "source_location": "L0",
-      "community": 4,
+      "community": 6,
       "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-slots/actions.test.ts",
+      "source_location": "L1",
+      "community": 7,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/delivery-slots/actions.ts",
+      "source_location": "L1",
+      "community": 7,
+      "norm_label": "getDeliverySlots"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_ts_getdeliveryslots",
+      "label": "getDeliverySlots",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/actions.ts",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "getDeliverySlots"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_ts_createdeliveryslot",
+      "label": "createDeliverySlot",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/actions.ts",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "createDeliverySlot"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_ts_updatedeliveryslot",
+      "label": "updateDeliverySlot",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/actions.ts",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "updateDeliverySlot"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_ts_deletedeliveryslot",
+      "label": "deleteDeliverySlot",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/actions.ts",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "deleteDeliverySlot"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_actions_ts_slotinput",
+      "label": "SlotInput",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/actions.ts",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "SlotInput"
     },
     {
       "id": "src_app_admin_delivery_slots_page_tsx",
@@ -342,17 +756,152 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/delivery-slots/page.tsx",
       "source_location": "L1",
-      "community": 5,
-      "norm_label": "DeliverySlotsPage"
+      "community": 7,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_delivery_slots_page_tsx_deliveryslotspage",
-      "label": "DeliverySlotsPage",
+      "id": "src_app_admin_delivery_slots_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/delivery-slots/page.tsx",
       "source_location": "L0",
-      "community": 5,
-      "norm_label": "DeliverySlotsPage"
+      "community": 7,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotform_tsx",
+      "label": "SlotForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-slots/SlotForm.tsx",
+      "source_location": "L1",
+      "community": 7,
+      "norm_label": "SlotForm"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotform_tsx_slotform",
+      "label": "SlotForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/SlotForm.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "SlotForm"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotform_tsx_slot",
+      "label": "Slot",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/SlotForm.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "Slot"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotsclient_tsx",
+      "label": "SlotsClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-slots/SlotsClient.tsx",
+      "source_location": "L1",
+      "community": 7,
+      "norm_label": "SlotsClient"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotsclient_tsx_slotsclient",
+      "label": "SlotsClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/SlotsClient.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "SlotsClient"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotsclient_tsx_getdeliveryslots",
+      "label": "getDeliverySlots",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/SlotsClient.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "getDeliverySlots"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotsclient_tsx_slot",
+      "label": "Slot",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/SlotsClient.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "Slot"
+    },
+    {
+      "id": "src_app_admin_delivery_slots_slotsclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-slots/SlotsClient.tsx",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-zones/actions.test.ts",
+      "source_location": "L1",
+      "community": 8,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/delivery-zones/actions.ts",
+      "source_location": "L1",
+      "community": 8,
+      "norm_label": "getDeliveryZones"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_ts_getdeliveryzones",
+      "label": "getDeliveryZones",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/actions.ts",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "getDeliveryZones"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_ts_createdeliveryzone",
+      "label": "createDeliveryZone",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/actions.ts",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "createDeliveryZone"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_ts_updatedeliveryzone",
+      "label": "updateDeliveryZone",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/actions.ts",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "updateDeliveryZone"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_ts_deletedeliveryzone",
+      "label": "deleteDeliveryZone",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/actions.ts",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "deleteDeliveryZone"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_actions_ts_zoneinput",
+      "label": "ZoneInput",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/actions.ts",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "ZoneInput"
     },
     {
       "id": "src_app_admin_delivery_zones_page_tsx",
@@ -360,17 +909,224 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/delivery-zones/page.tsx",
       "source_location": "L1",
-      "community": 6,
-      "norm_label": "DeliveryZonesPage"
+      "community": 8,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_delivery_zones_page_tsx_deliveryzonespage",
-      "label": "DeliveryZonesPage",
+      "id": "src_app_admin_delivery_zones_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/delivery-zones/page.tsx",
       "source_location": "L0",
-      "community": 6,
-      "norm_label": "DeliveryZonesPage"
+      "community": 8,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zoneform_tsx",
+      "label": "ZoneForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-zones/ZoneForm.tsx",
+      "source_location": "L1",
+      "community": 8,
+      "norm_label": "ZoneForm"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zoneform_tsx_zoneform",
+      "label": "ZoneForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/ZoneForm.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "ZoneForm"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zoneform_tsx_zone",
+      "label": "Zone",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/ZoneForm.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "Zone"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zonesclient_tsx",
+      "label": "ZonesClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/delivery-zones/ZonesClient.tsx",
+      "source_location": "L1",
+      "community": 8,
+      "norm_label": "ZonesClient"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zonesclient_tsx_zonesclient",
+      "label": "ZonesClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/ZonesClient.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "ZonesClient"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zonesclient_tsx_getdeliveryzones",
+      "label": "getDeliveryZones",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/ZonesClient.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "getDeliveryZones"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zonesclient_tsx_zone",
+      "label": "Zone",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/ZonesClient.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "Zone"
+    },
+    {
+      "id": "src_app_admin_delivery_zones_zonesclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/delivery-zones/ZonesClient.tsx",
+      "source_location": "L0",
+      "community": 8,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/gst-numbers/actions.test.ts",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/gst-numbers/actions.ts",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "getGstNumbers"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_ts_getgstnumbers",
+      "label": "getGstNumbers",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/actions.ts",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "getGstNumbers"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_ts_creategstnumber",
+      "label": "createGstNumber",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/actions.ts",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "createGstNumber"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_ts_updategstnumber",
+      "label": "updateGstNumber",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/actions.ts",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "updateGstNumber"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_ts_deletegstnumber",
+      "label": "deleteGstNumber",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/actions.ts",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "deleteGstNumber"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_actions_ts_gstnumberinput",
+      "label": "GstNumberInput",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/actions.ts",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "GstNumberInput"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstclient_tsx",
+      "label": "GstClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/gst-numbers/GstClient.tsx",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "GstClient"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstclient_tsx_gstclient",
+      "label": "GstClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/GstClient.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "GstClient"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstclient_tsx_getgstnumbers",
+      "label": "getGstNumbers",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/GstClient.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "getGstNumbers"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstclient_tsx_gstnumber",
+      "label": "GstNumber",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/GstClient.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "GstNumber"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/GstClient.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstform_tsx",
+      "label": "GstForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/gst-numbers/GstForm.tsx",
+      "source_location": "L1",
+      "community": 9,
+      "norm_label": "GstForm"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstform_tsx_gstform",
+      "label": "GstForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/GstForm.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "GstForm"
+    },
+    {
+      "id": "src_app_admin_gst_numbers_gstform_tsx_gstnumber",
+      "label": "GstNumber",
+      "file_type": "export",
+      "source_file": "app/(admin)/gst-numbers/GstForm.tsx",
+      "source_location": "L0",
+      "community": 9,
+      "norm_label": "GstNumber"
     },
     {
       "id": "src_app_admin_gst_numbers_page_tsx",
@@ -378,17 +1134,80 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/gst-numbers/page.tsx",
       "source_location": "L1",
-      "community": 7,
-      "norm_label": "GSTNumbersPage"
+      "community": 9,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_gst_numbers_page_tsx_gstnumberspage",
-      "label": "GSTNumbersPage",
+      "id": "src_app_admin_gst_numbers_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/gst-numbers/page.tsx",
       "source_location": "L0",
-      "community": 7,
-      "norm_label": "GSTNumbersPage"
+      "community": 9,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_inventory_log_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/inventory-log/actions.test.ts",
+      "source_location": "L1",
+      "community": 10,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_inventory_log_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/inventory-log/actions.ts",
+      "source_location": "L1",
+      "community": 10,
+      "norm_label": "getInventoryLogs"
+    },
+    {
+      "id": "src_app_admin_inventory_log_actions_ts_getinventorylogs",
+      "label": "getInventoryLogs",
+      "file_type": "export",
+      "source_file": "app/(admin)/inventory-log/actions.ts",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "getInventoryLogs"
+    },
+    {
+      "id": "src_app_admin_inventory_log_inventoryclient_tsx",
+      "label": "InventoryClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/inventory-log/InventoryClient.tsx",
+      "source_location": "L1",
+      "community": 10,
+      "norm_label": "InventoryClient"
+    },
+    {
+      "id": "src_app_admin_inventory_log_inventoryclient_tsx_inventoryclient",
+      "label": "InventoryClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/inventory-log/InventoryClient.tsx",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "InventoryClient"
+    },
+    {
+      "id": "src_app_admin_inventory_log_inventoryclient_tsx_getinventorylogs",
+      "label": "getInventoryLogs",
+      "file_type": "export",
+      "source_file": "app/(admin)/inventory-log/InventoryClient.tsx",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "getInventoryLogs"
+    },
+    {
+      "id": "src_app_admin_inventory_log_inventoryclient_tsx_log",
+      "label": "Log",
+      "file_type": "export",
+      "source_file": "app/(admin)/inventory-log/InventoryClient.tsx",
+      "source_location": "L0",
+      "community": 10,
+      "norm_label": "Log"
     },
     {
       "id": "src_app_admin_inventory_log_page_tsx",
@@ -396,17 +1215,35 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/inventory-log/page.tsx",
       "source_location": "L1",
-      "community": 8,
-      "norm_label": "InventoryLogPage"
+      "community": 10,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_inventory_log_page_tsx_inventorylogpage",
-      "label": "InventoryLogPage",
+      "id": "src_app_admin_inventory_log_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/inventory-log/page.tsx",
       "source_location": "L0",
-      "community": 8,
-      "norm_label": "InventoryLogPage"
+      "community": 10,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_invoices_id_invoicedetailclient_test_tsx",
+      "label": "InvoiceDetailClient.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/[id]/InvoiceDetailClient.test.tsx",
+      "source_location": "L1",
+      "community": 11,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_invoices_id_invoicedetailclient_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/invoices/[id]/InvoiceDetailClient.test.tsx",
+      "source_location": "L0",
+      "community": 11,
+      "norm_label": "Root"
     },
     {
       "id": "src_app_admin_invoices_id_invoicedetailclient_tsx",
@@ -414,7 +1251,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/invoices/[id]/InvoiceDetailClient.tsx",
       "source_location": "L1",
-      "community": 9,
+      "community": 11,
       "norm_label": "InvoiceDetailClient"
     },
     {
@@ -423,7 +1260,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/[id]/InvoiceDetailClient.tsx",
       "source_location": "L0",
-      "community": 9,
+      "community": 11,
       "norm_label": "InvoiceDetailClient"
     },
     {
@@ -432,7 +1269,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/invoices/[id]/InvoicePDF.tsx",
       "source_location": "L1",
-      "community": 9,
+      "community": 11,
       "norm_label": "InvoicePDF"
     },
     {
@@ -441,7 +1278,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/[id]/InvoicePDF.tsx",
       "source_location": "L0",
-      "community": 9,
+      "community": 11,
       "norm_label": "InvoicePDF"
     },
     {
@@ -450,7 +1287,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/invoices/[id]/page.tsx",
       "source_location": "L1",
-      "community": 9,
+      "community": 11,
       "norm_label": "async"
     },
     {
@@ -459,8 +1296,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/[id]/page.tsx",
       "source_location": "L0",
-      "community": 9,
+      "community": 11,
       "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_invoices_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/invoices/actions.test.ts",
+      "source_location": "L1",
+      "community": 12,
+      "norm_label": "actions.test"
     },
     {
       "id": "src_app_admin_invoices_actions_ts",
@@ -468,7 +1314,7 @@
       "file_type": "server_action",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L1",
-      "community": 10,
+      "community": 12,
       "norm_label": "getInvoices"
     },
     {
@@ -477,7 +1323,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "getInvoices"
     },
     {
@@ -486,7 +1332,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "getInvoice"
     },
     {
@@ -495,7 +1341,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "generateInvoice"
     },
     {
@@ -504,7 +1350,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "InvoiceRow"
     },
     {
@@ -513,17 +1359,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "InvoiceListItem"
     },
     {
-      "id": "src_app_admin_invoices_actions_ts_invoicedetail",
-      "label": "InvoiceDetail",
+      "id": "src_app_admin_invoices_actions_ts_invoicestore",
+      "label": "InvoiceStore",
       "file_type": "export",
       "source_file": "app/(admin)/invoices/actions.ts",
       "source_location": "L0",
-      "community": 10,
-      "norm_label": "InvoiceDetail"
+      "community": 12,
+      "norm_label": "InvoiceStore"
     },
     {
       "id": "src_app_admin_invoices_invoicesclient_tsx",
@@ -531,7 +1377,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/invoices/InvoicesClient.tsx",
       "source_location": "L1",
-      "community": 10,
+      "community": 12,
       "norm_label": "InvoicesClient"
     },
     {
@@ -540,7 +1386,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/InvoicesClient.tsx",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "InvoicesClient"
     },
     {
@@ -549,7 +1395,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/invoices/page.tsx",
       "source_location": "L1",
-      "community": 10,
+      "community": 12,
       "norm_label": "async"
     },
     {
@@ -558,7 +1404,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/invoices/page.tsx",
       "source_location": "L0",
-      "community": 10,
+      "community": 12,
       "norm_label": "async"
     },
     {
@@ -567,7 +1413,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/layout.tsx",
       "source_location": "L1",
-      "community": 11,
+      "community": 13,
       "norm_label": "async"
     },
     {
@@ -576,8 +1422,242 @@
       "file_type": "export",
       "source_file": "app/(admin)/layout.tsx",
       "source_location": "L0",
-      "community": 11,
+      "community": 13,
       "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_media_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/media/actions.test.ts",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "when"
+    },
+    {
+      "id": "src_app_admin_media_actions_test_ts_when",
+      "label": "when",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/actions.test.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "when"
+    },
+    {
+      "id": "src_app_admin_media_actions_test_ts_is",
+      "label": "is",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/actions.test.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "is"
+    },
+    {
+      "id": "src_app_admin_media_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/media/actions.ts",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "listMedia"
+    },
+    {
+      "id": "src_app_admin_media_actions_ts_listmedia",
+      "label": "listMedia",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "listMedia"
+    },
+    {
+      "id": "src_app_admin_media_actions_ts_uploadmedia",
+      "label": "uploadMedia",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "uploadMedia"
+    },
+    {
+      "id": "src_app_admin_media_actions_ts_deletemedia",
+      "label": "deleteMedia",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "deleteMedia"
+    },
+    {
+      "id": "src_app_admin_media_actions_ts_mediafile",
+      "label": "MediaFile",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/actions.ts",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "MediaFile"
+    },
+    {
+      "id": "src_app_admin_media_mediaclient_tsx",
+      "label": "MediaClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/media/MediaClient.tsx",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "MediaClient"
+    },
+    {
+      "id": "src_app_admin_media_mediaclient_tsx_mediaclient",
+      "label": "MediaClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/MediaClient.tsx",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "MediaClient"
+    },
+    {
+      "id": "src_app_admin_media_mediaclient_tsx_mediafile",
+      "label": "MediaFile",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/MediaClient.tsx",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "MediaFile"
+    },
+    {
+      "id": "src_app_admin_media_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/media/page.tsx",
+      "source_location": "L1",
+      "community": 14,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_media_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/media/page.tsx",
+      "source_location": "L0",
+      "community": 14,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/notifications/actions.test.ts",
+      "source_location": "L1",
+      "community": 15,
+      "norm_label": "string"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_test_ts_string",
+      "label": "string",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/actions.test.ts",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "string"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/notifications/actions.ts",
+      "source_location": "L1",
+      "community": 15,
+      "norm_label": "getNotifications"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_ts_getnotifications",
+      "label": "getNotifications",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/actions.ts",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "getNotifications"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_ts_createnotification",
+      "label": "createNotification",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/actions.ts",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "createNotification"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_ts_deletenotification",
+      "label": "deleteNotification",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/actions.ts",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "deleteNotification"
+    },
+    {
+      "id": "src_app_admin_notifications_actions_ts_notificationinput",
+      "label": "NotificationInput",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/actions.ts",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "NotificationInput"
+    },
+    {
+      "id": "src_app_admin_notifications_notificationform_tsx",
+      "label": "NotificationForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/notifications/NotificationForm.tsx",
+      "source_location": "L1",
+      "community": 15,
+      "norm_label": "NotificationForm"
+    },
+    {
+      "id": "src_app_admin_notifications_notificationform_tsx_notificationform",
+      "label": "NotificationForm",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/NotificationForm.tsx",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "NotificationForm"
+    },
+    {
+      "id": "src_app_admin_notifications_notificationsclient_tsx",
+      "label": "NotificationsClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/notifications/NotificationsClient.tsx",
+      "source_location": "L1",
+      "community": 15,
+      "norm_label": "NotificationsClient"
+    },
+    {
+      "id": "src_app_admin_notifications_notificationsclient_tsx_notificationsclient",
+      "label": "NotificationsClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/NotificationsClient.tsx",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "NotificationsClient"
+    },
+    {
+      "id": "src_app_admin_notifications_notificationsclient_tsx_getnotifications",
+      "label": "getNotifications",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/NotificationsClient.tsx",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "getNotifications"
+    },
+    {
+      "id": "src_app_admin_notifications_notificationsclient_tsx_notification",
+      "label": "Notification",
+      "file_type": "export",
+      "source_file": "app/(admin)/notifications/NotificationsClient.tsx",
+      "source_location": "L0",
+      "community": 15,
+      "norm_label": "Notification"
     },
     {
       "id": "src_app_admin_notifications_page_tsx",
@@ -585,17 +1665,17 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/notifications/page.tsx",
       "source_location": "L1",
-      "community": 12,
-      "norm_label": "NotificationsPage"
+      "community": 15,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_notifications_page_tsx_notificationspage",
-      "label": "NotificationsPage",
+      "id": "src_app_admin_notifications_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/notifications/page.tsx",
       "source_location": "L0",
-      "community": 12,
-      "norm_label": "NotificationsPage"
+      "community": 15,
+      "norm_label": "async"
     },
     {
       "id": "src_app_admin_orders_id_orderdetailclient_tsx",
@@ -603,7 +1683,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
       "source_location": "L1",
-      "community": 13,
+      "community": 16,
       "norm_label": "OrderDetailClient"
     },
     {
@@ -612,7 +1692,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
       "source_location": "L0",
-      "community": 13,
+      "community": 16,
       "norm_label": "OrderDetailClient"
     },
     {
@@ -621,7 +1701,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/[id]/OrderDetailClient.tsx",
       "source_location": "L0",
-      "community": 13,
+      "community": 16,
       "norm_label": "PaymentStatus"
     },
     {
@@ -630,7 +1710,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/orders/[id]/page.tsx",
       "source_location": "L1",
-      "community": 13,
+      "community": 16,
       "norm_label": "async"
     },
     {
@@ -639,8 +1719,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/[id]/page.tsx",
       "source_location": "L0",
-      "community": 13,
+      "community": 16,
       "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_orders_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/orders/actions.test.ts",
+      "source_location": "L1",
+      "community": 17,
+      "norm_label": "actions.test"
     },
     {
       "id": "src_app_admin_orders_actions_ts",
@@ -648,7 +1737,7 @@
       "file_type": "server_action",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L1",
-      "community": 14,
+      "community": 17,
       "norm_label": "getOrders"
     },
     {
@@ -657,7 +1746,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "getOrders"
     },
     {
@@ -666,7 +1755,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "getOrder"
     },
     {
@@ -675,7 +1764,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "updateOrderStatus"
     },
     {
@@ -684,7 +1773,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "updatePaymentStatus"
     },
     {
@@ -693,7 +1782,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "deleteOrder"
     },
     {
@@ -702,7 +1791,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/actions.ts",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "OrderStatus"
     },
     {
@@ -711,7 +1800,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/orders/OrdersClient.tsx",
       "source_location": "L1",
-      "community": 14,
+      "community": 17,
       "norm_label": "OrdersClient"
     },
     {
@@ -720,7 +1809,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/OrdersClient.tsx",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "OrdersClient"
     },
     {
@@ -729,8 +1818,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/OrdersClient.tsx",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "PaymentStatus"
+    },
+    {
+      "id": "src_app_admin_orders_ordersclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/orders/OrdersClient.tsx",
+      "source_location": "L0",
+      "community": 17,
+      "norm_label": "ActionPermissions"
     },
     {
       "id": "src_app_admin_orders_page_tsx",
@@ -738,7 +1836,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/orders/page.tsx",
       "source_location": "L1",
-      "community": 14,
+      "community": 17,
       "norm_label": "async"
     },
     {
@@ -747,7 +1845,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/orders/page.tsx",
       "source_location": "L0",
-      "community": 14,
+      "community": 17,
       "norm_label": "async"
     },
     {
@@ -756,7 +1854,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/page.tsx",
       "source_location": "L1",
-      "community": 11,
+      "community": 13,
       "norm_label": "AdminPage"
     },
     {
@@ -765,8 +1863,17 @@
       "file_type": "export",
       "source_file": "app/(admin)/page.tsx",
       "source_location": "L0",
-      "community": 11,
+      "community": 13,
       "norm_label": "AdminPage"
+    },
+    {
+      "id": "src_app_admin_products_id_page_test_tsx",
+      "label": "page.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/[id]/page.test.tsx",
+      "source_location": "L1",
+      "community": 18,
+      "norm_label": "page.test"
     },
     {
       "id": "src_app_admin_products_id_page_tsx",
@@ -774,7 +1881,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/products/[id]/page.tsx",
       "source_location": "L1",
-      "community": 15,
+      "community": 18,
       "norm_label": "async"
     },
     {
@@ -783,7 +1890,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/[id]/page.tsx",
       "source_location": "L0",
-      "community": 15,
+      "community": 18,
       "norm_label": "async"
     },
     {
@@ -792,8 +1899,44 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/[id]/page.tsx",
       "source_location": "L0",
-      "community": 15,
+      "community": 18,
       "norm_label": "Props"
+    },
+    {
+      "id": "src_app_admin_products_id_productactivitylog_test_tsx",
+      "label": "ProductActivityLog.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/[id]/ProductActivityLog.test.tsx",
+      "source_location": "L1",
+      "community": 18,
+      "norm_label": "ProductActivityLog.test"
+    },
+    {
+      "id": "src_app_admin_products_id_productactivitylog_tsx",
+      "label": "ProductActivityLog.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/[id]/ProductActivityLog.tsx",
+      "source_location": "L1",
+      "community": 18,
+      "norm_label": "ProductActivityLog"
+    },
+    {
+      "id": "src_app_admin_products_id_productactivitylog_tsx_productactivitylog",
+      "label": "ProductActivityLog",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/[id]/ProductActivityLog.tsx",
+      "source_location": "L0",
+      "community": 18,
+      "norm_label": "ProductActivityLog"
+    },
+    {
+      "id": "src_app_admin_products_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/actions.test.ts",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "actions.test"
     },
     {
       "id": "src_app_admin_products_actions_ts",
@@ -801,7 +1944,7 @@
       "file_type": "server_action",
       "source_file": "app/(admin)/products/actions.ts",
       "source_location": "L1",
-      "community": 16,
+      "community": 19,
       "norm_label": "createProduct"
     },
     {
@@ -810,7 +1953,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/actions.ts",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "createProduct"
     },
     {
@@ -819,7 +1962,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/actions.ts",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "updateProduct"
     },
     {
@@ -828,8 +1971,26 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/actions.ts",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "deleteProduct"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts_getproductactivitytrail",
+      "label": "getProductActivityTrail",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "getProductActivityTrail"
+    },
+    {
+      "id": "src_app_admin_products_actions_ts_bulkimportproducts",
+      "label": "bulkImportProducts",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/actions.ts",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "bulkImportProducts"
     },
     {
       "id": "src_app_admin_products_actions_ts_variantinput",
@@ -837,8 +1998,80 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/actions.ts",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "VariantInput"
+    },
+    {
+      "id": "src_app_admin_products_bulkimportmodal_tsx",
+      "label": "BulkImportModal.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/BulkImportModal.tsx",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "BulkImportModal"
+    },
+    {
+      "id": "src_app_admin_products_bulkimportmodal_tsx_bulkimportmodal",
+      "label": "BulkImportModal",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/BulkImportModal.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "BulkImportModal"
+    },
+    {
+      "id": "src_app_admin_products_bulkimportmodal_tsx_importresult",
+      "label": "ImportResult",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/BulkImportModal.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "ImportResult"
+    },
+    {
+      "id": "src_app_admin_products_discount_test_ts",
+      "label": "discount.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/discount.test.ts",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "discount.test"
+    },
+    {
+      "id": "src_app_admin_products_discount_ts",
+      "label": "discount.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/discount.ts",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "computeDiscountPercent"
+    },
+    {
+      "id": "src_app_admin_products_discount_ts_computediscountpercent",
+      "label": "computeDiscountPercent",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/discount.ts",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "computeDiscountPercent"
+    },
+    {
+      "id": "src_app_admin_products_discount_ts_formatdiscountlabel",
+      "label": "formatDiscountLabel",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/discount.ts",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "formatDiscountLabel"
+    },
+    {
+      "id": "src_app_admin_products_new_page_test_tsx",
+      "label": "page.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/new/page.test.tsx",
+      "source_location": "L1",
+      "community": 20,
+      "norm_label": "page.test"
     },
     {
       "id": "src_app_admin_products_new_page_tsx",
@@ -846,7 +2079,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/products/new/page.tsx",
       "source_location": "L1",
-      "community": 17,
+      "community": 20,
       "norm_label": "async"
     },
     {
@@ -855,7 +2088,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/new/page.tsx",
       "source_location": "L0",
-      "community": 17,
+      "community": 20,
       "norm_label": "async"
     },
     {
@@ -864,7 +2097,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/products/page.tsx",
       "source_location": "L1",
-      "community": 16,
+      "community": 19,
       "norm_label": "async"
     },
     {
@@ -873,8 +2106,44 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/page.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_products_productform_test_tsx",
+      "label": "ProductForm.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/ProductForm.test.tsx",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_products_productform_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_products_productform_test_tsx_productvariant",
+      "label": "ProductVariant",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "ProductVariant"
+    },
+    {
+      "id": "src_app_admin_products_productform_test_tsx_product",
+      "label": "Product",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductForm.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "Product"
     },
     {
       "id": "src_app_admin_products_productform_tsx",
@@ -882,7 +2151,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/products/ProductForm.tsx",
       "source_location": "L1",
-      "community": 16,
+      "community": 19,
       "norm_label": "ProductForm"
     },
     {
@@ -891,7 +2160,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductForm.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "ProductForm"
     },
     {
@@ -900,7 +2169,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductForm.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "Product"
     },
     {
@@ -909,7 +2178,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductForm.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "ProductVariant"
     },
     {
@@ -918,7 +2187,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductForm.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "ProductImage"
     },
     {
@@ -927,8 +2196,35 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductForm.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_test_tsx",
+      "label": "ProductsClient.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/ProductsClient.test.tsx",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductsClient.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_test_tsx_product",
+      "label": "Product",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductsClient.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "Product"
     },
     {
       "id": "src_app_admin_products_productsclient_tsx",
@@ -936,7 +2232,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/products/ProductsClient.tsx",
       "source_location": "L1",
-      "community": 16,
+      "community": 19,
       "norm_label": "ProductsClient"
     },
     {
@@ -945,7 +2241,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductsClient.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "ProductsClient"
     },
     {
@@ -954,7 +2250,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductsClient.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "Product"
     },
     {
@@ -963,8 +2259,53 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/ProductsClient.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "Category"
+    },
+    {
+      "id": "src_app_admin_products_productsclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/ProductsClient.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_test_tsx",
+      "label": "VariantEditor.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/products/VariantEditor.test.tsx",
+      "source_location": "L1",
+      "community": 19,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/VariantEditor.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_test_tsx_variant",
+      "label": "Variant",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/VariantEditor.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "Variant"
+    },
+    {
+      "id": "src_app_admin_products_varianteditor_test_tsx_was",
+      "label": "was",
+      "file_type": "export",
+      "source_file": "app/(admin)/products/VariantEditor.test.tsx",
+      "source_location": "L0",
+      "community": 19,
+      "norm_label": "was"
     },
     {
       "id": "src_app_admin_products_varianteditor_tsx",
@@ -972,7 +2313,7 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/products/VariantEditor.tsx",
       "source_location": "L1",
-      "community": 16,
+      "community": 19,
       "norm_label": "VariantEditor"
     },
     {
@@ -981,7 +2322,7 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/VariantEditor.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "VariantEditor"
     },
     {
@@ -990,8 +2331,188 @@
       "file_type": "export",
       "source_file": "app/(admin)/products/VariantEditor.tsx",
       "source_location": "L0",
-      "community": 16,
+      "community": 19,
       "norm_label": "Variant"
+    },
+    {
+      "id": "src_app_admin_reports_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/reports/actions.test.ts",
+      "source_location": "L1",
+      "community": 21,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L1",
+      "community": 21,
+      "norm_label": "getRevenueSummary"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts_getrevenuesummary",
+      "label": "getRevenueSummary",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "getRevenueSummary"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts_getrevenuebystore",
+      "label": "getRevenueByStore",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "getRevenueByStore"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts_getrevenuebymethod",
+      "label": "getRevenueByMethod",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "getRevenueByMethod"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts_getmonthlyrevenue",
+      "label": "getMonthlyRevenue",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "getMonthlyRevenue"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts_getgstsummary",
+      "label": "getGSTSummary",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "getGSTSummary"
+    },
+    {
+      "id": "src_app_admin_reports_actions_ts_getgstmonthly",
+      "label": "getGSTMonthly",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/actions.ts",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "getGSTMonthly"
+    },
+    {
+      "id": "src_app_admin_reports_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/reports/page.tsx",
+      "source_location": "L1",
+      "community": 21,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_reports_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/page.tsx",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_reports_reportsclient_tsx",
+      "label": "ReportsClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/reports/ReportsClient.tsx",
+      "source_location": "L1",
+      "community": 21,
+      "norm_label": "ReportsClient"
+    },
+    {
+      "id": "src_app_admin_reports_reportsclient_tsx_reportsclient",
+      "label": "ReportsClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/ReportsClient.tsx",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "ReportsClient"
+    },
+    {
+      "id": "src_app_admin_reports_reportsclient_tsx_tab",
+      "label": "Tab",
+      "file_type": "export",
+      "source_file": "app/(admin)/reports/ReportsClient.tsx",
+      "source_location": "L0",
+      "community": 21,
+      "norm_label": "Tab"
+    },
+    {
+      "id": "src_app_admin_roles_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/roles/actions.test.ts",
+      "source_location": "L1",
+      "community": 22,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_roles_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/roles/actions.ts",
+      "source_location": "L1",
+      "community": 22,
+      "norm_label": "getRoles"
+    },
+    {
+      "id": "src_app_admin_roles_actions_ts_getroles",
+      "label": "getRoles",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/actions.ts",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "getRoles"
+    },
+    {
+      "id": "src_app_admin_roles_actions_ts_createrole",
+      "label": "createRole",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/actions.ts",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "createRole"
+    },
+    {
+      "id": "src_app_admin_roles_actions_ts_updaterole",
+      "label": "updateRole",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/actions.ts",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "updateRole"
+    },
+    {
+      "id": "src_app_admin_roles_actions_ts_deleterole",
+      "label": "deleteRole",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/actions.ts",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "deleteRole"
+    },
+    {
+      "id": "src_app_admin_roles_actions_ts_rolerow",
+      "label": "RoleRow",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/actions.ts",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "RoleRow"
     },
     {
       "id": "src_app_admin_roles_page_tsx",
@@ -999,17 +2520,116 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/roles/page.tsx",
       "source_location": "L1",
-      "community": 18,
-      "norm_label": "RolesPage"
+      "community": 22,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_roles_page_tsx_rolespage",
-      "label": "RolesPage",
+      "id": "src_app_admin_roles_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/roles/page.tsx",
       "source_location": "L0",
-      "community": 18,
-      "norm_label": "RolesPage"
+      "community": 22,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_roles_rolesclient_tsx",
+      "label": "RolesClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/roles/RolesClient.tsx",
+      "source_location": "L1",
+      "community": 22,
+      "norm_label": "RolesClient"
+    },
+    {
+      "id": "src_app_admin_roles_rolesclient_tsx_rolesclient",
+      "label": "RolesClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/RolesClient.tsx",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "RolesClient"
+    },
+    {
+      "id": "src_app_admin_roles_rolesclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/roles/RolesClient.tsx",
+      "source_location": "L0",
+      "community": 22,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_settings_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/settings/actions.test.ts",
+      "source_location": "L1",
+      "community": 23,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L1",
+      "community": 23,
+      "norm_label": "getStoreSettings"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts_getstoresettings",
+      "label": "getStoreSettings",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "getStoreSettings"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts_updatestore",
+      "label": "updateStore",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "updateStore"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts_createstore",
+      "label": "createStore",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "createStore"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts_updatestoresetting",
+      "label": "updateStoreSetting",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "updateStoreSetting"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts_getappmaintenance",
+      "label": "getAppMaintenance",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "getAppMaintenance"
+    },
+    {
+      "id": "src_app_admin_settings_actions_ts_getstoremaintenancemap",
+      "label": "getStoreMaintenanceMap",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/actions.ts",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "getStoreMaintenanceMap"
     },
     {
       "id": "src_app_admin_settings_page_tsx",
@@ -1017,17 +2637,404 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/settings/page.tsx",
       "source_location": "L1",
-      "community": 19,
-      "norm_label": "SettingsPage"
+      "community": 23,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_settings_page_tsx_settingspage",
-      "label": "SettingsPage",
+      "id": "src_app_admin_settings_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/settings/page.tsx",
       "source_location": "L0",
-      "community": 19,
-      "norm_label": "SettingsPage"
+      "community": 23,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx",
+      "label": "SettingsClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L1",
+      "community": 23,
+      "norm_label": "SettingsClient"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx_settingsclient",
+      "label": "SettingsClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "SettingsClient"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx_zonerow",
+      "label": "ZoneRow",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "ZoneRow"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx_slotrow",
+      "label": "SlotRow",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "SlotRow"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx_gstrow",
+      "label": "GstRow",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "GstRow"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx_categoryoption",
+      "label": "CategoryOption",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "CategoryOption"
+    },
+    {
+      "id": "src_app_admin_settings_settingsclient_tsx_manageroption",
+      "label": "ManagerOption",
+      "file_type": "export",
+      "source_file": "app/(admin)/settings/SettingsClient.tsx",
+      "source_location": "L0",
+      "community": 23,
+      "norm_label": "ManagerOption"
+    },
+    {
+      "id": "src_app_admin_staff_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/staff/actions.test.ts",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "in"
+    },
+    {
+      "id": "src_app_admin_staff_actions_test_ts_in",
+      "label": "in",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.test.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "in"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "getStoresLight"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts_getstoreslight",
+      "label": "getStoresLight",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "getStoresLight"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts_getstaff",
+      "label": "getStaff",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "getStaff"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts_createstaff",
+      "label": "createStaff",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "createStaff"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts_updatestaff",
+      "label": "updateStaff",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "updateStaff"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts_togglestaffactive",
+      "label": "toggleStaffActive",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "toggleStaffActive"
+    },
+    {
+      "id": "src_app_admin_staff_actions_ts_deletestaff",
+      "label": "deleteStaff",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/actions.ts",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "deleteStaff"
+    },
+    {
+      "id": "src_app_admin_staff_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/staff/page.tsx",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_staff_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/page.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_staff_staffclient_tsx",
+      "label": "StaffClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/staff/StaffClient.tsx",
+      "source_location": "L1",
+      "community": 24,
+      "norm_label": "StaffClient"
+    },
+    {
+      "id": "src_app_admin_staff_staffclient_tsx_staffclient",
+      "label": "StaffClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/StaffClient.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "StaffClient"
+    },
+    {
+      "id": "src_app_admin_staff_staffclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/staff/StaffClient.tsx",
+      "source_location": "L0",
+      "community": 24,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_stores_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/stores/actions.test.ts",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "getStores"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_getstores",
+      "label": "getStores",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "getStores"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_getstorerelations",
+      "label": "getStoreRelations",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "getStoreRelations"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_deletestore",
+      "label": "deleteStore",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "deleteStore"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_getstorecategories",
+      "label": "getStoreCategories",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "getStoreCategories"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_getlockedstorecategories",
+      "label": "getLockedStoreCategories",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "getLockedStoreCategories"
+    },
+    {
+      "id": "src_app_admin_stores_actions_ts_assertcategoriesremovable",
+      "label": "assertCategoriesRemovable",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/actions.ts",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "assertCategoriesRemovable"
+    },
+    {
+      "id": "src_app_admin_stores_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/stores/page.tsx",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_stores_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/page.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_stores_storesclient_tsx",
+      "label": "StoresClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/stores/StoresClient.tsx",
+      "source_location": "L1",
+      "community": 25,
+      "norm_label": "StoresClient"
+    },
+    {
+      "id": "src_app_admin_stores_storesclient_tsx_storesclient",
+      "label": "StoresClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/StoresClient.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "StoresClient"
+    },
+    {
+      "id": "src_app_admin_stores_storesclient_tsx_categoryoption",
+      "label": "CategoryOption",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/StoresClient.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "CategoryOption"
+    },
+    {
+      "id": "src_app_admin_stores_storesclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/stores/StoresClient.tsx",
+      "source_location": "L0",
+      "community": 25,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_admin_users_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/users/actions.test.ts",
+      "source_location": "L1",
+      "community": 26,
+      "norm_label": "actions.test"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts",
+      "label": "actions.ts",
+      "file_type": "server_action",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L1",
+      "community": 26,
+      "norm_label": "getRoles"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts_getroles",
+      "label": "getRoles",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "getRoles"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts_getstoreslight",
+      "label": "getStoresLight",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "getStoresLight"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts_getusers",
+      "label": "getUsers",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "getUsers"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts_toggleuseractive",
+      "label": "toggleUserActive",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "toggleUserActive"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts_togglemanageractivewithcascade",
+      "label": "toggleManagerActiveWithCascade",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "toggleManagerActiveWithCascade"
+    },
+    {
+      "id": "src_app_admin_users_actions_ts_deleteuser",
+      "label": "deleteUser",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/actions.ts",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "deleteUser"
     },
     {
       "id": "src_app_admin_users_page_tsx",
@@ -1035,17 +3042,242 @@
       "file_type": "server_component",
       "source_file": "app/(admin)/users/page.tsx",
       "source_location": "L1",
-      "community": 20,
-      "norm_label": "UsersPage"
+      "community": 26,
+      "norm_label": "async"
     },
     {
-      "id": "src_app_admin_users_page_tsx_userspage",
-      "label": "UsersPage",
+      "id": "src_app_admin_users_page_tsx_async",
+      "label": "async",
       "file_type": "export",
       "source_file": "app/(admin)/users/page.tsx",
       "source_location": "L0",
-      "community": 20,
-      "norm_label": "UsersPage"
+      "community": 26,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_admin_users_usersclient_tsx",
+      "label": "UsersClient.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/users/UsersClient.tsx",
+      "source_location": "L1",
+      "community": 26,
+      "norm_label": "UsersClient"
+    },
+    {
+      "id": "src_app_admin_users_usersclient_tsx_usersclient",
+      "label": "UsersClient",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/UsersClient.tsx",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "UsersClient"
+    },
+    {
+      "id": "src_app_admin_users_usersclient_tsx_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "app/(admin)/users/UsersClient.tsx",
+      "source_location": "L0",
+      "community": 26,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_app_api_admin_products_export_route_test_ts",
+      "label": "route.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/admin/products/export/route.test.ts",
+      "source_location": "L1",
+      "community": 27,
+      "norm_label": "route.test"
+    },
+    {
+      "id": "src_app_api_admin_products_export_route_ts",
+      "label": "route.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/admin/products/export/route.ts",
+      "source_location": "L1",
+      "community": 27,
+      "norm_label": "GET"
+    },
+    {
+      "id": "src_app_api_admin_products_export_route_ts_get",
+      "label": "GET",
+      "file_type": "export",
+      "source_file": "app/api/admin/products/export/route.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "GET"
+    },
+    {
+      "id": "src_app_api_admin_products_export_route_ts_productrow",
+      "label": "ProductRow",
+      "file_type": "export",
+      "source_file": "app/api/admin/products/export/route.ts",
+      "source_location": "L0",
+      "community": 27,
+      "norm_label": "ProductRow"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_test_ts",
+      "label": "route.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/invoices/[id]/pdf/route.test.ts",
+      "source_location": "L1",
+      "community": 28,
+      "norm_label": "route.test"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts",
+      "label": "route.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L1",
+      "community": 28,
+      "norm_label": "GET"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts_get",
+      "label": "GET",
+      "file_type": "export",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "GET"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts_nextrequest",
+      "label": "NextRequest",
+      "file_type": "export",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "NextRequest"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts_documentprops",
+      "label": "DocumentProps",
+      "file_type": "export",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "DocumentProps"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts_reactelement",
+      "label": "ReactElement",
+      "file_type": "export",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "ReactElement"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts_narrows",
+      "label": "narrows",
+      "file_type": "export",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "narrows"
+    },
+    {
+      "id": "src_app_api_invoices_id_pdf_route_ts_for",
+      "label": "for",
+      "file_type": "export",
+      "source_file": "app/api/invoices/[id]/pdf/route.ts",
+      "source_location": "L0",
+      "community": 28,
+      "norm_label": "for"
+    },
+    {
+      "id": "src_app_api_maintenance_route_test_ts",
+      "label": "route.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/maintenance/route.test.ts",
+      "source_location": "L1",
+      "community": 29,
+      "norm_label": "route.test"
+    },
+    {
+      "id": "src_app_api_maintenance_route_ts",
+      "label": "route.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/maintenance/route.ts",
+      "source_location": "L1",
+      "community": 29,
+      "norm_label": "GET"
+    },
+    {
+      "id": "src_app_api_maintenance_route_ts_get",
+      "label": "GET",
+      "file_type": "export",
+      "source_file": "app/api/maintenance/route.ts",
+      "source_location": "L0",
+      "community": 29,
+      "norm_label": "GET"
+    },
+    {
+      "id": "src_app_api_maintenance_route_ts_reason",
+      "label": "Reason",
+      "file_type": "export",
+      "source_file": "app/api/maintenance/route.ts",
+      "source_location": "L0",
+      "community": 29,
+      "norm_label": "Reason"
+    },
+    {
+      "id": "src_app_api_maintenance_route_ts_maintenancevalue",
+      "label": "MaintenanceValue",
+      "file_type": "export",
+      "source_file": "app/api/maintenance/route.ts",
+      "source_location": "L0",
+      "community": 29,
+      "norm_label": "MaintenanceValue"
+    },
+    {
+      "id": "src_app_api_migrate_wishlist_route_ts",
+      "label": "route.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/migrate-wishlist/route.ts",
+      "source_location": "L1",
+      "community": 30,
+      "norm_label": "POST"
+    },
+    {
+      "id": "src_app_api_migrate_wishlist_route_ts_post",
+      "label": "POST",
+      "file_type": "export",
+      "source_file": "app/api/migrate-wishlist/route.ts",
+      "source_location": "L0",
+      "community": 30,
+      "norm_label": "POST"
+    },
+    {
+      "id": "src_app_api_upload_route_ts",
+      "label": "route.ts",
+      "file_type": "server_component",
+      "source_file": "app/api/upload/route.ts",
+      "source_location": "L1",
+      "community": 31,
+      "norm_label": "POST"
+    },
+    {
+      "id": "src_app_api_upload_route_ts_post",
+      "label": "POST",
+      "file_type": "export",
+      "source_file": "app/api/upload/route.ts",
+      "source_location": "L0",
+      "community": 31,
+      "norm_label": "POST"
+    },
+    {
+      "id": "src_app_auth_actions_test_ts",
+      "label": "actions.test.ts",
+      "file_type": "server_component",
+      "source_file": "app/auth/actions.test.ts",
+      "source_location": "L1",
+      "community": 32,
+      "norm_label": "actions.test"
     },
     {
       "id": "src_app_auth_actions_ts",
@@ -1053,7 +3285,7 @@
       "file_type": "server_action",
       "source_file": "app/auth/actions.ts",
       "source_location": "L1",
-      "community": 21,
+      "community": 32,
       "norm_label": "signIn"
     },
     {
@@ -1062,7 +3294,7 @@
       "file_type": "export",
       "source_file": "app/auth/actions.ts",
       "source_location": "L0",
-      "community": 21,
+      "community": 32,
       "norm_label": "signIn"
     },
     {
@@ -1071,8 +3303,53 @@
       "file_type": "export",
       "source_file": "app/auth/actions.ts",
       "source_location": "L0",
-      "community": 21,
+      "community": 32,
       "norm_label": "signOut"
+    },
+    {
+      "id": "src_app_auth_actions_ts_updateownpassword",
+      "label": "updateOwnPassword",
+      "file_type": "export",
+      "source_file": "app/auth/actions.ts",
+      "source_location": "L0",
+      "community": 32,
+      "norm_label": "updateOwnPassword"
+    },
+    {
+      "id": "src_app_auth_login_api_route_ts",
+      "label": "route.ts",
+      "file_type": "server_component",
+      "source_file": "app/auth/login/api/route.ts",
+      "source_location": "L1",
+      "community": 33,
+      "norm_label": "POST"
+    },
+    {
+      "id": "src_app_auth_login_api_route_ts_post",
+      "label": "POST",
+      "file_type": "export",
+      "source_file": "app/auth/login/api/route.ts",
+      "source_location": "L0",
+      "community": 33,
+      "norm_label": "POST"
+    },
+    {
+      "id": "src_app_auth_login_loginform_tsx",
+      "label": "LoginForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/auth/login/LoginForm.tsx",
+      "source_location": "L1",
+      "community": 34,
+      "norm_label": "LoginForm"
+    },
+    {
+      "id": "src_app_auth_login_loginform_tsx_loginform",
+      "label": "LoginForm",
+      "file_type": "export",
+      "source_file": "app/auth/login/LoginForm.tsx",
+      "source_location": "L0",
+      "community": 34,
+      "norm_label": "LoginForm"
     },
     {
       "id": "src_app_auth_login_page_tsx",
@@ -1080,7 +3357,7 @@
       "file_type": "server_component",
       "source_file": "app/auth/login/page.tsx",
       "source_location": "L1",
-      "community": 22,
+      "community": 34,
       "norm_label": "async"
     },
     {
@@ -1089,7 +3366,7 @@
       "file_type": "export",
       "source_file": "app/auth/login/page.tsx",
       "source_location": "L0",
-      "community": 22,
+      "community": 34,
       "norm_label": "async"
     },
     {
@@ -1098,8 +3375,44 @@
       "file_type": "export",
       "source_file": "app/auth/login/page.tsx",
       "source_location": "L0",
-      "community": 22,
+      "community": 34,
       "norm_label": "LoginPageProps"
+    },
+    {
+      "id": "src_app_auth_reset_password_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/auth/reset-password/page.tsx",
+      "source_location": "L1",
+      "community": 35,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_auth_reset_password_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/auth/reset-password/page.tsx",
+      "source_location": "L0",
+      "community": 35,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_auth_reset_password_resetpasswordform_tsx",
+      "label": "ResetPasswordForm.tsx",
+      "file_type": "server_component",
+      "source_file": "app/auth/reset-password/ResetPasswordForm.tsx",
+      "source_location": "L1",
+      "community": 35,
+      "norm_label": "ResetPasswordForm"
+    },
+    {
+      "id": "src_app_auth_reset_password_resetpasswordform_tsx_resetpasswordform",
+      "label": "ResetPasswordForm",
+      "file_type": "export",
+      "source_file": "app/auth/reset-password/ResetPasswordForm.tsx",
+      "source_location": "L0",
+      "community": 35,
+      "norm_label": "ResetPasswordForm"
     },
     {
       "id": "src_app_layout_tsx",
@@ -1107,7 +3420,7 @@
       "file_type": "server_component",
       "source_file": "app/layout.tsx",
       "source_location": "L1",
-      "community": 23,
+      "community": 36,
       "norm_label": "RootLayout"
     },
     {
@@ -1116,8 +3429,71 @@
       "file_type": "export",
       "source_file": "app/layout.tsx",
       "source_location": "L0",
-      "community": 23,
+      "community": 36,
       "norm_label": "RootLayout"
+    },
+    {
+      "id": "src_app_maintenance_maintenanceview_tsx",
+      "label": "MaintenanceView.tsx",
+      "file_type": "server_component",
+      "source_file": "app/maintenance/MaintenanceView.tsx",
+      "source_location": "L1",
+      "community": 37,
+      "norm_label": "MaintenanceView"
+    },
+    {
+      "id": "src_app_maintenance_maintenanceview_tsx_maintenanceview",
+      "label": "MaintenanceView",
+      "file_type": "export",
+      "source_file": "app/maintenance/MaintenanceView.tsx",
+      "source_location": "L0",
+      "community": 37,
+      "norm_label": "MaintenanceView"
+    },
+    {
+      "id": "src_app_maintenance_maintenanceview_tsx_maintenancevalue",
+      "label": "MaintenanceValue",
+      "file_type": "export",
+      "source_file": "app/maintenance/MaintenanceView.tsx",
+      "source_location": "L0",
+      "community": 37,
+      "norm_label": "MaintenanceValue"
+    },
+    {
+      "id": "src_app_maintenance_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/maintenance/page.tsx",
+      "source_location": "L1",
+      "community": 37,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_maintenance_page_tsx_async",
+      "label": "async",
+      "file_type": "export",
+      "source_file": "app/maintenance/page.tsx",
+      "source_location": "L0",
+      "community": 37,
+      "norm_label": "async"
+    },
+    {
+      "id": "src_app_maintenance_page_tsx_reason",
+      "label": "Reason",
+      "file_type": "export",
+      "source_file": "app/maintenance/page.tsx",
+      "source_location": "L0",
+      "community": 37,
+      "norm_label": "Reason"
+    },
+    {
+      "id": "src_app_maintenance_page_tsx_maintenancevalue",
+      "label": "MaintenanceValue",
+      "file_type": "export",
+      "source_file": "app/maintenance/page.tsx",
+      "source_location": "L0",
+      "community": 37,
+      "norm_label": "MaintenanceValue"
     },
     {
       "id": "src_app_page_tsx",
@@ -1125,7 +3501,7 @@
       "file_type": "server_component",
       "source_file": "app/page.tsx",
       "source_location": "L1",
-      "community": 23,
+      "community": 36,
       "norm_label": "async"
     },
     {
@@ -1134,7 +3510,7 @@
       "file_type": "export",
       "source_file": "app/page.tsx",
       "source_location": "L0",
-      "community": 23,
+      "community": 36,
       "norm_label": "async"
     },
     {
@@ -1143,7 +3519,7 @@
       "file_type": "server_component",
       "source_file": "app/StoreProvider.tsx",
       "source_location": "L1",
-      "community": 23,
+      "community": 36,
       "norm_label": "StoreProvider"
     },
     {
@@ -1152,8 +3528,26 @@
       "file_type": "export",
       "source_file": "app/StoreProvider.tsx",
       "source_location": "L0",
-      "community": 23,
+      "community": 36,
       "norm_label": "StoreProvider"
+    },
+    {
+      "id": "src_app_unauthorized_page_tsx",
+      "label": "page.tsx",
+      "file_type": "server_component",
+      "source_file": "app/unauthorized/page.tsx",
+      "source_location": "L1",
+      "community": 38,
+      "norm_label": "UnauthorizedPage"
+    },
+    {
+      "id": "src_app_unauthorized_page_tsx_unauthorizedpage",
+      "label": "UnauthorizedPage",
+      "file_type": "export",
+      "source_file": "app/unauthorized/page.tsx",
+      "source_location": "L0",
+      "community": 38,
+      "norm_label": "UnauthorizedPage"
     },
     {
       "id": "src_components_bootstrapclient_tsx",
@@ -1161,7 +3555,7 @@
       "file_type": "server_component",
       "source_file": "components/BootstrapClient.tsx",
       "source_location": "L1",
-      "community": 24,
+      "community": 39,
       "norm_label": "BootstrapClient"
     },
     {
@@ -1170,8 +3564,134 @@
       "file_type": "export",
       "source_file": "components/BootstrapClient.tsx",
       "source_location": "L0",
-      "community": 24,
+      "community": 39,
       "norm_label": "BootstrapClient"
+    },
+    {
+      "id": "src_components_imagepickermodal_test_tsx",
+      "label": "ImagePickerModal.test.tsx",
+      "file_type": "server_component",
+      "source_file": "components/ImagePickerModal.test.tsx",
+      "source_location": "L1",
+      "community": 39,
+      "norm_label": "RootLike"
+    },
+    {
+      "id": "src_components_imagepickermodal_test_tsx_rootlike",
+      "label": "RootLike",
+      "file_type": "export",
+      "source_file": "components/ImagePickerModal.test.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "RootLike"
+    },
+    {
+      "id": "src_components_imagepickermodal_tsx",
+      "label": "ImagePickerModal.tsx",
+      "file_type": "server_component",
+      "source_file": "components/ImagePickerModal.tsx",
+      "source_location": "L1",
+      "community": 39,
+      "norm_label": "ImagePickerModal"
+    },
+    {
+      "id": "src_components_imagepickermodal_tsx_imagepickermodal",
+      "label": "ImagePickerModal",
+      "file_type": "export",
+      "source_file": "components/ImagePickerModal.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "ImagePickerModal"
+    },
+    {
+      "id": "src_components_imagepickermodal_tsx_mediafile",
+      "label": "MediaFile",
+      "file_type": "export",
+      "source_file": "components/ImagePickerModal.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "MediaFile"
+    },
+    {
+      "id": "src_components_imagepickermodal_tsx_props",
+      "label": "Props",
+      "file_type": "export",
+      "source_file": "components/ImagePickerModal.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "Props"
+    },
+    {
+      "id": "src_components_maintenancestatus_test_tsx",
+      "label": "MaintenanceStatus.test.tsx",
+      "file_type": "server_component",
+      "source_file": "components/MaintenanceStatus.test.tsx",
+      "source_location": "L1",
+      "community": 39,
+      "norm_label": "RootLike"
+    },
+    {
+      "id": "src_components_maintenancestatus_test_tsx_rootlike",
+      "label": "RootLike",
+      "file_type": "export",
+      "source_file": "components/MaintenanceStatus.test.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "RootLike"
+    },
+    {
+      "id": "src_components_maintenancestatus_tsx",
+      "label": "MaintenanceStatus.tsx",
+      "file_type": "server_component",
+      "source_file": "components/MaintenanceStatus.tsx",
+      "source_location": "L1",
+      "community": 39,
+      "norm_label": "MaintenanceStatus"
+    },
+    {
+      "id": "src_components_maintenancestatus_tsx_maintenancestatus",
+      "label": "MaintenanceStatus",
+      "file_type": "export",
+      "source_file": "components/MaintenanceStatus.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "MaintenanceStatus"
+    },
+    {
+      "id": "src_components_maintenancestatus_tsx_appmaintenancevalue",
+      "label": "AppMaintenanceValue",
+      "file_type": "export",
+      "source_file": "components/MaintenanceStatus.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "AppMaintenanceValue"
+    },
+    {
+      "id": "src_components_maintenancestatus_tsx_storemaintenancevalue",
+      "label": "StoreMaintenanceValue",
+      "file_type": "export",
+      "source_file": "components/MaintenanceStatus.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "StoreMaintenanceValue"
+    },
+    {
+      "id": "src_components_maintenancestatus_tsx_props",
+      "label": "Props",
+      "file_type": "export",
+      "source_file": "components/MaintenanceStatus.tsx",
+      "source_location": "L0",
+      "community": 39,
+      "norm_label": "Props"
+    },
+    {
+      "id": "src_components_masterlayout_test_tsx",
+      "label": "MasterLayout.test.tsx",
+      "file_type": "server_component",
+      "source_file": "components/MasterLayout.test.tsx",
+      "source_location": "L1",
+      "community": 39,
+      "norm_label": "MasterLayout.test"
     },
     {
       "id": "src_components_masterlayout_tsx",
@@ -1179,7 +3699,7 @@
       "file_type": "server_component",
       "source_file": "components/MasterLayout.tsx",
       "source_location": "L1",
-      "community": 24,
+      "community": 39,
       "norm_label": "MasterLayout"
     },
     {
@@ -1188,7 +3708,7 @@
       "file_type": "export",
       "source_file": "components/MasterLayout.tsx",
       "source_location": "L0",
-      "community": 24,
+      "community": 39,
       "norm_label": "MasterLayout"
     },
     {
@@ -1197,8 +3717,17 @@
       "file_type": "export",
       "source_file": "components/MasterLayout.tsx",
       "source_location": "L0",
-      "community": 24,
+      "community": 39,
       "norm_label": "NavItem"
+    },
+    {
+      "id": "src_components_placeholderpage_test_tsx",
+      "label": "PlaceholderPage.test.tsx",
+      "file_type": "server_component",
+      "source_file": "components/PlaceholderPage.test.tsx",
+      "source_location": "L1",
+      "community": 39,
+      "norm_label": "PlaceholderPage.test"
     },
     {
       "id": "src_components_placeholderpage_tsx",
@@ -1206,7 +3735,7 @@
       "file_type": "server_component",
       "source_file": "components/PlaceholderPage.tsx",
       "source_location": "L1",
-      "community": 24,
+      "community": 39,
       "norm_label": "PlaceholderPage"
     },
     {
@@ -1215,8 +3744,179 @@
       "file_type": "export",
       "source_file": "components/PlaceholderPage.tsx",
       "source_location": "L0",
-      "community": 24,
+      "community": 39,
       "norm_label": "PlaceholderPage"
+    },
+    {
+      "id": "src_lib_activity_log_test_ts",
+      "label": "activity-log.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/activity-log.test.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "activity-log.test"
+    },
+    {
+      "id": "src_lib_activity_log_ts",
+      "label": "activity-log.ts",
+      "file_type": "server_component",
+      "source_file": "lib/activity-log.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "logActivity"
+    },
+    {
+      "id": "src_lib_activity_log_ts_logactivity",
+      "label": "logActivity",
+      "file_type": "export",
+      "source_file": "lib/activity-log.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "logActivity"
+    },
+    {
+      "id": "src_lib_activity_log_ts_getentityactivitylog",
+      "label": "getEntityActivityLog",
+      "file_type": "export",
+      "source_file": "lib/activity-log.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "getEntityActivityLog"
+    },
+    {
+      "id": "src_lib_activity_log_ts_activityaction",
+      "label": "ActivityAction",
+      "file_type": "export",
+      "source_file": "lib/activity-log.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "ActivityAction"
+    },
+    {
+      "id": "src_lib_activity_log_ts_activitylogwithuser",
+      "label": "ActivityLogWithUser",
+      "file_type": "export",
+      "source_file": "lib/activity-log.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "ActivityLogWithUser"
+    },
+    {
+      "id": "src_lib_categories_test_ts",
+      "label": "categories.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/categories.test.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "categories.test"
+    },
+    {
+      "id": "src_lib_categories_ts",
+      "label": "categories.ts",
+      "file_type": "server_component",
+      "source_file": "lib/categories.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "getCategoriesForStore"
+    },
+    {
+      "id": "src_lib_categories_ts_getcategoriesforstore",
+      "label": "getCategoriesForStore",
+      "file_type": "export",
+      "source_file": "lib/categories.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "getCategoriesForStore"
+    },
+    {
+      "id": "src_lib_categories_ts_buildeffectivestoresmap",
+      "label": "buildEffectiveStoresMap",
+      "file_type": "export",
+      "source_file": "lib/categories.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "buildEffectiveStoresMap"
+    },
+    {
+      "id": "src_lib_categories_ts_categorynode",
+      "label": "CategoryNode",
+      "file_type": "export",
+      "source_file": "lib/categories.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "CategoryNode"
+    },
+    {
+      "id": "src_lib_categories_ts_effectivestores",
+      "label": "EffectiveStores",
+      "file_type": "export",
+      "source_file": "lib/categories.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "EffectiveStores"
+    },
+    {
+      "id": "src_lib_permissions_test_ts",
+      "label": "permissions.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/permissions.test.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "permissions.test"
+    },
+    {
+      "id": "src_lib_permissions_ts",
+      "label": "permissions.ts",
+      "file_type": "server_component",
+      "source_file": "lib/permissions.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "hasPermission"
+    },
+    {
+      "id": "src_lib_permissions_ts_haspermission",
+      "label": "hasPermission",
+      "file_type": "export",
+      "source_file": "lib/permissions.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "hasPermission"
+    },
+    {
+      "id": "src_lib_permissions_ts_canaccess",
+      "label": "canAccess",
+      "file_type": "export",
+      "source_file": "lib/permissions.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "canAccess"
+    },
+    {
+      "id": "src_lib_permissions_ts_permissionmodule",
+      "label": "PermissionModule",
+      "file_type": "export",
+      "source_file": "lib/permissions.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "PermissionModule"
+    },
+    {
+      "id": "src_lib_permissions_ts_permissionaction",
+      "label": "PermissionAction",
+      "file_type": "export",
+      "source_file": "lib/permissions.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "PermissionAction"
+    },
+    {
+      "id": "src_lib_permissions_ts_rolepermissions",
+      "label": "RolePermissions",
+      "file_type": "export",
+      "source_file": "lib/permissions.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "RolePermissions"
     },
     {
       "id": "src_lib_redux_api_baseapi_ts",
@@ -1224,7 +3924,7 @@
       "file_type": "server_component",
       "source_file": "lib/redux/api/baseApi.ts",
       "source_location": "L1",
-      "community": 25,
+      "community": 41,
       "norm_label": "baseApi"
     },
     {
@@ -1233,7 +3933,7 @@
       "file_type": "server_component",
       "source_file": "lib/redux/hooks.ts",
       "source_location": "L1",
-      "community": 26,
+      "community": 42,
       "norm_label": "hooks"
     },
     {
@@ -1242,7 +3942,7 @@
       "file_type": "server_component",
       "source_file": "lib/redux/store.ts",
       "source_location": "L1",
-      "community": 26,
+      "community": 42,
       "norm_label": "AppStore"
     },
     {
@@ -1251,7 +3951,7 @@
       "file_type": "export",
       "source_file": "lib/redux/store.ts",
       "source_location": "L0",
-      "community": 26,
+      "community": 42,
       "norm_label": "AppStore"
     },
     {
@@ -1260,7 +3960,7 @@
       "file_type": "export",
       "source_file": "lib/redux/store.ts",
       "source_location": "L0",
-      "community": 26,
+      "community": 42,
       "norm_label": "RootState"
     },
     {
@@ -1269,8 +3969,152 @@
       "file_type": "export",
       "source_file": "lib/redux/store.ts",
       "source_location": "L0",
-      "community": 26,
+      "community": 42,
       "norm_label": "AppDispatch"
+    },
+    {
+      "id": "src_lib_require_permission_test_ts",
+      "label": "require-permission.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/require-permission.test.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "require-permission.test"
+    },
+    {
+      "id": "src_lib_require_permission_ts",
+      "label": "require-permission.ts",
+      "file_type": "server_component",
+      "source_file": "lib/require-permission.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "requirePermission"
+    },
+    {
+      "id": "src_lib_require_permission_ts_requirepermission",
+      "label": "requirePermission",
+      "file_type": "export",
+      "source_file": "lib/require-permission.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "requirePermission"
+    },
+    {
+      "id": "src_lib_require_permission_ts_assertpermission",
+      "label": "assertPermission",
+      "file_type": "export",
+      "source_file": "lib/require-permission.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "assertPermission"
+    },
+    {
+      "id": "src_lib_require_permission_ts_getactionpermissions",
+      "label": "getActionPermissions",
+      "file_type": "export",
+      "source_file": "lib/require-permission.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "getActionPermissions"
+    },
+    {
+      "id": "src_lib_require_permission_ts_permissionresult",
+      "label": "PermissionResult",
+      "file_type": "export",
+      "source_file": "lib/require-permission.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "PermissionResult"
+    },
+    {
+      "id": "src_lib_require_permission_ts_actionpermissions",
+      "label": "ActionPermissions",
+      "file_type": "export",
+      "source_file": "lib/require-permission.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "ActionPermissions"
+    },
+    {
+      "id": "src_lib_run_server_action_test_ts",
+      "label": "run-server-action.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/run-server-action.test.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "run-server-action.test"
+    },
+    {
+      "id": "src_lib_run_server_action_ts",
+      "label": "run-server-action.ts",
+      "file_type": "server_component",
+      "source_file": "lib/run-server-action.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "runServerAction"
+    },
+    {
+      "id": "src_lib_run_server_action_ts_runserveraction",
+      "label": "runServerAction",
+      "file_type": "export",
+      "source_file": "lib/run-server-action.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "runServerAction"
+    },
+    {
+      "id": "src_lib_store_scope_test_ts",
+      "label": "store-scope.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/store-scope.test.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "store-scope.test"
+    },
+    {
+      "id": "src_lib_store_scope_ts",
+      "label": "store-scope.ts",
+      "file_type": "server_component",
+      "source_file": "lib/store-scope.ts",
+      "source_location": "L1",
+      "community": 40,
+      "norm_label": "getStoreScope"
+    },
+    {
+      "id": "src_lib_store_scope_ts_getstorescope",
+      "label": "getStoreScope",
+      "file_type": "export",
+      "source_file": "lib/store-scope.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "getStoreScope"
+    },
+    {
+      "id": "src_lib_store_scope_ts_withstorescope",
+      "label": "withStoreScope",
+      "file_type": "export",
+      "source_file": "lib/store-scope.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "withStoreScope"
+    },
+    {
+      "id": "src_lib_store_scope_ts_storescope",
+      "label": "StoreScope",
+      "file_type": "export",
+      "source_file": "lib/store-scope.ts",
+      "source_location": "L0",
+      "community": 40,
+      "norm_label": "StoreScope"
+    },
+    {
+      "id": "src_lib_supabase_admin_test_ts",
+      "label": "admin.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/admin.test.ts",
+      "source_location": "L1",
+      "community": 43,
+      "norm_label": "admin.test"
     },
     {
       "id": "src_lib_supabase_admin_ts",
@@ -1278,7 +4122,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/admin.ts",
       "source_location": "L1",
-      "community": 27,
+      "community": 43,
       "norm_label": "createAdminClient"
     },
     {
@@ -1287,8 +4131,17 @@
       "file_type": "export",
       "source_file": "lib/supabase/admin.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 43,
       "norm_label": "createAdminClient"
+    },
+    {
+      "id": "src_lib_supabase_client_test_ts",
+      "label": "client.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/client.test.ts",
+      "source_location": "L1",
+      "community": 43,
+      "norm_label": "client.test"
     },
     {
       "id": "src_lib_supabase_client_ts",
@@ -1296,7 +4149,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/client.ts",
       "source_location": "L1",
-      "community": 27,
+      "community": 43,
       "norm_label": "createClient"
     },
     {
@@ -1305,8 +4158,44 @@
       "file_type": "export",
       "source_file": "lib/supabase/client.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 43,
       "norm_label": "createClient"
+    },
+    {
+      "id": "src_lib_supabase_middleware_test_ts",
+      "label": "middleware.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/middleware.test.ts",
+      "source_location": "L1",
+      "community": 43,
+      "norm_label": "AuthError"
+    },
+    {
+      "id": "src_lib_supabase_middleware_test_ts_autherror",
+      "label": "AuthError",
+      "file_type": "export",
+      "source_file": "lib/supabase/middleware.test.ts",
+      "source_location": "L0",
+      "community": 43,
+      "norm_label": "AuthError"
+    },
+    {
+      "id": "src_lib_supabase_middleware_test_ts_getuserresult",
+      "label": "GetUserResult",
+      "file_type": "export",
+      "source_file": "lib/supabase/middleware.test.ts",
+      "source_location": "L0",
+      "community": 43,
+      "norm_label": "GetUserResult"
+    },
+    {
+      "id": "src_lib_supabase_middleware_test_ts_getuserbehaviour",
+      "label": "GetUserBehaviour",
+      "file_type": "export",
+      "source_file": "lib/supabase/middleware.test.ts",
+      "source_location": "L0",
+      "community": 43,
+      "norm_label": "GetUserBehaviour"
     },
     {
       "id": "src_lib_supabase_middleware_ts",
@@ -1314,7 +4203,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/middleware.ts",
       "source_location": "L1",
-      "community": 27,
+      "community": 43,
       "norm_label": "updateSession"
     },
     {
@@ -1323,7 +4212,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 43,
       "norm_label": "updateSession"
     },
     {
@@ -1332,8 +4221,26 @@
       "file_type": "export",
       "source_file": "lib/supabase/middleware.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 43,
       "norm_label": "NextRequest"
+    },
+    {
+      "id": "src_lib_supabase_server_test_ts",
+      "label": "server.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/supabase/server.test.ts",
+      "source_location": "L1",
+      "community": 43,
+      "norm_label": "CookieRecord"
+    },
+    {
+      "id": "src_lib_supabase_server_test_ts_cookierecord",
+      "label": "CookieRecord",
+      "file_type": "export",
+      "source_file": "lib/supabase/server.test.ts",
+      "source_location": "L0",
+      "community": 43,
+      "norm_label": "CookieRecord"
     },
     {
       "id": "src_lib_supabase_server_ts",
@@ -1341,7 +4248,7 @@
       "file_type": "server_component",
       "source_file": "lib/supabase/server.ts",
       "source_location": "L1",
-      "community": 27,
+      "community": 43,
       "norm_label": "createClient"
     },
     {
@@ -1350,7 +4257,7 @@
       "file_type": "export",
       "source_file": "lib/supabase/server.ts",
       "source_location": "L0",
-      "community": 27,
+      "community": 43,
       "norm_label": "createClient"
     },
     {
@@ -1359,7 +4266,7 @@
       "file_type": "server_component",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L1",
-      "community": 28,
+      "community": 44,
       "norm_label": "Profile"
     },
     {
@@ -1368,7 +4275,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 44,
       "norm_label": "Profile"
     },
     {
@@ -1377,7 +4284,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 44,
       "norm_label": "Store"
     },
     {
@@ -1386,7 +4293,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 44,
       "norm_label": "Category"
     },
     {
@@ -1395,7 +4302,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 44,
       "norm_label": "Product"
     },
     {
@@ -1404,7 +4311,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 44,
       "norm_label": "ProductVariant"
     },
     {
@@ -1413,7 +4320,7 @@
       "file_type": "export",
       "source_file": "lib/types/supabase.ts",
       "source_location": "L0",
-      "community": 28,
+      "community": 44,
       "norm_label": "ProductImage"
     }
   ],

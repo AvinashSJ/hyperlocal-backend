@@ -1,7 +1,17 @@
 const fs = require("fs");
 const path = require("path");
 
-const root = "E:\\insiconnect\\hyperlocal-backend\\src";
+// Project root: the parent of this script's directory. Works regardless
+// of which drive / casing the project lives on.
+const projectRoot = path.resolve(__dirname, "..");
+
+// Allow override of the input src dir via CLI arg.
+const root = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : path.join(projectRoot, "src");
+
+const outDir = path.join(projectRoot, "graphify-out");
+const absSrcPrefix = root.replace(/\\/g, "/");
 
 function walk(dir) {
   const result = [];
@@ -79,7 +89,7 @@ for (const f of files) {
 }
 
 fs.writeFileSync(
-  "E:\\insiconnect\\hyperlocal-backend\\graphify-out\\graph.json",
+  path.join(outDir, "graph.json"),
   JSON.stringify({ directed: false, multigraph: false, graph: {}, nodes, edges: [] }, null, 2)
 );
 
@@ -96,16 +106,16 @@ for (const [cid, labels] of Object.entries(communities)) {
 }
 
 fs.writeFileSync(
-  "E:\\insiconnect\\hyperlocal-backend\\graphify-out\\.graphify_analysis.json",
+  path.join(outDir, ".graphify_analysis.json"),
   JSON.stringify(analysis, null, 2)
 );
 
 fs.writeFileSync(
-  "E:\\insiconnect\\hyperlocal-backend\\graphify-out\\manifest.json",
+  path.join(outDir, "manifest.json"),
   JSON.stringify(
     Object.fromEntries(
       files.map((f) => [
-        "E:\\insiconnect\\hyperlocal-backend\\src\\" + f.path,
+        path.join(absSrcPrefix, f.path).replace(/\\/g, "/"),
         { mtime: Date.now() / 1000, ast_hash: "generated", semantic_hash: "generated" },
       ])
     ),
