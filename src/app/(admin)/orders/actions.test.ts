@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "../../../../test/mocks/supabase-clients";
 import "../../../../test/mocks/next-cache";
 import "../../../../test/mocks/next-navigation";
@@ -6,6 +6,7 @@ import "../../../../test/mocks/require-permission";
 import {
   getAdminClient,
   resetSupabaseClients,
+  setServerUser,
 } from "../../../../test/mocks/supabase-clients";
 import { revalidatePathMock } from "../../../../test/mocks/next-cache";
 import {
@@ -237,8 +238,19 @@ describe("updateOrderStatus", () => {
     const statuses: OrderStatus[] = ["pending", "shipped", "cancelled", "returned"];
 
     for (const status of statuses) {
-      admin.enqueueResponse({ data: null, error: null });
-      admin.enqueueResponse({ data: null, error: null });
+      // P50: cancelled/returned also pre-select previous_status BEFORE
+      // the orders.update, then log AFTER the track insert. Order:
+      //   [pre-select, orders.update, order_tracks.insert, activity_logs.insert]
+      // Routine statuses only do update + track insert (2 responses).
+      const isHighSignal = status === "cancelled" || status === "returned";
+      if (isHighSignal) {
+        admin.enqueueResponse({ data: { status: "pending" }, error: null });
+      }
+      admin.enqueueResponse({ data: null, error: null }); // orders.update
+      admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+      if (isHighSignal) {
+        admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
+      }
 
       await updateOrderStatus("o-1", status);
 
@@ -368,9 +380,13 @@ describe("deleteOrder", () => {
   it("cascades deletion: order_tracks, order_items, invoices, then orders", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
+    // P50: pre-delete select to capture order_number + store_id
+    admin.enqueueResponse({ data: { order_number: "ORD-1", store_id: null }, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    // activity_logs insert
     admin.enqueueResponse({ data: null, error: null });
 
     await deleteOrder("o-1");
@@ -379,16 +395,20 @@ describe("deleteOrder", () => {
       .filter((c) => c.method === "from")
       .map((c) => c.args[0]);
     expect(tablesTouched).toEqual([
+      "orders", // pre-delete select
       "order_tracks",
       "order_items",
       "invoices",
       "orders",
+      "activity_logs",
     ]);
   });
 
   it("revalidates /orders after deletion", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { order_number: "ORD-1", store_id: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
@@ -401,6 +421,7 @@ describe("deleteOrder", () => {
   it("throws when the final orders.delete fails", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { order_number: "ORD-1", store_id: null }, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
@@ -434,6 +455,8 @@ describe("deleteOrder — superadmin-only restriction (P16 Feature A)", () => {
   it("allows Super Admin to delete orders", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { order_number: "ORD-1", store_id: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
@@ -445,10 +468,193 @@ describe("deleteOrder — superadmin-only restriction (P16 Feature A)", () => {
       .filter((c) => c.method === "from")
       .map((c) => c.args[0]);
     expect(tablesTouched).toEqual([
+      "orders", // pre-delete select (P50)
       "order_tracks",
       "order_items",
       "invoices",
       "orders",
+      "activity_logs",
     ]);
+  });
+});
+
+describe("P50: activity logging — audit trail (deleteOrder)", () => {
+  // P50: Super Admin only deletion now writes an activity_logs row.
+  // The capturing select for order_number + store_id must happen
+  // BEFORE the cascade delete so the log payload is useful for
+  // forensics. We assert both the log shape and that the
+  // pre-delete select was made.
+  it("captures order_number + store_id BEFORE the cascade and writes a delete log row", async () => {
+    asSuperAdmin();
+    setServerUser({ id: "u-sa", email: "sa@test.com" });
+    const admin = getAdminClient();
+    // 1. pre-delete select: orders.select("order_number, store_id")
+    admin.enqueueResponse({
+      data: { order_number: "ORD-99", store_id: "s-1" },
+      error: null,
+    });
+    // 2-5. cascade deletes (4x null)
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    // 6. activity_logs insert
+    admin.enqueueResponse({ data: null, error: null });
+
+    await deleteOrder("o-99");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    const insertCall = logChains[0].find((c) => c.method === "insert");
+    expect(insertCall).toBeDefined();
+    const insertArg = insertCall!.args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      user_id: "u-sa",
+      action: "delete",
+      entity_type: "order",
+      entity_id: "o-99",
+      details: { order_number: "ORD-99", store_id: "s-1" },
+    });
+  });
+
+  it("does NOT write an activity log when the caller's permission check fails", async () => {
+    asAdmin({ orders: ["view", "edit"] });
+    // No setServerUser call — we want to assert NO insert happened.
+    const admin = getAdminClient();
+
+    await expect(deleteOrder("o-1")).rejects.toBeInstanceOf(PermissionError);
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(0);
+  });
+
+  it("does NOT write an activity log when the final orders.delete fails", async () => {
+    asSuperAdmin();
+    setServerUser({ id: "u-sa", email: "sa@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { order_number: "ORD-1", store_id: "s-1" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "delete failed" } });
+    // No activity_logs response enqueued — if the code wrongly
+    // tried to log, it would consume the next response (which we
+    // don't have) and cause an undefined error.
+
+    await expect(deleteOrder("o-1")).rejects.toThrow("delete failed");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(0);
+  });
+
+  it("still completes the delete when the activity log insert fails (best-effort)", async () => {
+    asSuperAdmin();
+    setServerUser({ id: "u-sa", email: "sa@test.com" });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { order_number: "ORD-1", store_id: "s-1" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    // activity_logs insert fails
+    admin.enqueueResponse({ data: null, error: { message: "log db down" } });
+
+    await expect(deleteOrder("o-1")).resolves.not.toThrow();
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      "[activity-log] insert failed:",
+      "log db down",
+    );
+    consoleSpy.mockRestore();
+  });
+});
+
+describe("P50: activity logging — audit trail (updateOrderStatus)", () => {
+  // Routine status changes (pending → confirmed → shipped →
+  // delivered) intentionally do NOT write activity_log rows. Only
+  // high-signal transitions (cancelled, returned) log.
+
+  it("does NOT log routine status transitions (pending, confirmed, shipped, delivered, processing)", async () => {
+    asAdmin({ orders: ["edit"] });
+    const admin = getAdminClient();
+    const routine: OrderStatus[] = ["pending", "confirmed", "shipped", "delivered", "processing"];
+
+    for (const status of routine) {
+      // P50: confirmed and delivered also need the pre-update select
+      // for their own timestamps; we don't need to enqueue extra
+      // responses because the action doesn't add a select for
+      // routine statuses. Just queue the two writes.
+      admin.enqueueResponse({ data: null, error: null });
+      admin.enqueueResponse({ data: null, error: null });
+
+      await updateOrderStatus("o-1", status);
+
+      // No activity_logs chain should have been built for this iteration.
+      // (We check at the end by counting total chains.)
+    }
+
+    expect(admin.chainsForTable("activity_logs")).toHaveLength(0);
+  });
+
+  it("writes a 'status_cancelled' log when status transitions to 'cancelled' (with previous_status)", async () => {
+    asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    // 1. pre-update select to capture previous_status
+    admin.enqueueResponse({ data: { status: "pending" }, error: null });
+    // 2. orders.update
+    admin.enqueueResponse({ data: null, error: null });
+    // 3. order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null });
+    // 4. activity_logs.insert
+    admin.enqueueResponse({ data: null, error: null });
+
+    await updateOrderStatus("o-1", "cancelled", "Customer requested");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    const insertArg = logChains[0].find((c) => c.method === "insert")!
+      .args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      user_id: "u-1",
+      action: "update",
+      entity_type: "order",
+      entity_id: "o-1",
+      details: {
+        action_type: "status_cancelled",
+        previous_status: "pending",
+        new_status: "cancelled",
+        notes: "Customer requested",
+      },
+    });
+  });
+
+  it("writes a 'status_returned' log when status transitions to 'returned'", async () => {
+    asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "delivered" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await updateOrderStatus("o-1", "returned");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    const insertArg = logChains[0].find((c) => c.method === "insert")!
+      .args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      action: "update",
+      details: {
+        action_type: "status_returned",
+        previous_status: "delivered",
+        new_status: "returned",
+        notes: null,
+      },
+    });
   });
 });

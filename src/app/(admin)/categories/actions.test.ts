@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "../../../../test/mocks/supabase-clients";
 import "../../../../test/mocks/next-cache";
 import "../../../../test/mocks/next-navigation";
@@ -6,6 +6,7 @@ import "../../../../test/mocks/require-permission";
 import {
   getAdminClient,
   resetSupabaseClients,
+  setServerUser,
 } from "../../../../test/mocks/supabase-clients";
 import { revalidatePathMock } from "../../../../test/mocks/next-cache";
 import { redirectMock } from "../../../../test/mocks/next-navigation";
@@ -239,22 +240,35 @@ describe("deleteCategory", () => {
   it("nullifies parent_id of children BEFORE deleting the category", async () => {
     asAdmin({ categories: ["delete"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
+    // P50: pre-delete select to capture category name + pending state
+    admin.enqueueResponse({ data: { name: "Snacks", pending_deletion_at: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null }); // orphan update
+    admin.enqueueResponse({ data: null, error: null }); // delete
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs insert
 
     await deleteCategory("c-1");
 
     const chains = admin.chainsForTable("categories");
-    // First chain: update children (parent_id -> null, eq parent_id)
-    // Second chain: delete
-    expect(chains).toHaveLength(2);
+    // P50: first chain is the pre-delete select (no .update / .delete,
+    // just .select().eq().maybeSingle). Then the orphan update, then
+    // the delete. So we expect 3 categories chains total.
+    expect(chains).toHaveLength(3);
 
-    const orphanChain = chains[0];
+    // 1st chain: pre-delete select (P50)
+    const preSelectChain = chains[0];
+    expect(preSelectChain.find((c) => c.method === "select")).toBeDefined();
+    const preSelectEq = preSelectChain.find((c) => c.method === "eq")!;
+    expect(preSelectEq.args).toEqual(["id", "c-1"]);
+
+    // 2nd chain: update children (parent_id -> null, eq parent_id)
+    const orphanChain = chains[1];
     const orphanUpdate = orphanChain.find((c) => c.method === "update")!;
     expect(orphanUpdate.args[0]).toEqual({ parent_id: null });
     const orphanEq = orphanChain.find((c) => c.method === "eq")!;
     expect(orphanEq.args).toEqual(["parent_id", "c-1"]);
 
-    const deleteChain = chains[1];
+    // 3rd chain: delete
+    const deleteChain = chains[2];
     expect(deleteChain.some((c) => c.method === "delete")).toBe(true);
     const deleteEq = deleteChain.find((c) => c.method === "eq")!;
     expect(deleteEq.args).toEqual(["id", "c-1"]);
@@ -265,7 +279,10 @@ describe("deleteCategory", () => {
   it("does NOT redirect after delete", async () => {
     asAdmin({ categories: ["delete"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
+    admin.enqueueResponse({ data: { name: "Snacks", pending_deletion_at: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
 
     await deleteCategory("c-1");
     expect(redirectMock).not.toHaveBeenCalled();
@@ -274,14 +291,95 @@ describe("deleteCategory", () => {
   it("throws when delete returns an error", async () => {
     asAdmin({ categories: ["delete"] });
     const admin = getAdminClient();
-    // 1) update children (success)
-    // 2) delete (error)
-    admin.setResponses(
-      { data: null, error: null },
-      { data: null, error: { message: "fk violation" } },
-    );
+    // 1) pre-delete select (P50)
+    // 2) orphan update (success)
+    // 3) delete (error)
+    admin.enqueueResponse({ data: { name: "Snacks", pending_deletion_at: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "fk violation" } });
 
     await expect(deleteCategory("c-1")).rejects.toThrow(/fk violation/);
+  });
+});
+
+describe("P50: activity logging — audit trail (deleteCategory)", () => {
+  // P50: deleteCategory now writes an activity_logs row with the
+  // category name + scheduling state captured before the delete.
+  // Two action_type values:
+  //   - "direct_delete"  — pending_deletion_at was null at the time
+  //   - "scheduled_delete" — pending_deletion_at was set (operator
+  //                         triggered this AFTER the grace period)
+
+  it("logs 'direct_delete' when pending_deletion_at is null", async () => {
+    asAdmin({ categories: ["delete"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { name: "Snacks", pending_deletion_at: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await deleteCategory("c-1");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    const insertArg = logChains[0].find((c) => c.method === "insert")!
+      .args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      user_id: "u-1",
+      action: "delete",
+      entity_type: "category",
+      entity_id: "c-1",
+      details: { action_type: "direct_delete", name: "Snacks" },
+    });
+  });
+
+  it("logs 'scheduled_delete' when pending_deletion_at was set (grace period expired)", async () => {
+    asAdmin({ categories: ["delete"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { name: "Frozen", pending_deletion_at: "2025-05-01T00:00:00Z" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await deleteCategory("c-2");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    const insertArg = logChains[0].find((c) => c.method === "insert")!
+      .args[0] as Record<string, unknown>;
+    expect((insertArg.details as Record<string, unknown>).action_type).toBe("scheduled_delete");
+  });
+
+  it("does NOT log when the delete fails (log runs only on success)", async () => {
+    asAdmin({ categories: ["delete"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { name: "Snacks", pending_deletion_at: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "fk violation" } });
+
+    await expect(deleteCategory("c-1")).rejects.toThrow(/fk violation/);
+    expect(admin.chainsForTable("activity_logs")).toHaveLength(0);
+  });
+
+  it("still completes the delete when the activity log insert fails (best-effort)", async () => {
+    asAdmin({ categories: ["delete"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { name: "Snacks", pending_deletion_at: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "log db down" } });
+
+    await expect(deleteCategory("c-1")).resolves.not.toThrow();
+    expect(consoleSpy).toHaveBeenCalledWith("[activity-log] insert failed:", "log db down");
+    consoleSpy.mockRestore();
   });
 });
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission } from "@/lib/require-permission";
+import { logActivity } from "@/lib/activity-log";
 import { getProducts } from "@/app/(admin)/products/actions";
 import type { Product } from "@/lib/types/supabase";
 
@@ -88,6 +89,22 @@ export async function getStores(): Promise<StoreRow[]> {
     .order("name", { ascending: true });
   if (error) throw new Error(error.message);
   return data ?? [];
+}
+
+/**
+ * P49: Fetches a single store by id. Returns null if the id is
+ * unknown (the page renders a "not found" state in that case).
+ * Used by the /stores/[id] detail page.
+ */
+export async function getStoreById(id: string): Promise<StoreRow | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("stores")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
 }
 
 /**
@@ -251,7 +268,7 @@ export async function deleteStore(id: string) {
 
   const { data: store } = await supabase
     .from("stores")
-    .select("is_active, updated_at")
+    .select("is_active, updated_at, name, code")
     .eq("id", id)
     .single();
 
@@ -261,11 +278,30 @@ export async function deleteStore(id: string) {
   const daysSinceUpdate = (Date.now() - new Date(store.updated_at).getTime()) / (1000 * 60 * 60 * 24);
   if (daysSinceUpdate < 90) throw new Error("Store must be disabled for at least 90 days before deletion.");
 
+  // P50: capture the store's identifying fields BEFORE the cascade
+  // delete. The name + code are the most useful forensic payload
+  // — once the row is gone we can no longer link by id alone (the
+  // activity_logs row keeps entity_id = id, but a human reading
+  // the log needs the name).
+  const deletedName = store.name;
+  const deletedCode = store.code;
+
   await supabase.from("delivery_zones").delete().eq("store_id", id);
   await supabase.from("gst_numbers").delete().eq("store_id", id);
 
   const { error } = await supabase.from("stores").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "delete",
+    entityType: "store",
+    entityId: id,
+    details: {
+      name: deletedName,
+      code: deletedCode,
+    },
+  });
+
   revalidatePath("/stores");
 }
 

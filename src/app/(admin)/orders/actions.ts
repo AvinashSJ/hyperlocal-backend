@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission, PermissionError } from "@/lib/require-permission";
+import { logActivity } from "@/lib/activity-log";
 import { generateInvoice } from "@/app/(admin)/invoices/actions";
 
 export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
@@ -105,6 +106,20 @@ export async function updateOrderStatus(
   if (status === "confirmed") updateFields.confirmed_at = new Date().toISOString();
   if (status === "delivered") updateFields.delivered_at = new Date().toISOString();
 
+  // P50: capture the previous status BEFORE the update so the
+  // activity_log can show "pending → cancelled" etc. for forensic
+  // review. Only fetched for the high-signal status changes
+  // (cancelled/returned) — routine transitions are noise.
+  let previousStatus: string | null = null;
+  if (status === "cancelled" || status === "returned") {
+    const { data: prev } = await supabase
+      .from("orders")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    previousStatus = prev?.status ?? null;
+  }
+
   const { error: updateError } = await supabase.from("orders").update(updateFields).eq("id", id);
   if (updateError) throw new Error(updateError.message);
 
@@ -114,6 +129,26 @@ export async function updateOrderStatus(
     notes: notes || null,
   });
   if (trackError) throw new Error(trackError.message);
+
+  // P50: log high-signal status transitions (cancellation / return).
+  // These are the money-affecting events that ops / customer support
+  // will need to investigate later. Routine status changes
+  // (pending → confirmed → shipped → delivered) are intentionally NOT
+  // logged here — the order_tracks table already records the full
+  // history for those.
+  if (status === "cancelled" || status === "returned") {
+    await logActivity({
+      action: "update",
+      entityType: "order",
+      entityId: id,
+      details: {
+        action_type: `status_${status}`,
+        previous_status: previousStatus,
+        new_status: status,
+        notes: notes ?? null,
+      },
+    });
+  }
 
   // P44: auto-generate the invoice when the order transitions to
   // "delivered". Idempotent — if the order already has an
@@ -165,10 +200,35 @@ export async function deleteOrder(id: string) {
     throw new PermissionError("orders", "delete");
   }
   const supabase = createAdminClient();
+
+  // P50: capture identifying fields BEFORE the delete so the
+  // activity_log row remains useful for forensics (the row itself
+  // is gone by the time we'd query for it). Best-effort — if the
+  // select fails we still proceed with the delete and log a
+  // minimal details payload.
+  const { data: orderRow } = await supabase
+    .from("orders")
+    .select("order_number, store_id")
+    .eq("id", id)
+    .maybeSingle();
+  const orderNumber = orderRow?.order_number ?? null;
+  const storeId = orderRow?.store_id ?? null;
+
   await supabase.from("order_tracks").delete().eq("order_id", id);
   await supabase.from("order_items").delete().eq("order_id", id);
   await supabase.from("invoices").delete().eq("order_id", id);
   const { error } = await supabase.from("orders").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "delete",
+    entityType: "order",
+    entityId: id,
+    details: {
+      order_number: orderNumber,
+      store_id: storeId,
+    },
+  });
+
   revalidatePath("/orders");
 }

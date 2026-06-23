@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "../../../../test/mocks/supabase-clients";
 import "../../../../test/mocks/next-cache";
 import "../../../../test/mocks/next-navigation";
@@ -6,6 +6,7 @@ import "../../../../test/mocks/require-permission";
 import {
   getAdminClient,
   resetSupabaseClients,
+  setServerUser,
 } from "../../../../test/mocks/supabase-clients";
 import { revalidatePathMock } from "../../../../test/mocks/next-cache";
 import {
@@ -19,6 +20,7 @@ import { makeStore } from "../../../../test/fixtures/factories";
 
 import {
   getStores,
+  getStoreById,
   getStoreRelations,
   deleteStore,
   getStoreCategories,
@@ -62,6 +64,37 @@ describe("getStores", () => {
     admin.enqueueResponse({ data: null, error: { message: "db boom" } });
 
     await expect(getStores()).rejects.toThrow("db boom");
+  });
+});
+
+describe("getStoreById", () => {
+  it("returns the matching store", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: makeStore({ id: "s-42", name: "Downtown" }),
+      error: null,
+    });
+
+    const result = await getStoreById("s-42");
+    expect(result?.id).toBe("s-42");
+    expect(result?.name).toBe("Downtown");
+  });
+
+  it("returns null when the id is unknown", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+
+    expect(await getStoreById("does-not-exist")).toBeNull();
+  });
+
+  it("throws on db error", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: { message: "lookup failed" } });
+
+    await expect(getStoreById("s-1")).rejects.toThrow("lookup failed");
   });
 });
 
@@ -261,7 +294,7 @@ describe("deleteStore", () => {
     asAdmin({ stores: ["delete"] });
     const admin = getAdminClient();
     admin.enqueueResponse({
-      data: { is_active: true, updated_at: new Date().toISOString() },
+      data: { is_active: true, updated_at: new Date().toISOString(), name: "S1", code: "S1" },
       error: null,
     });
 
@@ -274,7 +307,7 @@ describe("deleteStore", () => {
     const recent = new Date();
     recent.setDate(recent.getDate() - 30);
     admin.enqueueResponse({
-      data: { is_active: false, updated_at: recent.toISOString() },
+      data: { is_active: false, updated_at: recent.toISOString(), name: "S1", code: "S1" },
       error: null,
     });
 
@@ -287,19 +320,20 @@ describe("deleteStore", () => {
     const longAgo = new Date();
     longAgo.setDate(longAgo.getDate() - 100);
     admin.enqueueResponse({
-      data: { is_active: false, updated_at: longAgo.toISOString() },
+      data: { is_active: false, updated_at: longAgo.toISOString(), name: "S1", code: "S1" },
       error: null,
     });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null }); // delivery_zones
+    admin.enqueueResponse({ data: null, error: null }); // gst_numbers
+    admin.enqueueResponse({ data: null, error: null }); // stores.delete
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert (P50)
 
     await deleteStore("s-1");
 
     const tablesTouched = admin.calls
       .filter((c) => c.method === "from")
       .map((c) => c.args[0]);
-    expect(tablesTouched).toEqual(["stores", "delivery_zones", "gst_numbers", "stores"]);
+    expect(tablesTouched).toEqual(["stores", "delivery_zones", "gst_numbers", "stores", "activity_logs"]);
   });
 
   it("revalidates /stores on success", async () => {
@@ -308,15 +342,98 @@ describe("deleteStore", () => {
     const longAgo = new Date();
     longAgo.setDate(longAgo.getDate() - 100);
     admin.enqueueResponse({
-      data: { is_active: false, updated_at: longAgo.toISOString() },
+      data: { is_active: false, updated_at: longAgo.toISOString(), name: "S1", code: "S1" },
       error: null,
     });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
     await deleteStore("s-1");
     expect(revalidatePathMock).toHaveBeenCalledWith("/stores");
+  });
+});
+
+describe("P50: activity logging — audit trail (deleteStore)", () => {
+  it("writes a delete log row with the store name + code captured before the cascade", async () => {
+    asAdmin({ stores: ["delete"] });
+    setServerUser({ id: "u-sa", email: "sa@test.com" });
+    const admin = getAdminClient();
+    const longAgo = new Date();
+    longAgo.setDate(longAgo.getDate() - 100);
+    admin.enqueueResponse({
+      data: { is_active: false, updated_at: longAgo.toISOString(), name: "OldStore", code: "OS" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await deleteStore("s-old");
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(1);
+    const insertArg = logChains[0].find((c) => c.method === "insert")!
+      .args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      user_id: "u-sa",
+      action: "delete",
+      entity_type: "store",
+      entity_id: "s-old",
+      details: { name: "OldStore", code: "OS" },
+    });
+  });
+
+  it("does NOT log when the store is still active (early throw)", async () => {
+    asAdmin({ stores: ["delete"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { is_active: true, updated_at: new Date().toISOString(), name: "S1", code: "S1" },
+      error: null,
+    });
+
+    await expect(deleteStore("s-1")).rejects.toThrow(/Cannot delete an active store/);
+    expect(admin.chainsForTable("activity_logs")).toHaveLength(0);
+  });
+
+  it("does NOT log when the store.delete fails", async () => {
+    asAdmin({ stores: ["delete"] });
+    const admin = getAdminClient();
+    const longAgo = new Date();
+    longAgo.setDate(longAgo.getDate() - 100);
+    admin.enqueueResponse({
+      data: { is_active: false, updated_at: longAgo.toISOString(), name: "S1", code: "S1" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "fk violation" } });
+
+    await expect(deleteStore("s-1")).rejects.toThrow(/fk violation/);
+    expect(admin.chainsForTable("activity_logs")).toHaveLength(0);
+  });
+
+  it("still completes the delete when the activity log insert fails (best-effort)", async () => {
+    asAdmin({ stores: ["delete"] });
+    setServerUser({ id: "u-sa", email: "sa@test.com" });
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const admin = getAdminClient();
+    const longAgo = new Date();
+    longAgo.setDate(longAgo.getDate() - 100);
+    admin.enqueueResponse({
+      data: { is_active: false, updated_at: longAgo.toISOString(), name: "S1", code: "S1" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "log db down" } });
+
+    await expect(deleteStore("s-1")).resolves.not.toThrow();
+    expect(consoleSpy).toHaveBeenCalledWith("[activity-log] insert failed:", "log db down");
+    consoleSpy.mockRestore();
   });
 });
 

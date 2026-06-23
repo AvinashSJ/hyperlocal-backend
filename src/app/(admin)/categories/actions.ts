@@ -79,6 +79,18 @@ export async function deleteCategory(id: string) {
   await assertPermission("categories", "delete");
   const supabase = createAdminClient();
 
+  // P50: capture identifying fields + scheduling state BEFORE the
+  // delete. `was_pending` tells the auditor whether the delete
+  // happened after the grace period (normal flow) or whether the
+  // trigger allowed an immediate delete (operator override).
+  const { data: catRow } = await supabase
+    .from("categories")
+    .select("name, pending_deletion_at")
+    .eq("id", id)
+    .maybeSingle();
+  const categoryName = catRow?.name ?? null;
+  const wasPending = Boolean(catRow?.pending_deletion_at);
+
   // P33: the simple delete path still works for categories that are
   // NOT pending deletion. The Postgres trigger
   // `trg_prevent_premature_category_delete` will block this if the
@@ -92,6 +104,16 @@ export async function deleteCategory(id: string) {
   const { error } = await supabase.from("categories").delete().eq("id", id);
 
   if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "delete",
+    entityType: "category",
+    entityId: id,
+    details: {
+      action_type: wasPending ? "scheduled_delete" : "direct_delete",
+      name: categoryName,
+    },
+  });
 
   revalidatePath("/categories");
 }
