@@ -159,7 +159,7 @@ export async function getStoreRelations(id: string): Promise<StoreRelations> {
       .eq("orders.store_id", id),
     supabase
       .from("invoices")
-      .select("id, invoice_number, order_id, total_amount, status, created_at, orders!invoices_order_id_fkey(order_number, store_id)")
+      .select("id, invoice_number, order_id, total_amount, status, created_at, orders!invoices_order_id_fkey!inner(order_number, store_id)")
       .eq("orders.store_id", id)
       .order("created_at", { ascending: false })
       .limit(10),

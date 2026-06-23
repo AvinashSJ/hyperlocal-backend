@@ -325,9 +325,18 @@ describe("getStoreRelations", () => {
 
     // 2. The embed must include `store_id` so the filter is honored.
     //    Acceptable forms: `orders!invoices_order_id_fkey(store_id, ...)`,
+    //    `orders!invoices_order_id_fkey!inner(store_id, ...)`,
     //    `orders!inner(store_id, ...)`, etc. Just check the string
     //    contains "store_id" inside an orders embed.
     expect(selectArg).toMatch(/orders!?\w*!?\w*\(.*store_id.*\)/);
+
+    // 2b. Specifically assert the `!inner` modifier is present.
+    //     P53: we tightened the embed from a LEFT JOIN (which could
+    //     leave orphaned invoice rows in the result if the FK is
+    //     ever made nullable) to an INNER JOIN. Every invoice MUST
+    //     have an order, so this changes nothing for valid data,
+    //     but it matches the pattern in invoices/actions.ts:42.
+    expect(selectArg).toMatch(/orders!\w*!inner\(/);
 
     // 3. The filter on orders.store_id must be present.
     expect(eqCall).toBeDefined();
