@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
@@ -74,6 +75,7 @@ export default function StoresClient({
   roleName: string;
   actionPerms?: ActionPermissions;
 }) {
+  const router = useRouter();
   const isSuperAdmin = roleName === "Super Admin";
   const [search, setSearch] = useState("");
   const [viewing, setViewing] = useState<StoreRow | null>(null);
@@ -83,6 +85,19 @@ export default function StoresClient({
   const [editingCategories, setEditingCategories] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<string[]>([]);
   const [savingCategories, setSavingCategories] = useState(false);
+
+  // P51: Super Admin gets a one-click path to the per-store detail
+  // page (P49 follow-up). Clicking anywhere on the row navigates to
+  // /stores/[id]; the action buttons in the last column call
+  // e.stopPropagation() so the Edit pencil + View eye still work
+  // as separate affordances. The eye button is now somewhat
+  // redundant for SA but kept as an alternative for users who
+  // prefer the modal (and for keyboard-only users who can't easily
+  // hit the row). Manager/Staff don't see this page (it's SA-only
+  // server-side), so the SA check is purely defensive.
+  const openStoreDetails = useCallback((storeId: string) => {
+    router.push(`/stores/${storeId}`);
+  }, [router]);
 
   const filtered = useMemo(() => {
     if (!search) return stores;
@@ -242,7 +257,21 @@ export default function StoresClient({
               <tr><td colSpan={7} className="text-center text-muted py-4">No stores found</td></tr>
             )}
             {filtered.map((store) => (
-              <tr key={store.id}>
+              <tr
+                key={store.id}
+                role="button"
+                tabIndex={0}
+                className="store-row"
+                style={{ cursor: "pointer" }}
+                data-testid={`store-row-${store.id}`}
+                onClick={() => openStoreDetails(store.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openStoreDetails(store.id);
+                  }
+                }}
+              >
                 <td>
                   <span className="fw-semibold">
                     {store.logo_url && (
@@ -266,11 +295,23 @@ export default function StoresClient({
                 </td>
                 <td className="text-center">
                   <div className="d-flex gap-1 justify-content-center">
-                    <button className="btn btn-sm btn-outline-info" title="View" onClick={() => openView(store)}>
+                    <button
+                      className="btn btn-sm btn-outline-info"
+                      title="View"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openView(store);
+                      }}
+                    >
                       <Icon icon="ri:eye-line" width={15} />
                     </button>
                     {actionPerms?.canEdit && (
-                      <Link href={`/settings?store_id=${store.id}`} className="btn btn-sm btn-outline-primary" title="Edit">
+                      <Link
+                        href={`/settings?store_id=${store.id}`}
+                        className="btn btn-sm btn-outline-primary"
+                        title="Edit"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Icon icon="ri:pencil-line" width={15} />
                       </Link>
                     )}
