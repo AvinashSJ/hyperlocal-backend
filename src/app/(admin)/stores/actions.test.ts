@@ -66,24 +66,180 @@ describe("getStores", () => {
 });
 
 describe("getStoreRelations", () => {
-  it("returns counts of zones and gst numbers", async () => {
+  // The function fires 9 sequential take() calls in this exact order.
+  // The Promise.all array's order is preserved, BUT `getProducts(id)`
+  // is an async function — its synchronous body runs immediately
+  // when the array is being built, so its internal `await` fires
+  // its take() FIRST. This makes the actual order:
+  //   1. products list  (from getProducts()'s internal query — fires
+  //                       synchronously when getProducts(id) is called)
+  //   2. delivery_zones count
+  //   3. gst_numbers count
+  //   4. orders count
+  //   5. orders list
+  //   6. invoices count
+  //   7. invoices list
+  //   8. products count
+  //   9. orders-for-customers
+  // Plus 1 follow-up: a profiles fetch for the top user_ids (only
+  // fires when the customers query returned > 0 rows).
+  // Tests enqueue responses in this order.
+
+  it("returns counts of zones and gst numbers (and zero counts for the new sections when empty)", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
-    admin.enqueueResponse({ count: 3, data: null, error: null });
-    admin.enqueueResponse({ count: 2, data: null, error: null });
+    admin.enqueueResponse({ data: [], error: null });               // 1) products list
+    admin.enqueueResponse({ count: 3, data: null, error: null });  // 2) zones
+    admin.enqueueResponse({ count: 2, data: null, error: null });  // 3) gst
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 4) order count
+    admin.enqueueResponse({ data: [], error: null });               // 5) orders list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 6) invoice count
+    admin.enqueueResponse({ data: [], error: null });               // 7) invoices list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 8) product count
+    admin.enqueueResponse({ data: [], error: null });               // 9) orders-for-customers
 
     const result = await getStoreRelations("s-1");
-    expect(result).toEqual({ zones: 3, gstNumbers: 2 });
+    expect(result.zones).toBe(3);
+    expect(result.gstNumbers).toBe(2);
+    expect(result.orderCount).toBe(0);
+    expect(result.invoiceCount).toBe(0);
+    expect(result.productCount).toBe(0);
+    expect(result.customerCount).toBe(0);
+    expect(result.orders).toEqual([]);
+    expect(result.customers).toEqual([]);
+    expect(result.invoices).toEqual([]);
+    expect(result.products).toEqual([]);
   });
 
-  it("defaults to 0 when count is null", async () => {
+  it("defaults to 0 when counts are null", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
-    admin.enqueueResponse({ count: null, data: null, error: null });
-    admin.enqueueResponse({ count: null, data: null, error: null });
+    // 1) products list — needs data: [] (not null) so the customers
+    //    loop short-circuits cleanly. The .then() chain returns data
+    //    and the loop iterates over an empty array.
+    for (let i = 0; i < 9; i++) {
+      admin.enqueueResponse({ count: null, data: i === 0 ? [] : null, error: null });
+    }
 
     const result = await getStoreRelations("s-1");
-    expect(result).toEqual({ zones: 0, gstNumbers: 0 });
+    expect(result.zones).toBe(0);
+    expect(result.gstNumbers).toBe(0);
+    expect(result.orderCount).toBe(0);
+    expect(result.invoiceCount).toBe(0);
+    expect(result.productCount).toBe(0);
+    expect(result.customerCount).toBe(0);
+  });
+
+  it("P49: returns recent orders with the correct shape", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: [], error: null });               // 1) products list
+    admin.enqueueResponse({ count: 5, data: null, error: null });  // 2) zones
+    admin.enqueueResponse({ count: 1, data: null, error: null });  // 3) gst
+    admin.enqueueResponse({ count: 5, data: null, error: null });  // 4) order count
+    // 5) orders list — the data we actually want to assert on
+    admin.enqueueResponse({
+      data: [
+        {
+          id: "o-1",
+          order_number: "ORD-001",
+          user_id: "u-1",
+          total_amount: 1200,
+          status: "delivered",
+          placed_at: "2026-06-21T00:00:00.000Z",
+          profiles: { full_name: "Alice" },
+        },
+      ],
+      error: null,
+    });
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 6) invoice count
+    admin.enqueueResponse({ data: [], error: null });               // 7) invoices list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 8) product count
+    admin.enqueueResponse({ data: [], error: null });               // 9) orders-for-customers
+
+    const result = await getStoreRelations("s-1");
+    expect(result.orders).toHaveLength(1);
+    expect(result.orders[0].order_number).toBe("ORD-001");
+    expect(result.orders[0].customer_name).toBe("Alice");
+    expect(result.orders[0].total_amount).toBe(1200);
+  });
+
+  it("P49: computes top customers by order count", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: [], error: null });               // 1) products list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 2) zones
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 3) gst
+    admin.enqueueResponse({ count: 5, data: null, error: null });  // 4) order count
+    admin.enqueueResponse({ data: [], error: null });               // 5) orders list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 6) invoice count
+    admin.enqueueResponse({ data: [], error: null });               // 7) invoices list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 8) product count
+    // 9) orders-for-customers: 3 orders for u-1, 2 for u-2, 1 for u-3
+    admin.enqueueResponse({
+      data: [
+        { user_id: "u-1" }, { user_id: "u-1" }, { user_id: "u-1" },
+        { user_id: "u-2" }, { user_id: "u-2" },
+        { user_id: "u-3" },
+      ],
+      error: null,
+    });
+    // 10) profile fetch for the top 3 user_ids (only fires when
+    // the customers loop has rows; here it has 3)
+    admin.enqueueResponse({
+      data: [
+        { id: "u-1", full_name: "Alice", email: "a@x.com", phone: "111" },
+        { id: "u-2", full_name: "Bob", email: "b@x.com", phone: "222" },
+        { id: "u-3", full_name: "Charlie", email: "c@x.com", phone: "333" },
+      ],
+      error: null,
+    });
+
+    const result = await getStoreRelations("s-1");
+    expect(result.customerCount).toBe(3);
+    expect(result.customers).toHaveLength(3);
+    // Top by order count: u-1 (3), u-2 (2), u-3 (1)
+    expect(result.customers[0].id).toBe("u-1");
+    expect(result.customers[0].order_count).toBe(3);
+    expect(result.customers[0].full_name).toBe("Alice");
+    expect(result.customers[1].id).toBe("u-2");
+    expect(result.customers[1].order_count).toBe(2);
+    expect(result.customers[2].id).toBe("u-3");
+    expect(result.customers[2].order_count).toBe(1);
+  });
+
+  it("P49: returns recent invoices with order_number joined", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: [], error: null });               // 1) products list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 2) zones
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 3) gst
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 4) order count
+    admin.enqueueResponse({ data: [], error: null });               // 5) orders list
+    admin.enqueueResponse({ count: 5, data: null, error: null });  // 6) invoice count
+    // 7) invoices list — the data we actually want to assert on
+    admin.enqueueResponse({
+      data: [
+        {
+          id: "i-1",
+          invoice_number: "INV-A1B2C3D4-2026-0001",
+          order_id: "o-1",
+          total_amount: 1180,
+          status: "generated",
+          created_at: "2026-06-21T00:00:00.000Z",
+          orders: { order_number: "ORD-001" },
+        },
+      ],
+      error: null,
+    });
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 8) product count
+    admin.enqueueResponse({ data: [], error: null });               // 9) orders-for-customers
+
+    const result = await getStoreRelations("s-1");
+    expect(result.invoiceCount).toBe(5);
+    expect(result.invoices).toHaveLength(1);
+    expect(result.invoices[0].invoice_number).toBe("INV-A1B2C3D4-2026-0001");
+    expect(result.invoices[0].order_number).toBe("ORD-001");
   });
 });
 

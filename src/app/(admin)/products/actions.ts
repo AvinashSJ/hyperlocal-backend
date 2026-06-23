@@ -7,6 +7,7 @@ import { assertPermission } from "@/lib/require-permission";
 import { getStoreScope } from "@/lib/store-scope";
 import { computeDiscountPercent } from "./discount";
 import { logActivity } from "@/lib/activity-log";
+import type { Product } from "@/lib/types/supabase";
 
 const VALID_UNITS = ["kg", "g", "liter", "ml", "piece", "pack", "dozen"] as const;
 const VALID_GST = [0, 5, 12, 18, 28] as const;
@@ -582,4 +583,33 @@ export async function bulkImportProducts(rows: ImportRow[]) {
 
   revalidatePath("/products");
   return { imported, errors };
+}
+
+/**
+ * P49: Public query for the most recent N products in a store (or all
+ * products when `storeId` is null/undefined). Reuses the same query
+ * shape the /products list page uses internally.
+ *
+ * Currently used by `getStoreRelations` in the stores module to populate
+ * the per-store drill-down in the store view modal.
+ *
+ * Return type: the `categories` field is included via the
+ * `select("*, categories(name)")` join. We expose it as the base
+ * `Product` type (which doesn't have `categories`) plus an optional
+ * `categories` field. Callers that don't need the joined name can
+ * just ignore it; callers that do can use the `categories` field.
+ */
+export type ProductWithCategory = Product & { categories: { name: string } | null };
+export async function getProducts(
+  storeId?: string | null,
+): Promise<ProductWithCategory[]> {
+  const supabase = createAdminClient();
+  let productQuery = supabase
+    .from("products")
+    .select("*, categories(name)")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (storeId) productQuery = productQuery.eq("store_id", storeId);
+  const { data } = await productQuery;
+  return (data ?? []) as unknown as ProductWithCategory[];
 }

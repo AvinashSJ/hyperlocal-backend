@@ -186,7 +186,7 @@
       "deleteProduct",
       "getProductActivityTrail",
       "bulkImportProducts",
-      "VariantInput",
+      "getProducts",
       "BulkImportModal",
       "ImportResult",
       "discount.test",

@@ -1,35 +1,23 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getCategoriesForStore } from "@/lib/categories";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { getStoreScope } from "@/lib/store-scope";
 import ProductsClient from "./ProductsClient";
-
-async function getProducts(storeId?: string | null) {
-  const supabase = createAdminClient();
-
-  let productQuery = supabase
-    .from("products")
-    .select("*, categories(name)")
-    .order("created_at", { ascending: false })
-    .limit(100);
-  if (storeId) productQuery = productQuery.eq("store_id", storeId);
-
-  const { data: products } = await productQuery;
-
-  // P23: categories visible to the current user (Super Admin: all;
-  // store-scoped: assigned + all descendants). Replaces the old
-  // `in("id", catIds)` filter that dropped subcategories of assigned parents.
-  const categories = await getCategoriesForStore(storeId ?? null);
-
-  return { products: products ?? [], categories };
-}
+import { getProducts } from "./actions";
 
 export default async function ProductsPage() {
   const { permissions } = await requirePermission("products", "view");
   const { storeId } = await getStoreScope();
-  const { products, categories } = await getProducts(storeId);
+  // Cast: getProducts returns the joined categories field too, but
+  // ProductsClient only uses the base Product shape.
+  const products = (await getProducts(storeId)) as Parameters<
+    typeof ProductsClient
+  >[0]["products"];
+  // P23: categories visible to the current user (Super Admin: all;
+  // store-scoped: assigned + all descendants). Replaces the old
+  // `in("id", catIds)` filter that dropped subcategories of assigned parents.
+  const categories = await getCategoriesForStore(storeId ?? null);
   const actionPerms = getActionPermissions(permissions, "products");
 
   return (

@@ -2029,13 +2029,13 @@
       "norm_label": "bulkImportProducts"
     },
     {
-      "id": "src_app_admin_products_actions_ts_variantinput",
-      "label": "VariantInput",
+      "id": "src_app_admin_products_actions_ts_getproducts",
+      "label": "getProducts",
       "file_type": "export",
       "source_file": "app/(admin)/products/actions.ts",
       "source_location": "L0",
       "community": 19,
-      "norm_label": "VariantInput"
+      "norm_label": "getProducts"
     },
     {
       "id": "src_app_admin_products_bulkimportmodal_tsx",

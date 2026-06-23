@@ -34,6 +34,7 @@ import {
   deleteProduct,
   bulkImportProducts,
   getProductActivityTrail,
+  getProducts,
 } from "./actions";
 
 beforeEach(() => {
@@ -1492,5 +1493,43 @@ describe("P25: activity logging (audit trail)", () => {
       "[activity-log] insert failed:",
       "log failed",
     );
+  });
+});
+
+describe("P49: getProducts (exported for use by other modules)", () => {
+  it("returns all products when no storeId is provided", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [makeProduct({ id: "p-1" }), makeProduct({ id: "p-2" })],
+      error: null,
+    });
+
+    const result = await getProducts();
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe("p-1");
+  });
+
+  it("applies eq('store_id', X) when storeId is provided", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [makeProduct({ id: "p-1", store_id: "s-1" })],
+      error: null,
+    });
+
+    const result = await getProducts("s-1");
+    expect(result).toHaveLength(1);
+    const chain = admin.chainsForTable("products")[0];
+    expect(chain.some((c) => c.method === "eq" && c.args[0] === "store_id" && c.args[1] === "s-1")).toBe(true);
+  });
+
+  it("returns an empty array when data is null", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await getProducts();
+    expect(result).toEqual([]);
   });
 });
