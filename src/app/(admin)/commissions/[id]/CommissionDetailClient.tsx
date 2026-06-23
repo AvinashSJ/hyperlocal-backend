@@ -4,6 +4,8 @@ import { useState, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
 import { recordPayment, deleteCommissionPayment } from "../actions";
 import type { CommissionRow, CommissionPayment } from "../actions";
 import type { ActionPermissions } from "@/lib/require-permission";
@@ -27,18 +29,40 @@ export default function CommissionDetailClient({
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CommissionPayment | null>(null);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [deletingPayment, setDeletingPayment] = useState(false);
   const [error, setError] = useState("");
   const paymentFormRef = useRef<HTMLFormElement>(null);
 
+  // P46: derived values for the summary row. We don't store `paid_amount`
+  // in the schema (per the column inventory in 20260613000002_add_commissions.sql)
+  // so it's computed at read time as commission_amount - balance_due. Negative
+  // values are clamped to 0 (would only happen if balance_due is set to a
+  // negative value out-of-band).
   const remainingBalance = commission.balance_due;
+  const totalCommission = commission.commission_amount;
+  const paidAmount = Math.max(totalCommission - remainingBalance, 0);
 
   return (
     <div>
-      <div className="d-flex align-items-center gap-2 mb-4">
-        <Link href="/commissions" className="btn btn-sm btn-outline-secondary">
-          <Icon icon="mdi:arrow-left" />
-        </Link>
-        <h5 className="mb-0">Commission Detail</h5>
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+        <div className="d-flex align-items-center gap-2">
+          <Link href="/commissions" className="btn btn-sm btn-outline-secondary">
+            <Icon icon="mdi:arrow-left" />
+          </Link>
+          <h5 className="mb-0">Commission Detail</h5>
+        </div>
+        {actionPerms.canEdit && (
+          <button
+            type="button"
+            className="btn btn-sm btn-success"
+            onClick={() => { setShowPaymentModal(true); setError(""); }}
+            data-testid="commission-record-payment-btn"
+          >
+            <Icon icon="mdi:plus" className="me-1" />
+            {remainingBalance > 0 ? "Record Payment" : "Record Payment / Credit"}
+          </button>
+        )}
       </div>
 
       <div className="card shadow-sm mb-4">
@@ -66,7 +90,10 @@ export default function CommissionDetailClient({
             </div>
             <div className="col-md-3">
               <small className="text-muted d-block">Balance Due</small>
-              <span className={`fw-semibold ${remainingBalance > 0 ? "text-danger" : "text-success"}`}>
+              <span
+                className={`fw-semibold ${remainingBalance > 0 ? "text-danger" : "text-success"}`}
+                data-testid="commission-balance-due"
+              >
                 ₹{remainingBalance.toLocaleString()}
               </span>
             </div>
@@ -86,17 +113,35 @@ export default function CommissionDetailClient({
         </div>
       </div>
 
+      {/* P46: summary row — makes the page useful at a glance */}
+      <div
+        className="card border-0 bg-light mb-3"
+        data-testid="commission-summary-row"
+      >
+        <div className="card-body py-2">
+          <div className="d-flex flex-wrap gap-3 align-items-center small">
+            <span>
+              <span className="text-muted">Total:</span>{" "}
+              <strong>₹{totalCommission.toLocaleString()}</strong>
+            </span>
+            <span className="text-muted">·</span>
+            <span>
+              <span className="text-muted">Paid:</span>{" "}
+              <strong className="text-success">₹{paidAmount.toLocaleString()}</strong>
+            </span>
+            <span className="text-muted">·</span>
+            <span>
+              <span className="text-muted">Balance:</span>{" "}
+              <strong className={remainingBalance > 0 ? "text-danger" : "text-success"}>
+                ₹{remainingBalance.toLocaleString()}
+              </strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3">
         <h6 className="mb-0">Payment History ({payments.length})</h6>
-        {actionPerms.canEdit && remainingBalance > 0 && (
-          <button
-            className="btn btn-sm btn-success"
-            onClick={() => { setShowPaymentModal(true); setError(""); }}
-          >
-            <Icon icon="mdi:plus" className="me-1" />
-            Record Payment
-          </button>
-        )}
       </div>
 
       <div className="table-responsive">
@@ -132,6 +177,7 @@ export default function CommissionDetailClient({
                         className="btn btn-sm btn-outline-danger"
                         title="Delete Payment"
                         onClick={() => { setDeleteTarget(p); setShowDeleteModal(true); }}
+                        data-testid={`commission-payment-delete-${p.id}`}
                       >
                         <Icon icon="mdi:delete-outline" />
                       </button>
@@ -149,19 +195,27 @@ export default function CommissionDetailClient({
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
-                <h5 className="modal-title">Record Payment</h5>
+                <h5 className="modal-title">
+                  {remainingBalance > 0 ? "Record Payment" : "Record Payment / Credit"}
+                </h5>
                 <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)} />
               </div>
               <form
                 ref={paymentFormRef}
                 action={async (fd) => {
-                  try {
-                    setError("");
-                    await recordPayment(fd);
+                  setError("");
+                  setSavingPayment(true);
+                  // runServerAction catches the throw and returns {ok:false, error}
+                  // so the form handler doesn't have to wrap in try/catch.
+                  const result = await runServerAction(recordPayment, fd);
+                  setSavingPayment(false);
+                  if (result.ok) {
+                    toast.success("Payment recorded");
                     setShowPaymentModal(false);
                     router.refresh();
-                  } catch (e: unknown) {
-                    setError(e instanceof Error ? e.message : "Failed to record payment");
+                  } else {
+                    setError(result.error.message);
+                    toast.error(result.error.message);
                   }
                 }}
               >
@@ -176,10 +230,13 @@ export default function CommissionDetailClient({
                       className="form-control"
                       step="0.01"
                       min="0.01"
-                      max={remainingBalance}
                       required
+                      data-testid="commission-payment-amount-input"
                     />
-                    <small className="text-muted">Balance due: ₹{remainingBalance.toLocaleString()}</small>
+                    <small className="text-muted">
+                      Balance due: ₹{remainingBalance.toLocaleString()}
+                      {remainingBalance === 0 && " (recording a credit / adjustment will push the balance negative)"}
+                    </small>
                   </div>
                   <div className="mb-3">
                     <label className="form-label">Notes</label>
@@ -187,8 +244,12 @@ export default function CommissionDetailClient({
                   </div>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowPaymentModal(false)}>Cancel</button>
-                  <button type="submit" className="btn btn-success">Record Payment</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowPaymentModal(false)} disabled={savingPayment}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-success" disabled={savingPayment} data-testid="commission-payment-submit">
+                    {savingPayment ? "Saving…" : "Record Payment"}
+                  </button>
                 </div>
               </form>
             </div>
@@ -206,14 +267,16 @@ export default function CommissionDetailClient({
               </div>
               <form
                 action={async (fd) => {
-                  try {
-                    await deleteCommissionPayment(fd);
+                  setDeletingPayment(true);
+                  const result = await runServerAction(deleteCommissionPayment, fd);
+                  setDeletingPayment(false);
+                  if (result.ok) {
+                    toast.success("Payment deleted");
                     setShowDeleteModal(false);
                     setDeleteTarget(null);
                     router.refresh();
-                  } catch {
-                    setShowDeleteModal(false);
-                    setDeleteTarget(null);
+                  } else {
+                    toast.error(result.error.message);
                   }
                 }}
               >
@@ -223,8 +286,12 @@ export default function CommissionDetailClient({
                   <input type="hidden" name="commission_id" value={commission.id} />
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}>Cancel</button>
-                  <button type="submit" className="btn btn-danger">Delete</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }} disabled={deletingPayment}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-danger" disabled={deletingPayment} data-testid="commission-payment-delete-confirm">
+                    {deletingPayment ? "Deleting…" : "Delete"}
+                  </button>
                 </div>
               </form>
             </div>

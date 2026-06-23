@@ -1,5 +1,5 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
-import { getCommissions, getCommissionPayments } from "../actions";
+import { getCommissionById, getCommissionPayments } from "../actions";
 import CommissionDetailClient from "./CommissionDetailClient";
 
 export default async function CommissionDetailPage({
@@ -11,8 +11,9 @@ export default async function CommissionDetailPage({
   const { id } = await params;
   const actionPerms = getActionPermissions(perm.permissions, "commissions");
 
-  const commissions = await getCommissions();
-  const commission = commissions.find((c) => c.id === id);
+  // P46: was `getCommissions().find()` which fetched every commission in
+  // the system just to pick one. Now a targeted single-row query.
+  const commission = await getCommissionById(id);
   const payments = commission ? await getCommissionPayments(id) : [];
 
   if (!commission) {

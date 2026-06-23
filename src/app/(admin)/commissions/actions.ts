@@ -118,7 +118,12 @@ export async function getCommissions(storeId?: string | null): Promise<Commissio
     store_name: (c.stores as { name: string } | null)?.name ?? null,
     period_start: c.period_start,
     period_end: c.period_end,
-    total_revenue: Number(c.total_amount),
+    // P46 regression fix: was reading `c.total_amount` (a column on
+    // the `orders` table) which is undefined here, producing NaN that
+    // then rendered as "₹NaN" in the list. The actual column on
+    // `store_commissions` is `total_revenue` (see migration
+    // 20260613000002_add_commissions.sql).
+    total_revenue: Number(c.total_revenue),
     commission_rate: Number(c.commission_rate),
     commission_amount: Number(c.commission_amount),
     balance_due: Number(c.balance_due),
@@ -127,6 +132,43 @@ export async function getCommissions(storeId?: string | null): Promise<Commissio
     created_at: c.created_at,
     payment_count: countMap.get(c.id) ?? 0,
   }));
+}
+
+/**
+ * P46: Fetch a single commission by id (replaces the wasteful
+ * `getCommissions().find()` in the detail page). Permission-gated by
+ * `commissions:view`. Returns null when the row does not exist so
+ * the caller can render a "not found" state.
+ */
+export async function getCommissionById(id: string): Promise<CommissionRow | null> {
+  await assertPermission("commissions", "view");
+  if (!id) return null;
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("store_commissions")
+    .select("*, stores(name)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("Failed to fetch commission:", error);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    id: data.id,
+    store_id: data.store_id,
+    store_name: (data.stores as { name: string } | null)?.name ?? null,
+    period_start: data.period_start,
+    period_end: data.period_end,
+    total_revenue: Number(data.total_revenue),
+    commission_rate: Number(data.commission_rate),
+    commission_amount: Number(data.commission_amount),
+    balance_due: Number(data.balance_due),
+    status: data.status,
+    notes: data.notes,
+    created_at: data.created_at,
+    payment_count: 0, // Detail page fetches payments separately
+  };
 }
 
 export async function getCommissionPayments(commissionId: string): Promise<CommissionPayment[]> {
@@ -398,7 +440,10 @@ export async function recordPayment(formData: FormData) {
 
   if (updateError) throw new Error(updateError.message);
 
+  // P46: revalidate both the list and the detail page so router.refresh()
+  // picks up the new balance_due + status on the detail page immediately.
   revalidatePath("/commissions");
+  revalidatePath(`/commissions/${commissionId}`);
 }
 
 export async function deleteCommissionPayment(formData: FormData) {
@@ -434,6 +479,11 @@ export async function deleteCommissionPayment(formData: FormData) {
     newStatus = "paid";
   }
 
+  // P46 fix (P12 pattern from AGENTS.md): discard-the-delete bug. The
+  // previous code awaited the delete without checking the response,
+  // so a failed delete (FK/RLS/permission) would let the update
+  // still run and corrupt balance_due. Now we throw on delete error
+  // and skip the update entirely.
   const { error: deleteError } = await supabase
     .from("commission_payments")
     .delete()
@@ -448,5 +498,7 @@ export async function deleteCommissionPayment(formData: FormData) {
 
   if (updateError) throw new Error(updateError.message);
 
+  // P46: revalidate both the list and the detail page.
   revalidatePath("/commissions");
+  revalidatePath(`/commissions/${commissionId}`);
 }

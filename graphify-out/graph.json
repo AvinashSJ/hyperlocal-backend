@@ -346,6 +346,24 @@
       "norm_label": "CategoryRow"
     },
     {
+      "id": "src_app_admin_commissions_id_commissiondetailclient_test_tsx",
+      "label": "CommissionDetailClient.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/commissions/[id]/CommissionDetailClient.test.tsx",
+      "source_location": "L1",
+      "community": 3,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_commissions_id_commissiondetailclient_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/[id]/CommissionDetailClient.test.tsx",
+      "source_location": "L0",
+      "community": 3,
+      "norm_label": "Root"
+    },
+    {
       "id": "src_app_admin_commissions_id_commissiondetailclient_tsx",
       "label": "CommissionDetailClient.tsx",
       "file_type": "server_component",
@@ -418,6 +436,15 @@
       "norm_label": "getCommissions"
     },
     {
+      "id": "src_app_admin_commissions_actions_ts_getcommissionbyid",
+      "label": "getCommissionById",
+      "file_type": "export",
+      "source_file": "app/(admin)/commissions/actions.ts",
+      "source_location": "L0",
+      "community": 4,
+      "norm_label": "getCommissionById"
+    },
+    {
       "id": "src_app_admin_commissions_actions_ts_getcommissionpayments",
       "label": "getCommissionPayments",
       "file_type": "export",
@@ -443,15 +470,6 @@
       "source_location": "L0",
       "community": 4,
       "norm_label": "generateAllCommissions"
-    },
-    {
-      "id": "src_app_admin_commissions_actions_ts_recordpayment",
-      "label": "recordPayment",
-      "file_type": "export",
-      "source_file": "app/(admin)/commissions/actions.ts",
-      "source_location": "L0",
-      "community": 4,
-      "norm_label": "recordPayment"
     },
     {
       "id": "src_app_admin_commissions_commissionsclient_test_tsx",

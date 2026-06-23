@@ -33,6 +33,7 @@
       "CategoryRow"
     ],
     "3": [
+      "Root",
       "CommissionDetailClient",
       "async"
     ],
@@ -40,10 +41,10 @@
       "actions.test",
       "getStoresLight",
       "getCommissions",
+      "getCommissionById",
       "getCommissionPayments",
       "generateCommission",
       "generateAllCommissions",
-      "recordPayment",
       "Root",
       "CommissionsClient",
       "async"

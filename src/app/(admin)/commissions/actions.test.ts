@@ -26,6 +26,7 @@ import {
 import {
   getCommissions,
   getCommissionPayments,
+  getCommissionById,
   generateCommission,
   generateAllCommissions,
   recordPayment,
@@ -111,6 +112,62 @@ describe("getCommissions", () => {
 
     const result = await getCommissions();
     expect(result).toEqual([]);
+  });
+
+  // P46 regression: getCommissions used to map `c.total_amount` (a
+  // column on the `orders` table, not on `store_commissions`) which
+  // produced NaN and rendered as "₹NaN" in the list. This test
+  // asserts the value round-trips as the real `total_revenue` number.
+  it("P46: returns total_revenue as a finite number (not NaN from wrong column)", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [makeCommission({ id: "c-1", total_revenue: 12345.67, commission_amount: 1234.57, balance_due: 1234.57 })],
+      error: null,
+    });
+    admin.enqueueResponse({ data: [], error: null });
+
+    const result = await getCommissions();
+    expect(result).toHaveLength(1);
+    const row = result[0];
+    expect(row.total_revenue).toBe(12345.67);
+    expect(Number.isNaN(row.total_revenue)).toBe(false);
+    expect(row.commission_amount).toBe(1234.57);
+    expect(row.balance_due).toBe(1234.57);
+  });
+});
+
+describe("getCommissionById", () => {
+  it("rejects users without commissions:view permission", async () => {
+    asAdmin({});
+    await expect(getCommissionById("c-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("returns null when id is empty", async () => {
+    asSuperAdmin();
+    const result = await getCommissionById("");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the commission does not exist", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+    const result = await getCommissionById("missing");
+    expect(result).toBeNull();
+  });
+
+  it("returns the commission when found", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { ...makeCommission({ id: "c-1" }), stores: { name: "FreshCart" } },
+      error: null,
+    });
+    const result = await getCommissionById("c-1");
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe("c-1");
+    expect(result?.store_name).toBe("FreshCart");
   });
 });
 
@@ -590,7 +647,7 @@ describe("recordPayment", () => {
     expect(paymentInsert.notes).toBe("First installment");
   });
 
-  it("revalidates /commissions on success", async () => {
+  it("revalidates /commissions AND the detail page on success", async () => {
     asAdmin({ commissions: ["edit"] });
     const admin = getAdminClient();
     admin.enqueueResponse({
@@ -603,7 +660,10 @@ describe("recordPayment", () => {
     const fd = buildFormData({ commission_id: "c-1", amount: "100" });
     await recordPayment(fd);
 
+    // P46: revalidate both the list and the detail page so router.refresh()
+    // picks up the new balance_due + status on the detail page immediately.
     expect(revalidatePathMock).toHaveBeenCalledWith("/commissions");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions/c-1");
   });
 });
 
