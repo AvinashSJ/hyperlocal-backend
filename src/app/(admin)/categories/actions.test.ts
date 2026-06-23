@@ -12,6 +12,7 @@ import { redirectMock } from "../../../../test/mocks/next-navigation";
 import {
   asAdmin,
   asSuperAdmin,
+  asAnonymous,
   resetPermissionMock,
   assertPermissionMock,
   PermissionError,
@@ -28,6 +29,7 @@ import {
   forceUnassignCategory,
   forceDeleteCategory,
   reassignCategory,
+  getStoreProductsForCategory,
 } from "./actions";
 
 beforeEach(() => {
@@ -432,5 +434,150 @@ describe("reassignCategory", () => {
     // Missing to_store_id — checked second.
     const fd2 = buildFormData({ category_id: "c-1" });
     await expect(reassignCategory(fd2)).rejects.toThrow(/Target store id is required/);
+  });
+});
+
+// P45: Super Admin drill-down on the categories page. Lists products
+// in a category (and its descendants) that have a store assigned.
+describe("getStoreProductsForCategory", () => {
+  it("rejects users who are not Super Admin (Manager with categories:view)", async () => {
+    asAdmin({ categories: ["view"] });
+    await expect(getStoreProductsForCategory("c-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("rejects anonymous users", async () => {
+    asAnonymous();
+    await expect(getStoreProductsForCategory("c-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("returns an empty result when the category id does not exist in the tree", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    // categories tree lookup returns nothing
+    admin.setResponses({ data: [], error: null });
+    const result = await getStoreProductsForCategory("missing");
+    expect(result).toEqual({ products: [], total: 0, page: 1, pageSize: 10, totalPages: 0 });
+  });
+
+  it("queries products filtered by category id, store_id IS NOT NULL, paginated", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    // 1) categories tree lookup
+    admin.setResponses(
+      { data: [{ id: "c-1", parent_id: null }], error: null },
+      {
+        data: [
+          { id: "p-1", name: "Apple", sku: "A-1", status: "active", store_id: "s-1", stores: { name: "FreshCart", code: "FRESH01" } },
+          { id: "p-2", name: "Banana", sku: "B-1", status: "active", store_id: "s-1", stores: { name: "FreshCart", code: "FRESH01" } },
+        ],
+        error: null,
+        count: 2,
+      },
+    );
+    const result = await getStoreProductsForCategory("c-1", 1, 10, "");
+    expect(result.total).toBe(2);
+    expect(result.totalPages).toBe(1);
+    expect(result.products).toHaveLength(2);
+    expect(result.products[0].name).toBe("Apple");
+    expect(result.products[0].stores?.code).toBe("FRESH01");
+
+    // Verify the chain built the right filters
+    const productChain = admin.chainsForTable("products")[0];
+    expect(productChain.some((c) => c.method === "in" && c.args[0] === "category_id" && (c.args[1] as string[]).includes("c-1"))).toBe(true);
+    expect(productChain.some((c) => c.method === "not" && c.args[0] === "store_id" && c.args[1] === "is" && c.args[2] === null)).toBe(true);
+    expect(productChain.some((c) => c.method === "range" && c.args[0] === 0 && c.args[1] === 9)).toBe(true);
+    expect(productChain.some((c) => c.method === "order" && c.args[0] === "name")).toBe(true);
+  });
+
+  it("includes products from descendant subcategories when a parent is clicked", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    // 1) categories tree: parent c-1 with children c-2 and c-3, and c-3 has child c-4
+    admin.setResponses(
+      {
+        data: [
+          { id: "c-1", parent_id: null },
+          { id: "c-2", parent_id: "c-1" },
+          { id: "c-3", parent_id: "c-1" },
+          { id: "c-4", parent_id: "c-3" },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          { id: "p-1", name: "X", sku: null, status: "active", store_id: "s-1", stores: { name: "S1", code: "S1CD" } },
+        ],
+        error: null,
+        count: 1,
+      },
+    );
+    await getStoreProductsForCategory("c-1", 1, 10, "");
+    const productChain = admin.chainsForTable("products")[0];
+    const inCall = productChain.find((c) => c.method === "in")!;
+    const ids = inCall.args[1] as string[];
+    expect(ids).toContain("c-1");
+    expect(ids).toContain("c-2");
+    expect(ids).toContain("c-3");
+    expect(ids).toContain("c-4");
+    expect(ids).toHaveLength(4);
+  });
+
+  it("applies search as an .or() with ilike on name and sku", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "c-1", parent_id: null }], error: null },
+      { data: [], error: null, count: 0 },
+    );
+    await getStoreProductsForCategory("c-1", 1, 10, "apple");
+    const productChain = admin.chainsForTable("products")[0];
+    const orCall = productChain.find((c) => c.method === "or");
+    expect(orCall).toBeTruthy();
+    const pattern = (orCall!.args[0] as string);
+    expect(pattern).toContain("name.ilike.%apple%");
+    expect(pattern).toContain("sku.ilike.%apple%");
+  });
+
+  it("escapes % and _ in the search string to prevent wildcard injection", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "c-1", parent_id: null }], error: null },
+      { data: [], error: null, count: 0 },
+    );
+    await getStoreProductsForCategory("c-1", 1, 10, "50%off_test");
+    const productChain = admin.chainsForTable("products")[0];
+    const orCall = productChain.find((c) => c.method === "or");
+    const pattern = (orCall!.args[0] as string);
+    expect(pattern).toContain("50\\%off\\_test");
+  });
+
+  it("computes totalPages from total and pageSize", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "c-1", parent_id: null }], error: null },
+      { data: [], error: null, count: 25 },
+    );
+    const result = await getStoreProductsForCategory("c-1", 1, 10, "");
+    expect(result.total).toBe(25);
+    expect(result.totalPages).toBe(3);
+  });
+
+  it("passes the requested page through to the .range() offset", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "c-1", parent_id: null }], error: null },
+      { data: [], error: null, count: 25 },
+    );
+    await getStoreProductsForCategory("c-1", 2, 10, "");
+    const productChain = admin.chainsForTable("products")[0];
+    expect(productChain.some((c) => c.method === "range" && c.args[0] === 10 && c.args[1] === 19)).toBe(true);
+  });
+
+  it("throws when categoryId is missing", async () => {
+    asSuperAdmin();
+    await expect(getStoreProductsForCategory("")).rejects.toThrow(/categoryId is required/);
   });
 });

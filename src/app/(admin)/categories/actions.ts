@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { assertPermission } from "@/lib/require-permission";
+import { assertPermission, PermissionError } from "@/lib/require-permission";
 import { logActivity } from "@/lib/activity-log";
 
 export async function createCategory(formData: FormData) {
@@ -268,4 +268,130 @@ export async function reassignCategory(formData: FormData) {
 
   revalidatePath("/categories");
   revalidatePath("/stores");
+}
+
+/**
+ * P45: List products in a category (and its descendants) that have a
+ * store assigned — i.e., "which store is catering this product". Used
+ * by the Super Admin's drill-down on the categories page.
+ *
+ * Why Super Admin only: managers already see their own products in the
+ * /products page, and this view is the "global" view across stores.
+ * Exposing it to managers would leak the products of other stores
+ * they're scoped away from. Super Admin needs the cross-store view to
+ * review which stores cater which products per category.
+ *
+ * @param categoryId  the clicked category (a parent click includes
+ *                    products in all descendant subcategories)
+ * @param page        1-indexed page number
+ * @param pageSize    default 10 (per the spec)
+ * @param search      ilike filter on name + sku
+ */
+export type StoreProductRow = {
+  id: string;
+  name: string;
+  sku: string | null;
+  status: "active" | "inactive" | "out_of_stock";
+  store_id: string;
+  stores: { name: string; code: string } | null;
+};
+
+export type StoreProductsResult = {
+  products: StoreProductRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export async function getStoreProductsForCategory(
+  categoryId: string,
+  page: number = 1,
+  pageSize: number = 10,
+  search: string = "",
+): Promise<StoreProductsResult> {
+  const result = await assertPermission("categories", "view");
+  if (!result.isSuperAdmin) {
+    throw new PermissionError("categories", "view");
+  }
+
+  if (!categoryId) {
+    throw new Error("categoryId is required");
+  }
+
+  const supabase = createAdminClient();
+
+  // Walk the categories tree to find all descendants of the clicked
+  // category. The categories table is small (usually <500 rows) so a
+  // single fetch + in-memory walk is simpler and faster than a
+  // recursive CTE.
+  const { data: allCategories } = await supabase
+    .from("categories")
+    .select("id, parent_id");
+
+  const childrenByParent = new Map<string, string[]>();
+  const allIds = new Set<string>();
+  for (const c of allCategories ?? []) {
+    allIds.add(c.id);
+    if (c.parent_id) {
+      const list = childrenByParent.get(c.parent_id) ?? [];
+      list.push(c.id);
+      childrenByParent.set(c.parent_id, list);
+    }
+  }
+
+  const targetIds = new Set<string>();
+  if (allIds.has(categoryId)) {
+    targetIds.add(categoryId);
+    const stack = [categoryId];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      const children = childrenByParent.get(current) ?? [];
+      for (const child of children) {
+        if (!targetIds.has(child)) {
+          targetIds.add(child);
+          stack.push(child);
+        }
+      }
+    }
+  }
+
+  if (targetIds.size === 0) {
+    return { products: [], total: 0, page, pageSize, totalPages: 0 };
+  }
+
+  const idsArray = Array.from(targetIds);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let baseQuery = supabase
+    .from("products")
+    .select(
+      "id, name, sku, status, store_id, stores!products_store_id_fkey(name, code)",
+      { count: "exact" },
+    )
+    .in("category_id", idsArray)
+    .not("store_id", "is", null)
+    .order("name", { ascending: true })
+    .range(from, to);
+
+  if (search && search.trim()) {
+    const escaped = search.trim().replace(/[%_]/g, "\\$&");
+    const pattern = `%${escaped}%`;
+    baseQuery = baseQuery.or(`name.ilike.${pattern},sku.ilike.${pattern}`);
+  }
+
+  const { data, count, error } = await baseQuery;
+  if (error) throw new Error(error.message);
+
+  const total = count ?? 0;
+  const totalPages = total === 0 ? 0 : Math.ceil(total / pageSize);
+
+  return {
+    products: (data ?? []) as unknown as StoreProductRow[],
+    total,
+    page,
+    pageSize,
+    totalPages,
+  };
 }

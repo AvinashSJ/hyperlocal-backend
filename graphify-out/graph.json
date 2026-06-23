@@ -229,6 +229,33 @@
       "norm_label": "forceUnassignCategory"
     },
     {
+      "id": "src_app_admin_categories_categoriesclient_test_tsx",
+      "label": "CategoriesClient.test.tsx",
+      "file_type": "server_component",
+      "source_file": "app/(admin)/categories/CategoriesClient.test.tsx",
+      "source_location": "L1",
+      "community": 2,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_categories_categoriesclient_test_tsx_root",
+      "label": "Root",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoriesClient.test.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "Root"
+    },
+    {
+      "id": "src_app_admin_categories_categoriesclient_test_tsx_category",
+      "label": "Category",
+      "file_type": "export",
+      "source_file": "app/(admin)/categories/CategoriesClient.test.tsx",
+      "source_location": "L0",
+      "community": 2,
+      "norm_label": "Category"
+    },
+    {
       "id": "src_app_admin_categories_categoriesclient_tsx",
       "label": "CategoriesClient.tsx",
       "file_type": "server_component",

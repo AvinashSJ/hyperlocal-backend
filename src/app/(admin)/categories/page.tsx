@@ -115,10 +115,16 @@ async function getCategoriesForAdmin(storeId: string | null) {
 }
 
 export default async function CategoriesPage() {
-  const { permissions } = await requirePermission("categories", "view");
+  const { permissions, isSuperAdmin } = await requirePermission("categories", "view");
   const { storeId } = await getStoreScope();
   const categories = await getCategoriesForAdmin(storeId);
   const actionPerms = getActionPermissions(permissions, "categories");
 
-  return <CategoriesClient categories={categories} actionPerms={actionPerms} />;
+  return (
+    <CategoriesClient
+      categories={categories}
+      actionPerms={actionPerms}
+      isSuperAdmin={isSuperAdmin}
+    />
+  );
 }

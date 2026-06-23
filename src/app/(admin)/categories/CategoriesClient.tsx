@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
@@ -9,6 +9,9 @@ import {
   cancelCategoryDeletion,
   forceUnassignCategory,
   forceDeleteCategory,
+  getStoreProductsForCategory,
+  type StoreProductRow,
+  type StoreProductsResult,
 } from "./actions";
 import CategoryForm from "./CategoryForm";
 
@@ -49,9 +52,11 @@ const CHILD_INDENT_PX = 32;
 export default function CategoriesClient({
   categories,
   actionPerms,
+  isSuperAdmin = false,
 }: {
   categories: Category[];
   actionPerms?: ActionPermissions;
+  isSuperAdmin?: boolean;
 }) {
   const [editing, setEditing] = useState<Category | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -61,6 +66,20 @@ export default function CategoriesClient({
   // Resets on page refresh per the PR plan — local state only, no
   // URL / localStorage persistence.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  // P45: Super Admin drill-down. When `expandedCategoryId` is set, an
+  // inline row below that category shows the products in it (and its
+  // descendants) that have a store. Search + paginated.
+  const [expandedCategoryId, setExpandedCategoryId] = useState<string | null>(null);
+  const [expandedData, setExpandedData] = useState<StoreProductRow[] | null>(null);
+  const [expandedTotal, setExpandedTotal] = useState(0);
+  const [expandedTotalPages, setExpandedTotalPages] = useState(0);
+  const [expandedPage, setExpandedPage] = useState(1);
+  const [expandedSearch, setExpandedSearch] = useState("");
+  const [expandedLoading, setExpandedLoading] = useState(false);
+  const [expandedError, setExpandedError] = useState<string | null>(null);
+  const PAGE_SIZE = 10;
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toggle = (id: string) =>
     setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -148,6 +167,86 @@ export default function CategoriesClient({
       toast.error(result.error.message);
     }
   };
+
+  // P45: Super Admin drill-down — fetch the products in the given
+  // category (and its descendants) that have a store. Called on badge
+  // click, search change, and page change.
+  const fetchStoreProducts = async (
+    categoryId: string,
+    page: number,
+    search: string,
+  ) => {
+    setExpandedLoading(true);
+    setExpandedError(null);
+    const result = await runServerAction(
+      getStoreProductsForCategory,
+      categoryId,
+      page,
+      PAGE_SIZE,
+      search,
+    );
+    setExpandedLoading(false);
+    if (result.ok) {
+      const data: StoreProductsResult = result.value;
+      setExpandedData(data.products);
+      setExpandedTotal(data.total);
+      setExpandedTotalPages(data.totalPages);
+    } else {
+      setExpandedError(result.error.message);
+      setExpandedData([]);
+      setExpandedTotal(0);
+      setExpandedTotalPages(0);
+    }
+  };
+
+  const handleProductBadgeClick = async (cat: Category) => {
+    if (expandedCategoryId === cat.id) {
+      // Collapse
+      setExpandedCategoryId(null);
+      setExpandedData(null);
+      setExpandedTotal(0);
+      setExpandedTotalPages(0);
+      setExpandedPage(1);
+      setExpandedSearch("");
+      setExpandedError(null);
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = null;
+      }
+      return;
+    }
+    setExpandedCategoryId(cat.id);
+    setExpandedPage(1);
+    setExpandedSearch("");
+    await fetchStoreProducts(cat.id, 1, "");
+  };
+
+  const handleSearchChange = (value: string) => {
+    setExpandedSearch(value);
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    if (!expandedCategoryId) return;
+    searchDebounceRef.current = setTimeout(() => {
+      setExpandedPage(1);
+      fetchStoreProducts(expandedCategoryId, 1, value);
+    }, 300);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (!expandedCategoryId) return;
+    setExpandedPage(newPage);
+    fetchStoreProducts(expandedCategoryId, newPage, expandedSearch);
+  };
+
+  // Cleanup any pending debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, []);
 
   const hasChildren = (cat: Category) => cat.children_count > 0;
   const isExpanded = (cat: Category) => Boolean(expanded[cat.id]);
@@ -247,9 +346,37 @@ export default function CategoriesClient({
             )}
           </td>
           <td className="text-center">
-            <span className="badge bg-primary bg-opacity-10 text-primary">
-              {cat.product_count}
-            </span>
+            {isSuperAdmin && cat.product_count > 0 ? (
+              <button
+                type="button"
+                className="badge bg-primary bg-opacity-10 text-primary border-0"
+                style={{ cursor: "pointer" }}
+                onClick={() => handleProductBadgeClick(cat)}
+                aria-expanded={expandedCategoryId === cat.id}
+                aria-label={
+                  expandedCategoryId === cat.id
+                    ? `Collapse ${cat.product_count} products list`
+                    : `View ${cat.product_count} products catered by stores`
+                }
+                data-testid={`category-products-btn-${cat.id}`}
+                title="Click to view which stores cater products in this category"
+              >
+                {cat.product_count}
+                <Icon
+                  icon={
+                    expandedCategoryId === cat.id
+                      ? "ri:arrow-up-s-line"
+                      : "ri:arrow-down-s-line"
+                  }
+                  className="ms-1"
+                  style={{ fontSize: 12, verticalAlign: "middle" }}
+                />
+              </button>
+            ) : (
+              <span className="badge bg-primary bg-opacity-10 text-primary">
+                {cat.product_count}
+              </span>
+            )}
           </td>
           <td style={{ fontSize: "0.85rem" }}>
             {cat.effective_stores.length > 0 ? (
@@ -295,6 +422,121 @@ export default function CategoriesClient({
           (tree.childrenByParent.get(cat.id) ?? []).map((child) =>
             renderRow(child, depth + 1),
           )}
+
+        {/* P45: Super Admin drill-down — when this row's products
+            badge has been clicked, render an inline panel below with
+            the products in this category (and descendants) that have
+            a store. The panel spans all 10 columns. */}
+        {isSuperAdmin && expandedCategoryId === cat.id && (
+          <tr data-testid={`category-products-row-${cat.id}`}>
+            <td colSpan={10} style={{ backgroundColor: "#f8f9fa", padding: 16 }}>
+              <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <strong className="me-2">Products in this category (and subcategories)</strong>
+                <span className="badge bg-light text-muted">
+                  {expandedTotal} total
+                </span>
+                <div className="ms-auto d-flex align-items-center gap-2" style={{ minWidth: 240 }}>
+                  <input
+                    type="search"
+                    className="form-control form-control-sm"
+                    placeholder="Search by name or SKU"
+                    value={expandedSearch}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    data-testid={`category-products-search-${cat.id}`}
+                  />
+                </div>
+              </div>
+
+              {expandedError && (
+                <div className="alert alert-danger py-2 mb-2" data-testid={`category-products-error-${cat.id}`}>
+                  {expandedError}
+                </div>
+              )}
+
+              {expandedLoading ? (
+                <div className="text-center text-muted py-3">
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" />
+                  Loading products…
+                </div>
+              ) : expandedData && expandedData.length > 0 ? (
+                <div className="table-responsive">
+                  <table className="table table-sm table-bordered mb-2 bg-white">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>Store</th>
+                        <th className="text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expandedData.map((p) => (
+                        <tr key={p.id} data-testid={`category-product-row-${p.id}`}>
+                          <td>{p.name}</td>
+                          <td>
+                            <code className="text-muted small">{p.sku ?? "—"}</code>
+                          </td>
+                          <td>
+                            {p.stores ? (
+                              <span className="d-inline-flex align-items-center gap-1">
+                                <span>{p.stores.name}</span>
+                                <code className="text-muted small">{p.stores.code}</code>
+                              </span>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {p.status === "active" ? (
+                              <span className="badge bg-success-subtle text-success">Active</span>
+                            ) : p.status === "out_of_stock" ? (
+                              <span className="badge bg-warning-subtle text-warning">Out of stock</span>
+                            ) : (
+                              <span className="badge bg-secondary-subtle text-secondary">Inactive</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div
+                  className="text-center text-muted py-3"
+                  data-testid={`category-products-empty-${cat.id}`}
+                >
+                  No products with a store in this category.
+                </div>
+              )}
+
+              {expandedTotalPages > 1 && (
+                <div className="d-flex align-items-center justify-content-between mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => handlePageChange(Math.max(1, expandedPage - 1))}
+                    disabled={expandedPage <= 1 || expandedLoading}
+                    data-testid={`category-products-prev-${cat.id}`}
+                  >
+                    ← Prev
+                  </button>
+                  <span className="text-muted small">
+                    Page {expandedPage} of {expandedTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => handlePageChange(Math.min(expandedTotalPages, expandedPage + 1))}
+                    disabled={expandedPage >= expandedTotalPages || expandedLoading}
+                    data-testid={`category-products-next-${cat.id}`}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </td>
+          </tr>
+        )}
       </Fragment>
     );
   };
