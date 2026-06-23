@@ -274,6 +274,9 @@
       "ActionPermissions"
     ],
     "26": [
+      "async"
+    ],
+    "27": [
       "actions.test",
       "getRoles",
       "getStoresLight",
@@ -285,12 +288,12 @@
       "UsersClient",
       "ActionPermissions"
     ],
-    "27": [
+    "28": [
       "route.test",
       "GET",
       "ProductRow"
     ],
-    "28": [
+    "29": [
       "route.test",
       "GET",
       "NextRequest",
@@ -299,51 +302,51 @@
       "narrows",
       "for"
     ],
-    "29": [
+    "30": [
       "route.test",
       "GET",
       "Reason",
       "MaintenanceValue"
     ],
-    "30": [
-      "POST"
-    ],
     "31": [
       "POST"
     ],
     "32": [
+      "POST"
+    ],
+    "33": [
       "actions.test",
       "signIn",
       "signOut",
       "updateOwnPassword"
     ],
-    "33": [
+    "34": [
       "POST"
     ],
-    "34": [
+    "35": [
       "LoginForm",
       "async",
       "LoginPageProps"
     ],
-    "35": [
+    "36": [
       "async",
       "ResetPasswordForm"
     ],
-    "36": [
+    "37": [
       "RootLayout",
       "async",
       "StoreProvider"
     ],
-    "37": [
+    "38": [
       "MaintenanceView",
       "MaintenanceValue",
       "async",
       "Reason"
     ],
-    "38": [
+    "39": [
       "UnauthorizedPage"
     ],
-    "39": [
+    "40": [
       "BootstrapClient",
       "RootLike",
       "ImagePickerModal",
@@ -358,7 +361,7 @@
       "PlaceholderPage.test",
       "PlaceholderPage"
     ],
-    "40": [
+    "41": [
       "activity-log.test",
       "logActivity",
       "getEntityActivityLog",
@@ -385,19 +388,20 @@
       "runServerAction",
       "store-scope.test",
       "getStoreScope",
+      "assertStoreScope",
       "withStoreScope",
       "StoreScope"
     ],
-    "41": [
+    "42": [
       "baseApi"
     ],
-    "42": [
+    "43": [
       "hooks",
       "AppStore",
       "RootState",
       "AppDispatch"
     ],
-    "43": [
+    "44": [
       "admin.test",
       "createAdminClient",
       "client.test",
@@ -409,7 +413,7 @@
       "NextRequest",
       "CookieRecord"
     ],
-    "44": [
+    "45": [
       "Profile",
       "Store",
       "Category",
