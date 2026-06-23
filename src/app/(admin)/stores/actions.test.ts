@@ -274,6 +274,65 @@ describe("getStoreRelations", () => {
     expect(result.invoices[0].invoice_number).toBe("INV-A1B2C3D4-2026-0001");
     expect(result.invoices[0].order_number).toBe("ORD-001");
   });
+
+  // Regression test for the bug where the invoices list query was
+  // returning ALL invoices (regardless of store) on the store detail
+  // page. The cause: the embed `orders!invoices_order_id_fkey(...)`
+  // only selected `order_number`, but the filter
+  // `.eq("orders.store_id", id)` referenced `store_id` — a column
+  // NOT in the select. PostgREST drops filters on joined columns
+  // that aren't in the select, so the filter was silently ignored.
+  //
+  // The fix adds `store_id` to the joined embed so the filter is
+  // unambiguous. This test pins the contract so a future refactor
+  // can't silently reintroduce the bug.
+  //
+  // Note: the chainable mock treats `.eq()` as a no-op (it just
+  // records the call), so this test cannot verify PostgREST's
+  // actual filter behavior. It can only verify the chain SHAPE
+  // (select string + eq call), which is the layer the bug lived at.
+  it("P52: invoices list query embeds store_id in the joined orders select AND applies .eq('orders.store_id', id)", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    // Queue 9 responses in the same order the function consumes them.
+    admin.enqueueResponse({ data: [], error: null });               // 1) products list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 2) zones
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 3) gst
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 4) order count
+    admin.enqueueResponse({ data: [], error: null });               // 5) orders list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 6) invoice count
+    admin.enqueueResponse({ data: [], error: null });               // 7) invoices list
+    admin.enqueueResponse({ count: 0, data: null, error: null });  // 8) product count
+    admin.enqueueResponse({ data: [], error: null });               // 9) orders-for-customers
+
+    await getStoreRelations("s-store-a");
+
+    // Find the invoices list chain. The function builds two `from("invoices")`
+    // chains: the count (6) and the list (7). We want the list chain (the
+    // second one).
+    const invoiceChains = admin.chainsForTable("invoices");
+    expect(invoiceChains.length).toBeGreaterThanOrEqual(2);
+
+    const listChain = invoiceChains[invoiceChains.length - 1];
+    const selectCall = listChain.find((c) => c.method === "select");
+    const eqCall = listChain.find(
+      (c) => c.method === "eq" && c.args[0] === "orders.store_id",
+    );
+
+    // 1. The select must include the joined orders embed.
+    expect(selectCall).toBeDefined();
+    const selectArg = selectCall!.args[0] as string;
+
+    // 2. The embed must include `store_id` so the filter is honored.
+    //    Acceptable forms: `orders!invoices_order_id_fkey(store_id, ...)`,
+    //    `orders!inner(store_id, ...)`, etc. Just check the string
+    //    contains "store_id" inside an orders embed.
+    expect(selectArg).toMatch(/orders!?\w*!?\w*\(.*store_id.*\)/);
+
+    // 3. The filter on orders.store_id must be present.
+    expect(eqCall).toBeDefined();
+    expect(eqCall!.args).toEqual(["orders.store_id", "s-store-a"]);
+  });
 });
 
 describe("deleteStore", () => {
