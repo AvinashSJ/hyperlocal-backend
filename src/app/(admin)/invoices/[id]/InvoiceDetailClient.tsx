@@ -2,14 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { Icon } from "@iconify/react";
 import type { InvoiceDetail } from "../actions";
 
-const InvoicePDF = dynamic(() => import("./InvoicePDF"), { ssr: false });
-
 export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetail }) {
-  const [showPdf, setShowPdf] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const order = invoice.orders;
@@ -55,15 +51,6 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
         <div className="d-flex gap-2">
           <button
             type="button"
-            className="btn btn-sm btn-outline-primary"
-            onClick={() => setShowPdf(!showPdf)}
-            aria-label={showPdf ? "Show details" : "Show PDF preview"}
-          >
-            <Icon icon={showPdf ? "ri:file-text-line" : "ri:file-pdf-line"} width={16} className="me-1" />
-            {showPdf ? "Show Details" : "Preview PDF"}
-          </button>
-          <button
-            type="button"
             className="btn btn-sm btn-primary"
             onClick={handleDownload}
             disabled={downloading}
@@ -81,14 +68,7 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
         </div>
       )}
 
-      {showPdf ? (
-        <div className="card">
-          <div className="card-body" style={{ minHeight: 500 }}>
-            <InvoicePDF invoice={invoice} />
-          </div>
-        </div>
-      ) : (
-        <div className="row g-3">
+      <div className="row g-3">
           <div className="col-lg-6">
             <div className="card">
               <div className="card-header"><strong>Invoice Info</strong></div>
@@ -211,7 +191,6 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
             </div>
           </div>
         </div>
-      )}
     </>
   );
 }
