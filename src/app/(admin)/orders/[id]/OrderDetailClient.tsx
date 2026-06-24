@@ -1,17 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
-import { toast } from "react-toastify";
-import {
-  updateOrderStatus,
-  updatePaymentStatus,
-  type OrderDetail,
-  type OrderStatus,
-  type PaymentStatus,
-} from "../actions";
+import { type OrderDetail } from "../actions";
+import OrderActionControls from "./OrderActionControls";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -23,66 +15,7 @@ const STATUS_BADGES: Record<string, string> = {
   returned: "bg-dark text-white",
 };
 
-const STATUS_FLOW: OrderStatus[] = ["pending", "confirmed", "processing", "shipped", "delivered"];
-const CANCEL_STATUS: OrderStatus = "cancelled";
-const RETURN_STATUS: OrderStatus = "returned";
-
 export default function OrderDetailClient({ order }: { order: OrderDetail }) {
-  const router = useRouter();
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [newStatus, setNewStatus] = useState<OrderStatus>(order.status);
-  const [statusNotes, setStatusNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus>(order.payment_status);
-  const [savingPayment, setSavingPayment] = useState(false);
-
-  const handleStatusUpdate = async () => {
-    if (newStatus === order.status) return;
-    setSaving(true);
-    try {
-      const result = await updateOrderStatus(order.id, newStatus, statusNotes || undefined);
-      // P44: when transitioning to 'delivered', the action auto-
-      // generates the invoice. Show a toast confirming the new
-      // invoice so the manager knows to expect one in the PDF
-      // download section.
-      if (newStatus === "delivered" && result.invoiceId) {
-        toast.success("Status updated to delivered. Invoice generated.");
-      } else if (newStatus === "delivered") {
-        // Delivered but invoice generation was skipped (already
-        // had one) or failed silently. The order page will
-        // refresh; the PDF download card is visible if an invoice
-        // exists.
-        toast.success("Status updated to delivered");
-      } else {
-        toast.success(`Status updated to ${newStatus}`);
-      }
-      setShowStatusModal(false);
-      setStatusNotes("");
-      router.refresh();
-    } catch {
-      toast.error("Failed to update status");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handlePaymentUpdate = async () => {
-    if (newPaymentStatus === order.payment_status) return;
-    setSavingPayment(true);
-    try {
-      await updatePaymentStatus(order.id, newPaymentStatus);
-      toast.success(`Payment status updated to ${newPaymentStatus}`);
-      setShowPaymentModal(false);
-      router.refresh();
-    } catch {
-      toast.error("Failed to update payment status");
-    } finally {
-      setSavingPayment(false);
-    }
-  };
-
   const addr = order.addresses;
   const profile = order.profiles;
 
@@ -96,16 +29,11 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
           <h4 className="fw-bold mb-0">Order #{order.order_number}</h4>
           <span className={`badge fs-6 ${STATUS_BADGES[order.status] ?? "bg-secondary"}`}>{order.status}</span>
         </div>
-        <div className="d-flex gap-2">
-          {order.status !== "cancelled" && order.status !== "returned" && order.status !== "delivered" && (
-            <button className="btn btn-primary btn-sm" onClick={() => setShowStatusModal(true)}>
-              <Icon icon="ri:exchange-line" width={16} className="me-1" />Update Status
-            </button>
-          )}
-          <button className="btn btn-outline-info btn-sm" onClick={() => setShowPaymentModal(true)}>
-            <Icon icon="ri:money-dollar-circle-line" width={16} className="me-1" />Update Payment
-          </button>
-        </div>
+        <OrderActionControls
+          orderId={order.id}
+          currentStatus={order.status}
+          currentPaymentStatus={order.payment_status}
+        />
       </div>
 
       <div className="row g-3">
@@ -332,76 +260,7 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
           )}
         </div>
       </div>
-
-      {showStatusModal && (
-        <div style={{
-          position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1050,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }} onClick={() => setShowStatusModal(false)}>
-          <div className="card" style={{ width: 420, maxWidth: "90vw" }} onClick={(e) => e.stopPropagation()}>
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <strong>Update Order Status</strong>
-              <button className="btn-close" onClick={() => setShowStatusModal(false)} />
-            </div>
-            <div className="card-body">
-              <div className="mb-3">
-                <label className="form-label">Current Status</label>
-                <input type="text" className="form-control" value={order.status} disabled />
-              </div>
-              <div className="mb-3">
-                <label className="form-label">New Status</label>
-                <select className="form-select" value={newStatus} onChange={(e) => setNewStatus(e.target.value as OrderStatus)}>
-                  {STATUS_FLOW.map((s) => {
-                    const idx = STATUS_FLOW.indexOf(order.status as OrderStatus);
-                    const newIdx = STATUS_FLOW.indexOf(s);
-                    if (s === order.status) return null;
-                    if (newIdx < idx && s !== "cancelled") return null;
-                    return <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>;
-                  })}
-                  {order.status !== "cancelled" && order.status !== "returned" && (
-                    <option value="cancelled">Cancel Order</option>
-                  )}
-                  {order.status === "delivered" && <option value="returned">Return</option>}
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="form-label">Notes (optional)</label>
-                <textarea className="form-control" rows={3} value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} placeholder="Reason for status change..." />
-              </div>
-              <button className="btn btn-primary w-100" onClick={handleStatusUpdate} disabled={saving || newStatus === order.status}>
-                {saving ? "Updating..." : `Update to ${newStatus}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPaymentModal && (
-        <div style={{
-          position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1050,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }} onClick={() => setShowPaymentModal(false)}>
-          <div className="card" style={{ width: 400, maxWidth: "90vw" }} onClick={(e) => e.stopPropagation()}>
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <strong>Update Payment Status</strong>
-              <button className="btn-close" onClick={() => setShowPaymentModal(false)} />
-            </div>
-            <div className="card-body">
-              <div className="mb-3">
-                <label className="form-label">Payment Status</label>
-                <select className="form-select" value={newPaymentStatus} onChange={(e) => setNewPaymentStatus(e.target.value as PaymentStatus)}>
-                  {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
-                    <option key={s} value={s}>{s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}</option>
-                  ))}
-                </select>
-              </div>
-              <button className="btn btn-primary w-100" onClick={handlePaymentUpdate} disabled={savingPayment || newPaymentStatus === order.payment_status}>
-                {savingPayment ? "Updating..." : "Update Payment"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
+
