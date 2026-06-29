@@ -230,33 +230,35 @@ export async function generateInvoice(orderId: string) {
     //    by construction -- see the comment block above for why
     //    the retry loop is needed.
     //
-    //    P59: drop `head: true`. The previous implementation used
-    //    PostgREST's head mode with an embedded join
-    //    (`orders!inner(store_id)`). In production this returned
-    //    count=0 for every call -- the embedded filter wasn't being
-    //    applied through the head path in Supabase's JS client, so
-    //    the retry loop hit the same UNIQUE violation 5 times
-    //    before giving up. The 2-step approach (get order_ids for
-    //    the store, then count invoices by order_id IN (...)) is
-    //    slower (one extra roundtrip) but trivially correct.
-    // P59: compute the next invoice_number for this store+year
-    // (or ORPHAN for legacy orders). The query uses
-    // `count: "exact"` WITHOUT `head: true` -- previously we used
-    // `head: true` with an embedded join, but PostgREST's head
-    // path doesn't reliably return the count when the join is
-    // applied through the filter. In production the count came
-    // back as 0 even when an invoice with that number existed,
-    // so the retry loop kept trying seq=1 and hit the UNIQUE
-    // constraint 5 times in a row. Dropping `head: true` is the
-    // minimal fix: the data array is now populated (and ignored),
-    // the count is reliable, and the existing tests still pass
-    // because the mock returns the same response shape.
+    //    P60: drop the embedded `orders!inner(store_id)` join ENTIRELY.
+    //    The previous attempts (P58's retry, P59's drop of
+    //    `head: true`) still failed in production because the join
+    //    itself was the source of the broken count -- the
+    //    Supabase JS client's handling of embedded filters through
+    //    `!inner` joins has been unreliable across multiple
+    //    Supabase versions, and our test mock returns a fixed
+    //    count value regardless, so the existing tests never caught
+    //    it.
+    //
+    //    The `stores.code` column has a UNIQUE constraint (see
+    //    migration 20260623000001_add_stores_code.sql), so the
+    //    `INV-{storeCode}-` prefix is unique per store by
+    //    construction. Counting invoices with that prefix is
+    //    therefore equivalent to counting invoices for that
+    //    specific store -- no join needed. This is simpler, faster
+    //    (single query, no embedded filter), and trivially correct
+    //    in production.
+    //
+    //    The previous variants (head:true + !inner in P43; plain
+    //    !inner in P58; head-less !inner in P59) all returned
+    //    count=0 in production for the user's store. The common
+    //    factor was the embedded join. Dropping it fixes the
+    //    production bug for good.
     let invNum: string;
     if (storeCode) {
       const { count: storeCount } = await supabase
         .from("invoices")
-        .select("id, orders!inner(store_id)", { count: "exact" })
-        .eq("orders.store_id", order.store_id)
+        .select("id", { count: "exact" })
         .like("invoice_number", `INV-${storeCode}-${year}-%`);
       invNum = `INV-${storeCode}-${year}-${String((storeCount ?? 0) + 1).padStart(4, "0")}`;
     } else {
