@@ -21,13 +21,6 @@ vi.mock("@iconify/react", () => ({
   ),
 }));
 
-vi.mock("react-toastify", () => ({
-  toast: {
-    success: (...args: unknown[]) => (successMock(...args)),
-    error: (...args: unknown[]) => (errorMock(...args)),
-  },
-}));
-
 const { successMock, errorMock, warningMock, updateOrderStatusMock, updatePaymentStatusMock, generateInvoiceForOrderMock } = vi.hoisted(
   () => ({
     successMock: vi.fn(),

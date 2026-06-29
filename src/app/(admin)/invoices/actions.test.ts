@@ -484,9 +484,10 @@ describe("generateInvoice", () => {
   // fix is a retry loop on the count+insert.
   // -----------------------------------------------------------------
 
-  function makeOrderWithStore(totalAmount: number, storeCode: string | null) {
+  function makeOrderWithStore(totalAmount: number, storeCode: string | null, storeId: string = "s-1") {
     return {
-      ...makeOrderWithItems(totalAmount, 0, [{ gst_amount: 0 }]),
+      ...makeOrder({ id: "o-1", total_amount: totalAmount, store_id: storeId, delivery_charge: 0 }),
+      order_items: [{ ...makeOrderItem(), gst_amount: 0 }],
       stores: storeCode ? { code: storeCode } : null,
     };
   }
@@ -615,5 +616,93 @@ describe("generateInvoice", () => {
 
     const result = await generateInvoice("o-1");
     expect(result).toBe("i-3rd");
+  });
+
+  // -----------------------------------------------------------------
+  // P59: count query contract. The previous implementation used
+  // `head: true` with an embedded join, which in production
+  // returned count=0 regardless of the actual data. The fix drops
+  // `head: true`. This test pins the contract: the per-store count
+  // query reads `orders.store_id` via the embedded `!inner` join,
+  // and the response's `count` is used to compute the next seq.
+  // If someone re-adds `head: true` here, the existing tests would
+  // still pass (the mock returns a fixed count) but production
+  // would break again. This test would also need to be updated to
+  // match the new query shape, which forces the author to think
+  // about it.
+  // -----------------------------------------------------------------
+
+  it("P59: the per-store count query selects orders!inner(store_id) and eq store_id (no head: true)", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // 2) per-store count — count=3 means existing invoices for FCD
+    //    in 2026, so the new one should be 0004.
+    admin.enqueueResponse({ count: 3, data: null, error: null });
+    // 3) invoice insert
+    admin.enqueueResponse({ data: { id: "i-p59" }, error: null });
+    // 4) order update
+    admin.enqueueResponse({ data: null, error: null });
+
+    await generateInvoice("o-1");
+
+    const invoiceChains = admin.chainsForTable("invoices");
+    // Find the count chain (the one with .like() on invoice_number).
+    const countChain = invoiceChains.find((ch) =>
+      ch.some((c) => c.method === "like"),
+    );
+    expect(countChain).toBeDefined();
+    // The select must NOT use head: true. The mock's
+    // `{count: 3, data: null, error: null}` is a 200 with no data
+    // payload (PostgREST returns count in the Content-Range header
+    // and an empty body for head requests). If we re-add head: true
+    // and the production bug recurs, this test should fail or need
+    // updating. We assert the select was called and the like filter
+    // is correct.
+    const selectCall = countChain!.find((c) => c.method === "select")!;
+    const selectArg = selectCall.args[0] as string;
+    const selectOptions = selectCall.args[1] as { count?: string; head?: boolean };
+    expect(selectArg).toMatch(/orders!inner\(store_id\)/);
+    expect(selectOptions.count).toBe("exact");
+    // P59: assert head is NOT set (or is explicitly false). This
+    // is the fix — the previous `head: true` was the source of
+    // the production bug.
+    expect(selectOptions.head).toBeFalsy();
+
+    const likeCall = countChain!.find((c) => c.method === "like")!;
+    const year = new Date().getFullYear();
+    expect(likeCall.args[0]).toBe("invoice_number");
+    expect(likeCall.args[1]).toBe(`INV-FCD-${year}-%`);
+
+    const eqStore = countChain!.find(
+      (c) => c.method === "eq" && c.args[0] === "orders.store_id",
+    );
+    expect(eqStore).toBeDefined();
+    // P59: assert the eq targets the embedded `orders.store_id` column,
+    // not `invoices.store_id` (which doesn't exist). This was the
+    // join column used pre-P59 and it must stay correct.
+    expect(eqStore!.args[1]).toBeTypeOf("string");
+
+    // The invoice number computed from count=3 must be 0004.
+    const insertArg = admin.chainsForTable("invoices").slice(-1)[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.invoice_number).toBe(`INV-FCD-${year}-0004`);
+  });
+
+  it("P59: when the count is 0 (no existing invoices for this store+year), seq starts at 0001", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    admin.enqueueResponse({ data: { id: "i-first" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    await generateInvoice("o-1");
+
+    const insertArg = admin.chainsForTable("invoices").slice(-1)[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    const year = new Date().getFullYear();
+    expect(insertArg.invoice_number).toBe(`INV-FCD-${year}-0001`);
   });
 });
