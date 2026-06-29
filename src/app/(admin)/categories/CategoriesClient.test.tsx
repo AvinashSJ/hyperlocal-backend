@@ -33,6 +33,16 @@ vi.mock("react-toastify", () => ({
 // is exercised separately in actions.test.ts. The CategoriesClient test
 // only cares about the UI behavior driven by the action's return value.
 const mockGetStoreProducts = vi.fn();
+// P61: mock deleteProduct for the per-product Delete button tests.
+// The real deleteProduct action cascades to variants + images and
+// writes an activity_log entry; those are covered in products/actions.test.ts.
+// Here we only assert that the UI calls it with the right product id
+// and reacts correctly to success/error.
+const mockDeleteProduct = vi.fn();
+vi.mock("../products/actions", () => ({
+  deleteProduct: (...args: unknown[]) => mockDeleteProduct(...args),
+}));
+
 vi.mock("./actions", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./actions")>();
   return {
@@ -143,6 +153,11 @@ function render(categories: Category[], isSuperAdmin = true) {
 beforeEach(() => {
   mockGetStoreProducts.mockReset();
   mockGetStoreProducts.mockResolvedValue(noopResult);
+  mockDeleteProduct.mockReset();
+  mockDeleteProduct.mockResolvedValue(undefined);
+  // Default window.confirm to true (operator confirms). Tests
+  // that exercise the cancel path override per-test.
+  vi.spyOn(window, "confirm").mockReturnValue(true);
 });
 
 describe("CategoriesClient — P45 Super Admin products drill-down", () => {
@@ -372,6 +387,144 @@ describe("CategoriesClient — P45 Super Admin products drill-down", () => {
     expect(lastCall[0]).toBe("c-1");
     expect(lastCall[1]).toBe(1); // page reset to 1
     expect(lastCall[3]).toBe("apple");
+    cleanup();
+  });
+});
+
+// -----------------------------------------------------------------
+// P61: per-product Delete on the products drill-down panel
+// -----------------------------------------------------------------
+// Super Admin can remove a product from the system when it
+// conflicts with the same product in another store (house rule:
+// no two stores serve the same product in the same category tree).
+// The button lives inside the P45 inline panel (visible after
+// clicking the Products badge) and reuses the existing
+// deleteProduct action from the products module.
+
+async function expandPanelAndReturn(
+  container: HTMLElement,
+  categoryId: string,
+  products: StoreProductsResult,
+) {
+  mockGetStoreProducts.mockResolvedValue(products);
+  await act(async () => {
+    (container.querySelector(`[data-testid="category-products-btn-${categoryId}"]`) as HTMLButtonElement).click();
+  });
+}
+
+describe("CategoriesClient — P61 per-product Delete on the products panel", () => {
+  it("renders a Delete button on each product row when the panel is open for Super Admin", async () => {
+    const { container, cleanup } = render([baseCategory()], true);
+    await expandPanelAndReturn(container, "c-1", sampleResult());
+
+    const del1 = container.querySelector('[data-testid="category-product-delete-p-1"]');
+    const del2 = container.querySelector('[data-testid="category-product-delete-p-2"]');
+    expect(del1).not.toBeNull();
+    expect(del2).not.toBeNull();
+    // Header has a 5th "Actions" column
+    const headers = container.querySelectorAll(
+      '[data-testid="category-products-row-c-1"] thead th',
+    );
+    expect(headers.length).toBe(5);
+    expect(headers[4]?.textContent).toMatch(/Actions/);
+    cleanup();
+  });
+
+  it("clicking Delete calls window.confirm first; on confirm calls deleteProduct with the product id", async () => {
+    const { container, cleanup } = render([baseCategory()], true);
+    await expandPanelAndReturn(container, "c-1", sampleResult());
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockDeleteProduct.mockResolvedValue(undefined);
+
+    await act(async () => {
+      (container.querySelector('[data-testid="category-product-delete-p-1"]') as HTMLButtonElement).click();
+    });
+
+    expect(confirmSpy).toHaveBeenCalled();
+    const msg = confirmSpy.mock.calls[0][0] as string;
+    expect(msg).toMatch(/Delete/);
+    expect(msg).toMatch(/Apple/);
+
+    expect(mockDeleteProduct).toHaveBeenCalledWith("p-1");
+    cleanup();
+  });
+
+  it("does NOT call deleteProduct if the operator cancels the confirm prompt", async () => {
+    const { container, cleanup } = render([baseCategory()], true);
+    await expandPanelAndReturn(container, "c-1", sampleResult());
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    await act(async () => {
+      (container.querySelector('[data-testid="category-product-delete-p-1"]') as HTMLButtonElement).click();
+    });
+
+    expect(mockDeleteProduct).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("on successful delete: toast.success + re-fetches the current page so the row disappears", async () => {
+    const { container, cleanup } = render([baseCategory()], true);
+    await expandPanelAndReturn(container, "c-1", sampleResult());
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockDeleteProduct.mockResolvedValue(undefined);
+    // After the delete, the production re-fetch would return the
+    // post-delete state (1 product, p-2 gone). Queue that response
+    // BEFORE calling mockClear (which wipes both call history AND
+    // queued responses).
+    mockGetStoreProducts.mockResolvedValueOnce(
+      sampleResult({
+        products: [
+          {
+            id: "p-1",
+            name: "Apple",
+            sku: "A-1",
+            status: "active",
+            store_id: "s-1",
+            stores: { name: "FreshCart", code: "FRESH01" },
+          },
+        ],
+        total: 1,
+        totalPages: 1,
+      }),
+    );
+    mockGetStoreProducts.mockClear();
+
+    await act(async () => {
+      (container.querySelector('[data-testid="category-product-delete-p-2"]') as HTMLButtonElement).click();
+    });
+
+    // 1. deleteProduct called with the right id
+    expect(mockDeleteProduct).toHaveBeenCalledWith("p-2");
+
+    // 2. mockGetStoreProducts re-invoked (to refresh the list)
+    expect(mockGetStoreProducts).toHaveBeenCalled();
+    const lastCall = mockGetStoreProducts.mock.calls.at(-1)!;
+    expect(lastCall[0]).toBe("c-1");
+
+    // 3. Pane re-rendered with the refreshed data — p-2 is gone,
+    //    only p-1's row is left. The test asserts the row data, not
+    //    the empty state, so the mock is realistic.
+    const p1Row = container.querySelector('[data-testid="category-product-row-p-1"]');
+    const p2Row = container.querySelector('[data-testid="category-product-row-p-2"]');
+    expect(p1Row).not.toBeNull();
+    expect(p2Row).toBeNull();
+    cleanup();
+  });
+
+  it("on deleteProduct rejection: toast.error fires and the list is NOT re-fetched", async () => {
+    const { container, cleanup } = render([baseCategory()], true);
+    await expandPanelAndReturn(container, "c-1", sampleResult());
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockDeleteProduct.mockRejectedValue(new Error("FK violation on inventory_log"));
+    mockGetStoreProducts.mockClear();
+
+    await act(async () => {
+      (container.querySelector('[data-testid="category-product-delete-p-1"]') as HTMLButtonElement).click();
+    });
+
+    expect(mockDeleteProduct).toHaveBeenCalled();
+    // Don't re-fetch on failure — operator can retry
+    expect(mockGetStoreProducts).not.toHaveBeenCalled();
     cleanup();
   });
 });

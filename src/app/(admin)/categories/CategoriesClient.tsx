@@ -13,6 +13,12 @@ import {
   type StoreProductRow,
   type StoreProductsResult,
 } from "./actions";
+// P61: per-product Delete on the P45 drill-down panel. Reuses the
+// existing products action (cascades variants + images, writes an
+// activity_log entry with the product name). Lets Super Admin
+// resolve "two stores catering the same product" conflicts from
+// the category tree without leaving this page.
+import { deleteProduct } from "@/app/(admin)/products/actions";
 import CategoryForm from "./CategoryForm";
 
 type Category = {
@@ -237,6 +243,44 @@ export default function CategoriesClient({
     if (!expandedCategoryId) return;
     setExpandedPage(newPage);
     fetchStoreProducts(expandedCategoryId, newPage, expandedSearch);
+  };
+
+  // P61: delete a single product from the P45 drill-down panel.
+  // Used by Super Admin to resolve "two stores catering the same
+  // product" conflicts without leaving the categories page. The
+  // existing deleteProduct action (src/app/(admin)/products/actions.ts)
+  // cascades to product_variants and product_images, and writes
+  // an activity_log entry with the product name. On success we
+  // re-fetch the current page so the row disappears; on error we
+  // toast it. window.confirm is the single safeguard — SA is a
+  // trusted role and the action has a full audit trail.
+  const [deletingProduct, setDeletingProduct] = useState<{ id: string; name: string } | null>(null);
+  const handleDeleteProduct = async (product: StoreProductRow) => {
+    if (
+      !window.confirm(
+        `Delete "${product.name}"? This removes the product, its variants, and its images. Order history (if any) is preserved.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingProduct({ id: product.id, name: product.name });
+    const result = await runServerAction(deleteProduct, product.id);
+    setDeletingProduct(null);
+    if (result.ok) {
+      toast.success(`Product "${product.name}" deleted`);
+      // Re-fetch the current page so the deleted row disappears.
+      // If we just deleted the last row on the page, the count
+      // will drop by 1; the panel's pagination handles the rest.
+      if (expandedCategoryId) {
+        await fetchStoreProducts(
+          expandedCategoryId,
+          expandedPage,
+          expandedSearch,
+        );
+      }
+    } else {
+      toast.error(`Failed to delete "${product.name}": ${result.error.message}`);
+    }
   };
 
   // Cleanup any pending debounce on unmount
@@ -467,6 +511,13 @@ export default function CategoriesClient({
                         <th>SKU</th>
                         <th>Store</th>
                         <th className="text-center">Status</th>
+                        {/* P61: per-product Delete so Super Admin can resolve
+                            "two stores catering the same product" conflicts
+                            from the categories page. Renders only when the
+                            parent panel is rendered (Super Admin only). */}
+                        <th className="text-end" style={{ width: 56 }}>
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -494,6 +545,24 @@ export default function CategoriesClient({
                             ) : (
                               <span className="badge bg-secondary-subtle text-secondary">Inactive</span>
                             )}
+                          </td>
+                          {/* P61: per-product Delete. window.confirm is the
+                              single safeguard (SA is trusted + the action
+                              has a full activity_log audit trail). The
+                              button is disabled while a delete is in flight
+                              so a double-click doesn't fire two deletes. */}
+                          <td className="text-end">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-danger"
+                              onClick={() => handleDeleteProduct(p)}
+                              disabled={deletingProduct?.id === p.id}
+                              title={`Delete "${p.name}"`}
+                              aria-label={`Delete product ${p.name}`}
+                              data-testid={`category-product-delete-${p.id}`}
+                            >
+                              <Icon icon="ri:delete-bin-line" />
+                            </button>
                           </td>
                         </tr>
                       ))}
