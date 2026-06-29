@@ -8,7 +8,15 @@ import { generateInvoice } from "@/app/(admin)/invoices/actions";
 
 export { generateInvoice as generateInvoiceForOrder };
 
-export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
+// P62: extended with the 4 return-workflow values. 'returned'
+// is the existing terminal value (used by both the historical
+// "operator manually set status to returned" path AND the new
+// return_requests.fulfilled transition).
+export type OrderStatus =
+  | "pending" | "confirmed" | "processing" | "shipped"
+  | "delivered" | "cancelled" | "returned"
+  | "return_requested" | "return_processing"
+  | "return_approved" | "return_rejected";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
 
 type OrderRow = {

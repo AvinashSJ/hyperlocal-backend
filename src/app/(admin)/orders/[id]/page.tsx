@@ -9,9 +9,14 @@ export default async function OrderDetailPage(props: { params: Promise<{ id: str
   // retry button is only shown to callers with `invoices:create`.
   // The button is hidden for Staff (who has invoices:view only) —
   // clicking it would just error in the server action.
+  // P62: also include the `returns` permission set so the return
+  // requests panel can show its Manager actions (Acknowledge /
+  // Mark processing / Approve / Reject / Mark fulfilled) only to
+  // callers with `returns:edit`.
   const ordersActionPerms = getActionPermissions(permissions, "orders");
   const invoicesActionPerms = getActionPermissions(permissions, "invoices");
-  const actionPerms = { ...ordersActionPerms, ...invoicesActionPerms };
+  const returnsActionPerms = getActionPermissions(permissions, "returns");
+  const actionPerms = { ...ordersActionPerms, ...invoicesActionPerms, ...returnsActionPerms };
   const order = await getOrder(id);
   return (
     <div>

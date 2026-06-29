@@ -19,6 +19,11 @@ export const PERMISSION_MODULES = {
   commissions: ["view", "create", "edit", "delete"],
   reports: ["view"],
   settings: ["view", "edit"],
+  // P62: return requests. Super Admin and Manager get full CRUD;
+  // Staff gets read-only so they can see the badge in the orders
+  // list and the panel on the order detail page. The role grant
+  // migration is 20260625000002_grant_returns_permission.sql.
+  returns: ["view", "create", "edit", "delete"],
 } as const;
 
 export type PermissionModule = keyof typeof PERMISSION_MODULES;

@@ -4,6 +4,12 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { type OrderDetail } from "../actions";
 import OrderActionControls from "./OrderActionControls";
+// P62: return requests panel. Sits below the Items/Timeline row,
+// above the Invoice card. Renders only when the order is in an
+// eligible state (delivered, or any of the return_* statuses).
+// Self-contained: fetches its own data, owns its modals, talks
+// to the returns/ server actions directly.
+import ReturnRequestsPanel from "./ReturnRequestsPanel";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -228,6 +234,17 @@ export default function OrderDetailClient({
               )}
             </div>
           </div>
+
+          {/* P62: return requests panel. Renders below the
+              Items/Timeline row, above the Invoice card. The panel
+              itself hides when the order is in a non-eligible state
+              (e.g., pending, confirmed, processing, shipped —
+              nothing to return yet). The same `actionPerms` map
+              used by OrderActionControls is forwarded so the panel's
+              Manager actions (Approve / Reject / Mark fulfilled)
+              are gated by `returns:edit` and the Hard Delete button
+              by `returns:delete`. */}
+          <ReturnRequestsPanel order={order} actionPerms={actionPerms} />
 
           {/* P44: prominent Invoice card. Replaces the small inline
               buttons that used to live here. Visible whenever the
