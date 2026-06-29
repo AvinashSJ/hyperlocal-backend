@@ -178,15 +178,39 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
                   })}
                 </td>
                 <td className="text-center" onClick={(e) => e.stopPropagation()}>
-                  {actionPerms?.canDelete && (
-                    <button
-                      className="btn btn-sm btn-outline-danger"
-                      title="Delete"
-                      onClick={() => setDeleting({ id: order.id, orderNumber: order.order_number })}
-                    >
-                      <Icon icon="ri:delete-bin-6-line" width={16} />
-                    </button>
-                  )}
+                  <div className="d-flex gap-1 justify-content-center">
+                    {/* P56: download invoice button. Renders only when
+                        the order has an invoice_id (auto-generated on
+                        delivered, or pre-existing). Mirrors the
+                        pattern used on /orders/[id] and
+                        /cart/[cart_id] — direct link to the PDF API
+                        route, target=_blank + download attribute so
+                        the browser saves instead of navigating. The
+                        user no longer needs to open the full order
+                        detail to fetch the PDF. */}
+                    {order.invoice_id && (
+                      <a
+                        href={`/api/invoices/${order.invoice_id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download
+                        className="btn btn-sm btn-outline-success"
+                        title="Download invoice PDF"
+                        data-testid={`order-row-download-invoice-${order.id}`}
+                      >
+                        <Icon icon="ri:download-2-line" width={16} />
+                      </a>
+                    )}
+                    {actionPerms?.canDelete && (
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        title="Delete"
+                        onClick={() => setDeleting({ id: order.id, orderNumber: order.order_number })}
+                      >
+                        <Icon icon="ri:delete-bin-6-line" width={16} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
