@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import "../../../../test/mocks/supabase-clients";
 import "../../../../test/mocks/next-cache";
 import "../../../../test/mocks/next-navigation";
@@ -472,5 +472,148 @@ describe("generateInvoice", () => {
     admin.enqueueResponse({ data: null, error: { message: "insert failed" } });
 
     await expect(generateInvoice("o-1")).rejects.toThrow("insert failed");
+  });
+
+  // -----------------------------------------------------------------
+  // P58: UNIQUE invoice_number race retry
+  // -----------------------------------------------------------------
+  // The per-store invoice_number is computed via a read-then-write
+  // (count + insert). Two concurrent generateInvoice calls for
+  // the same store+year can both read the same count, compute the
+  // same invNum, and one of them loses the UNIQUE constraint. The
+  // fix is a retry loop on the count+insert.
+  // -----------------------------------------------------------------
+
+  function makeOrderWithStore(totalAmount: number, storeCode: string | null) {
+    return {
+      ...makeOrderWithItems(totalAmount, 0, [{ gst_amount: 0 }]),
+      stores: storeCode ? { code: storeCode } : null,
+    };
+  }
+
+  it("P58: retries on UNIQUE violation (PG 23505) on invoice_number and succeeds on next attempt", async () => {
+    asAdmin({ invoices: ["create"] });
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // 2) attempt 1: count = 0
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // 3) attempt 1: insert — fails with UNIQUE violation (Postgres 23505)
+    admin.enqueueResponse({
+      data: null,
+      error: {
+        message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"',
+        code: "23505",
+      },
+    });
+    // 4) attempt 2: count = 1 (the racing call's row is now committed)
+    admin.enqueueResponse({ count: 1, data: null, error: null });
+    // 5) attempt 2: insert — succeeds
+    admin.enqueueResponse({ data: { id: "i-99" }, error: null });
+    // 6) update order to set invoice_id
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await generateInvoice("o-1");
+    expect(result).toBe("i-99");
+    expect(consoleSpy).toHaveBeenCalled();
+    const warningMsg = consoleSpy.mock.calls[0][0] as string;
+    expect(warningMsg).toMatch(/invoice_number race/);
+    expect(warningMsg).toMatch(/attempt 1\/5/);
+    consoleSpy.mockRestore();
+  });
+
+  it("P58: detects UNIQUE violation via message string (older PostgREST without code field)", async () => {
+    asAdmin({ invoices: ["create"] });
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // 2) attempt 1: count = 0
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // 3) attempt 1: insert — fails with UNIQUE violation in the
+    //    message (no `code` field, simulating older PostgREST).
+    admin.enqueueResponse({
+      data: null,
+      error: { message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"' },
+    });
+    // 4) attempt 2: count = 1
+    admin.enqueueResponse({ count: 1, data: null, error: null });
+    // 5) attempt 2: insert — succeeds
+    admin.enqueueResponse({ data: { id: "i-100" }, error: null });
+    // 6) update order
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await generateInvoice("o-1");
+    expect(result).toBe("i-100");
+    consoleSpy.mockRestore();
+  });
+
+  it("P58: surfaces non-UNIQUE errors immediately without retrying", async () => {
+    asAdmin({ invoices: ["create"] });
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // 2) attempt 1: count = 0
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // 3) attempt 1: insert — fails with a non-UNIQUE error
+    admin.enqueueResponse({
+      data: null,
+      error: { message: "FK violation: orders.id does not exist" },
+    });
+    // No attempt 2 should be queued.
+
+    await expect(generateInvoice("o-1")).rejects.toThrow("FK violation");
+    expect(consoleSpy).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it("P58: gives up after MAX_INVOICE_NUMBER_ATTEMPTS races in a row and throws", async () => {
+    asAdmin({ invoices: ["create"] });
+    const consoleSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // 2-11) 5 attempts × (count + UNIQUE-violation insert) = 10 responses
+    for (let i = 0; i < 5; i++) {
+      admin.enqueueResponse({ count: i, data: null, error: null });
+      admin.enqueueResponse({
+        data: null,
+        error: { message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"', code: "23505" },
+      });
+    }
+
+    await expect(generateInvoice("o-1")).rejects.toThrow(
+      /Failed to generate invoice after 5 attempts/,
+    );
+    expect(consoleSpy).toHaveBeenCalledTimes(5);
+    consoleSpy.mockRestore();
+  });
+
+  it("P58: succeeds on attempt 3 after two UNIQUE violations (the third count sees both racing rows)", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // attempt 1: count=0, UNIQUE violation
+    admin.enqueueResponse({ count: 0, data: null, error: null });
+    admin.enqueueResponse({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"' },
+    });
+    // attempt 2: count=1, UNIQUE violation (another concurrent call)
+    admin.enqueueResponse({ count: 1, data: null, error: null });
+    admin.enqueueResponse({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"' },
+    });
+    // attempt 3: count=2, success
+    admin.enqueueResponse({ count: 2, data: null, error: null });
+    admin.enqueueResponse({ data: { id: "i-3rd" }, error: null });
+    admin.enqueueResponse({ data: null, error: null }); // update order
+
+    const result = await generateInvoice("o-1");
+    expect(result).toBe("i-3rd");
   });
 });

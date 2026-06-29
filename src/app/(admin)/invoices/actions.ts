@@ -151,6 +151,29 @@ async function fetchInvoiceStore(storeId: string | null): Promise<InvoiceStore |
   };
 }
 
+/**
+ * Maximum number of times we'll retry the count+insert loop
+ * when a concurrent invoice_number race occurs. 5 attempts is
+ * generous -- the race window is microseconds -- but a hot store
+ * with many simultaneous deliveries (e.g. end-of-day batch)
+ * could conceivably need a few retries. Cap at 5 to bound the
+ * worst case.
+ */
+const MAX_INVOICE_NUMBER_ATTEMPTS = 5;
+
+/**
+ * Check whether a Supabase error is a UNIQUE constraint violation
+ * on `invoices.invoice_number`. PostgREST surfaces Postgres
+ * error code 23505 (unique_violation) via `error.code`; older
+ * versions embed it in the message string. We check both.
+ */
+function isInvoiceNumberUniqueViolation(err: { code?: string; message?: string; details?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code === "23505") return true;
+  const haystack = `${err.message ?? ""} ${err.details ?? ""}`;
+  return /invoices_invoice_number/.test(haystack);
+}
+
 export async function generateInvoice(orderId: string) {
   await assertPermission("invoices", "create");
   const supabase = createAdminClient();
@@ -173,49 +196,114 @@ export async function generateInvoice(orderId: string) {
   // generated and is clearly marked as orphaned.
   const year = new Date().getFullYear();
   const storeCode = (order as { stores?: { code?: string } | null }).stores?.code ?? null;
-  let invNum: string;
-  if (storeCode) {
-    // Count invoices for THIS store + THIS year.
-    const { count: storeCount } = await supabase
-      .from("invoices")
-      .select("id, orders!inner(store_id)", { count: "exact", head: true })
-      .eq("orders.store_id", order.store_id)
-      .like("invoice_number", `INV-${storeCode}-${year}-%`);
-    invNum = `INV-${storeCode}-${year}-${String((storeCount ?? 0) + 1).padStart(4, "0")}`;
-  } else {
-    // Orphan fallback. The store was deleted or never set on this
-    // order. Use a clearly-labeled global sequence so the operator
-    // knows this invoice needs follow-up.
-    const { count: orphanCount } = await supabase
-      .from("invoices")
-      .select("id", { count: "exact", head: true })
-      .like("invoice_number", `INV-ORPHAN-${year}-%`);
-    invNum = `INV-ORPHAN-${year}-${String((orphanCount ?? 0) + 1).padStart(4, "0")}`;
-  }
 
+  // Tax breakdown is computed once from the order; it doesn't
+  // change across retry attempts. Hoisted outside the loop.
   const taxableAmount = Number(order.total_amount) - Number(order.delivery_charge);
   const gstTotal = order.order_items.reduce((sum: number, item: { gst_amount: number }) => sum + Number(item.gst_amount), 0);
   const cgst = gstTotal / 2;
   const sgst = gstTotal / 2;
 
-  const { data: invoice, error: invError } = await supabase
-    .from("invoices")
-    .insert({
-      order_id: orderId,
-      invoice_number: invNum,
-      taxable_amount: taxableAmount,
-      cgst,
-      sgst,
-      total_amount: Number(order.total_amount),
-      status: "generated",
-    })
-    .select("id")
-    .single();
-  if (invError) throw new Error(invError.message);
+  // P58: the per-store invoice_number is computed via a
+  // read-then-write (count + insert). Two concurrent
+  // generateInvoice calls for the same store+year can both read
+  // the same count, compute the same invNum, and one of them
+  // loses the UNIQUE constraint. The error surfaces to the
+  // operator as a generic "Status updated to delivered. Invoice
+  // was not generated: duplicate key value violates unique
+  // constraint" warning (P57 surfaces it) -- and the operator has
+  // to click [Generate Invoice] to retry manually.
+  //
+  // We fix the race at the source by retrying up to
+  // MAX_INVOICE_NUMBER_ATTEMPTS times. Each retry re-reads the
+  // count (now incremented by the racing call) and computes a
+  // new invNum. The racing call's row is committed BEFORE its
+  // UNIQUE violation is raised, so the next count query always
+  // sees it. Almost all races resolve on the first retry.
+  let invoiceId: string | null = null;
+  let lastError: Error | null = null;
+  let lastInvNum: string | null = null;
 
-  await supabase.from("orders").update({ invoice_id: invoice.id }).eq("id", orderId);
+  for (let attempt = 1; attempt <= MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
+    // 1) Compute the next invoice_number for this store+year
+    //    (or ORPHAN for legacy orders). The count query is racy
+    //    by construction -- see the comment block above for why
+    //    the retry loop is needed.
+    let invNum: string;
+    if (storeCode) {
+      const { count: storeCount } = await supabase
+        .from("invoices")
+        .select("id, orders!inner(store_id)", { count: "exact", head: true })
+        .eq("orders.store_id", order.store_id)
+        .like("invoice_number", `INV-${storeCode}-${year}-%`);
+      invNum = `INV-${storeCode}-${year}-${String((storeCount ?? 0) + 1).padStart(4, "0")}`;
+    } else {
+      const { count: orphanCount } = await supabase
+        .from("invoices")
+        .select("id", { count: "exact", head: true })
+        .like("invoice_number", `INV-ORPHAN-${year}-%`);
+      invNum = `INV-ORPHAN-${year}-${String((orphanCount ?? 0) + 1).padStart(4, "0")}`;
+    }
+    lastInvNum = invNum;
+
+    // 2) Try to insert. On UNIQUE violation on invoice_number,
+    //    the racing call has already committed -- re-read on the
+    //    next iteration and try the next seq.
+    const { data: invoice, error: invError } = await supabase
+      .from("invoices")
+      .insert({
+        order_id: orderId,
+        invoice_number: invNum,
+        taxable_amount: taxableAmount,
+        cgst,
+        sgst,
+        total_amount: Number(order.total_amount),
+        status: "generated",
+      })
+      .select("id")
+      .single();
+
+    if (invoice) {
+      invoiceId = invoice.id;
+      break;
+    }
+
+    if (isInvoiceNumberUniqueViolation(invError)) {
+      // P58: race detected. Log and retry. The racing call's row
+      // is now committed (Postgres raises UNIQUE violations AFTER
+      // the duplicate row hits the index), so the next count
+      // query will return the incremented value.
+      console.warn(
+        `[generateInvoice] invoice_number race on attempt ${attempt}/${MAX_INVOICE_NUMBER_ATTEMPTS} for ${invNum} (order ${orderId}); retrying`,
+      );
+      continue;
+    }
+
+    // Non-retryable error (FK violation, CHECK violation, etc.)
+    // -- surface immediately. The operator will see the error
+    // in the P57 warning toast and can use the [Generate
+    // Invoice] button to retry manually after fixing the data.
+    lastError = new Error(invError?.message ?? "Invoice insert failed");
+    break;
+  }
+
+  if (!invoiceId) {
+    throw lastError ?? new Error(
+      `Failed to generate invoice after ${MAX_INVOICE_NUMBER_ATTEMPTS} attempts ` +
+      `(last attempted number: ${lastInvNum ?? "unknown"})`,
+    );
+  }
+
+  // invoiceId is non-null here (we just checked + threw). The cast
+  // through `as string` is needed because Supabase's update() arg
+  // type doesn't accept `string | null` and TS narrows poorly
+  // through closures.
+  await supabase
+    .from("orders")
+    .update({ invoice_id: invoiceId as string })
+    .eq("id", orderId);
 
   revalidatePath("/invoices");
   revalidatePath(`/orders/${orderId}`);
-  return invoice.id;
+  return invoiceId;
 }
