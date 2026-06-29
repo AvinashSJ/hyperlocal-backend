@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { requirePermission, getActionPermissions } from "@/lib/require-permission";
 import { getCartGroup } from "./actions";
 import CartGroupClient from "./CartGroupClient";
 
@@ -18,6 +19,13 @@ export default async function CartGroupPage(props: {
   params: Promise<{ cart_id: string }>;
 }) {
   const { cart_id } = await props.params;
+  // P57: combine orders + invoices action perms so each sub-order
+  // card's [Generate Invoice] retry button shows only for callers
+  // who can actually use it.
+  const { permissions } = await requirePermission("orders", "view");
+  const ordersActionPerms = getActionPermissions(permissions, "orders");
+  const invoicesActionPerms = getActionPermissions(permissions, "invoices");
+  const actionPerms = { ...ordersActionPerms, ...invoicesActionPerms };
   const cart = await getCartGroup(cart_id);
 
   if (!cart) {
@@ -50,7 +58,7 @@ export default async function CartGroupPage(props: {
           {cart.orders.length} order{cart.orders.length === 1 ? "" : "s"}
         </span>
       </div>
-      <CartGroupClient cart={cart} />
+      <CartGroupClient cart={cart} actionPerms={actionPerms} />
     </div>
   );
 }

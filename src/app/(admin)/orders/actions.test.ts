@@ -304,27 +304,29 @@ describe("updateOrderStatus", () => {
   it("P44: status update succeeds even when the auto-invoice gen fails (no invoices:create perm)", async () => {
     asAdmin({ orders: ["edit"] }); // no invoices:create
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: null }); // orders.update
-    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
-    // The auto-gen will try to fetch the order then call generateInvoice
-    // (which asserts invoices:create). The test grants only orders:edit,
-    // so generateInvoice will throw PermissionError, which the
-    // action swallows + logs. The status update still returns
-    // { invoiceId: null }.
-    admin.enqueueResponse({ data: null, error: { message: "order re-fetch for invoice gen" } });
-    // We expect the status update to throw because the order
-    // re-fetch fails. To avoid that, let the re-fetch succeed:
-    admin.enqueueResponse({ data: makeOrder({ id: "o-1", status: "delivered", invoice_id: null }), error: null });
+    // Status update itself: orders.update + order_tracks.insert.
+    admin.enqueueResponse({ data: null, error: null }); // 1) orders.update
+    admin.enqueueResponse({ data: null, error: null }); // 2) order_tracks.insert
+    // P57: the action re-fetches the order to read its current
+    // invoice_id (was null, so auto-invoice is triggered). The re-fetch
+    // succeeds. The subsequent generateInvoice call asserts
+    // `invoices:create` which the caller does not have — it throws
+    // PermissionError. The outer try/catch swallows the error AND
+    // surfaces it in `invoiceError` so OrderActionControls can show
+    // a warning toast. The status update still succeeds.
+    admin.enqueueResponse({
+      data: makeOrder({ id: "o-1", status: "delivered", invoice_id: null }),
+      error: null,
+    });
 
-    // The status update itself: orders.update + order_tracks.insert
-    // — these two have already been queued. Now the auto-gen runs,
-    // which calls generateInvoice. generateInvoice will:
-    //   1. Fetch the order (next queued response: success)
-    //   2. Try to assert invoices:create — throws PermissionError
-    // So the auto-gen throws, the outer try/catch swallows it,
-    // and the status update resolves with { invoiceId: null }.
     const result = await updateOrderStatus("o-1", "delivered");
     expect(result.invoiceId).toBeNull();
+    // P57: the error is now surfaced in `invoiceError` so the
+    // caller (OrderActionControls) can show a warning toast. The
+    // status update itself still succeeds (per the P44 design —
+    // a failed invoice must not block the status change).
+    expect(result.invoiceError).toBeDefined();
+    expect(result.invoiceError).toMatch(/Permission/i);
   });
 });
 

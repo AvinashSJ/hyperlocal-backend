@@ -7,6 +7,7 @@ import { toast } from "react-toastify";
 import {
   updateOrderStatus,
   updatePaymentStatus,
+  generateInvoiceForOrder,
   type OrderStatus,
   type PaymentStatus,
 } from "../actions";
@@ -18,7 +19,7 @@ import {
  * edit affordances — primarily the new /cart/[cart_id] page where
  * each sub-order card needs full inline editing.
  *
- * Behavior matches the original implementation exactly:
+ * Behavior:
  *   - Update Status button hidden when the order is already
  *     terminal (cancelled / returned / delivered) — keeps the
  *     action surface focused.
@@ -28,6 +29,16 @@ import {
  *     explicit Cancel/Return escape hatches, with notes for
  *     forensic context (P50 logs cancelled/returned transitions).
  *   - P44 toast on delivered (invoice auto-generated).
+ *   - P57: if the auto-invoice FAILED (caller lacks
+ *     `invoices:create`, or the order has a NULL store_id, or
+ *     any other DB error), the action returns the error message
+ *     in `invoiceError` and we surface it as a warning toast.
+ *     The status update itself still succeeds (per the original
+ *     P44 design).
+ *   - P57: when the order is delivered but has no invoice_id,
+ *     a [Generate Invoice] button appears for callers with
+ *     `invoices:create` — the manual retry path. For Staff
+ *     (no invoices:create), only the warning toast is shown.
  *   - Both actions call router.refresh() so the surrounding
  *     page picks up the new state.
  */
@@ -35,16 +46,21 @@ export default function OrderActionControls({
   orderId,
   currentStatus,
   currentPaymentStatus,
+  currentInvoiceId,
+  canCreateInvoice,
 }: {
   orderId: string;
   currentStatus: OrderStatus;
   currentPaymentStatus: PaymentStatus;
+  currentInvoiceId: string | null;
+  canCreateInvoice: boolean;
 }) {
   const router = useRouter();
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus>(currentStatus);
   const [statusNotes, setStatusNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus>(currentPaymentStatus);
@@ -59,6 +75,17 @@ export default function OrderActionControls({
       const result = await updateOrderStatus(orderId, newStatus, statusNotes || undefined);
       if (newStatus === "delivered" && result.invoiceId) {
         toast.success("Status updated to delivered. Invoice generated.");
+      } else if (newStatus === "delivered" && result.invoiceError) {
+        // P57: surface the auto-invoice failure to the operator.
+        // The status update itself still succeeded (per the
+        // P44 design — a failed invoice must not block the
+        // status change). The operator can now see WHY the
+        // invoice is missing and use the [Generate Invoice]
+        // button (when they have the right permission) to retry.
+        toast.warning(
+          `Status updated to delivered. Invoice was not generated: ${result.invoiceError}`,
+          { autoClose: 8000 },
+        );
       } else if (newStatus === "delivered") {
         toast.success("Status updated to delivered");
       } else {
@@ -89,7 +116,32 @@ export default function OrderActionControls({
     }
   };
 
+  // P57: manual retry. Only visible when the order is delivered
+  // but has no invoice (the auto-invoice failed, or the order
+  // was marked delivered before the P44 fix shipped). The button
+  // is hidden for callers without `invoices:create` (Staff role)
+  // because the underlying server action would reject them.
+  const handleGenerateInvoice = async () => {
+    setGeneratingInvoice(true);
+    try {
+      const newId = await generateInvoiceForOrder(orderId);
+      toast.success(`Invoice generated. ID: ${newId}`);
+      router.refresh();
+    } catch (err) {
+      toast.error(
+        `Invoice generation failed: ${(err as Error).message}`,
+      );
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
   const isTerminal = currentStatus === "cancelled" || currentStatus === "returned" || currentStatus === "delivered";
+  // P57: a delivered order with no invoice_id is the trigger
+  // for the [Generate Invoice] button. We also surface a one-line
+  // note in the button so the operator knows why the button is
+  // there (vs. assuming it's a "Download" link).
+  const needsInvoice = isTerminal && currentStatus === "delivered" && !currentInvoiceId;
 
   return (
     <>
@@ -112,6 +164,23 @@ export default function OrderActionControls({
           <Icon icon="ri:money-dollar-circle-line" width={16} className="me-1" />
           Update Payment
         </button>
+        {/* P57: manual invoice retry. Same call surface as the
+            auto-invoice (generateInvoice from invoices/actions).
+            Re-running the same call recomputes the per-store
+            sequence, so it's safe to click multiple times — the
+            second click would just compute the next seq. */}
+        {needsInvoice && canCreateInvoice && (
+          <button
+            className="btn btn-outline-warning btn-sm"
+            onClick={handleGenerateInvoice}
+            disabled={generatingInvoice}
+            data-testid="generate-invoice"
+            title="Auto-invoice failed at delivery. Click to retry."
+          >
+            <Icon icon="ri:file-text-line" width={16} className="me-1" />
+            {generatingInvoice ? "Generating..." : "Generate Invoice"}
+          </button>
+        )}
       </div>
 
       {showStatusModal && (

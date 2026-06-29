@@ -15,7 +15,17 @@ const STATUS_BADGES: Record<string, string> = {
   returned: "bg-dark text-white",
 };
 
-export default function OrderDetailClient({ order }: { order: OrderDetail }) {
+type ActionPermissions = {
+  canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
+};
+
+export default function OrderDetailClient({
+  order,
+  actionPerms,
+}: {
+  order: OrderDetail;
+  actionPerms?: ActionPermissions;
+}) {
   const addr = order.addresses;
   const profile = order.profiles;
 
@@ -33,6 +43,8 @@ export default function OrderDetailClient({ order }: { order: OrderDetail }) {
           orderId={order.id}
           currentStatus={order.status}
           currentPaymentStatus={order.payment_status}
+          currentInvoiceId={order.invoice_id}
+          canCreateInvoice={actionPerms?.canCreate ?? false}
         />
       </div>
 

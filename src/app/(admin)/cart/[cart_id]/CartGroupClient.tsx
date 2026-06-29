@@ -17,7 +17,13 @@ const STATUS_BADGES: Record<string, string> = {
 
 const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-function SubOrderCard({ order }: { order: CartGroupOrder }) {
+function SubOrderCard({
+  order,
+  canCreateInvoice,
+}: {
+  order: CartGroupOrder;
+  canCreateInvoice: boolean;
+}) {
   return (
     <div className="card mb-3" data-testid={`cart-sub-order-${order.id}`}>
       <div className="card-header d-flex flex-wrap gap-2 align-items-center">
@@ -72,6 +78,8 @@ function SubOrderCard({ order }: { order: CartGroupOrder }) {
             orderId={order.id}
             currentStatus={order.status}
             currentPaymentStatus={order.payment_status}
+            currentInvoiceId={order.invoice_id}
+            canCreateInvoice={canCreateInvoice}
           />
           <Link
             href={`/orders/${order.id}`}
@@ -100,7 +108,17 @@ function SubOrderCard({ order }: { order: CartGroupOrder }) {
   );
 }
 
-export default function CartGroupClient({ cart }: { cart: CartGroup }) {
+type ActionPermissions = {
+  canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
+};
+
+export default function CartGroupClient({
+  cart,
+  actionPerms,
+}: {
+  cart: CartGroup;
+  actionPerms?: ActionPermissions;
+}) {
   const addr = cart.delivery_address;
   const placed = new Date(cart.placed_at).toLocaleString("en-IN", {
     year: "numeric",
@@ -173,7 +191,11 @@ export default function CartGroupClient({ cart }: { cart: CartGroup }) {
         {cart.orders.length} order{cart.orders.length === 1 ? "" : "s"} in this cart
       </h6>
       {cart.orders.map((order) => (
-        <SubOrderCard key={order.id} order={order} />
+        <SubOrderCard
+          key={order.id}
+          order={order}
+          canCreateInvoice={actionPerms?.canCreate ?? false}
+        />
       ))}
 
       {/* Grand total */}

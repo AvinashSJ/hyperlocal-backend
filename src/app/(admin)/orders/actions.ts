@@ -6,6 +6,8 @@ import { assertPermission, PermissionError } from "@/lib/require-permission";
 import { logActivity } from "@/lib/activity-log";
 import { generateInvoice } from "@/app/(admin)/invoices/actions";
 
+export { generateInvoice as generateInvoiceForOrder };
+
 export type OrderStatus = "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
 export type PaymentStatus = "unpaid" | "paid" | "refunded" | "partially_refunded";
 
@@ -98,7 +100,7 @@ export async function updateOrderStatus(
   id: string,
   status: OrderStatus,
   notes?: string,
-): Promise<{ invoiceId: string | null }> {
+): Promise<{ invoiceId: string | null; invoiceError?: string }> {
   await assertPermission("orders", "edit");
   const supabase = createAdminClient();
   const updateFields: Record<string, string | null> = { status };
@@ -152,12 +154,29 @@ export async function updateOrderStatus(
 
   // P44: auto-generate the invoice when the order transitions to
   // "delivered". Idempotent — if the order already has an
-  // invoice_id, skip silently. Errors here are caught and logged
-  // so a failed invoice generation never blocks a successful
-  // status update. If the invoice is missing after this, the
-  // operator can create one via the Invoices module's underlying
-  // generateInvoice function (e.g., from a one-off script).
+  // invoice_id, skip silently. P57: errors are no longer swallowed
+  // — they're returned in `invoiceError` so the caller (typically
+  // OrderActionControls) can surface them to the operator. The
+  // status update itself still succeeds (matches the original P44
+  // design — a failed invoice generation must not block a
+  // successful status update), but the operator can now see WHY
+  // the invoice is missing and retry via a [Generate Invoice]
+  // button that lives next to the order's status controls.
+  //
+  // Common reasons `generateInvoice` throws:
+  //   1. Caller lacks `invoices:create` (Staff role, or a custom
+  //      role without that action). P57 surfaces this in the toast.
+  //   2. Order's store has no `code` (legacy store), or the store
+  //      itself was deleted. Falls back to ORPHAN, not a throw —
+  //      but still surfaces as `invoiceError` if the order's
+  //      store_id is NULL.
+  //   3. The invoice_number race: two operators mark two orders
+  //      delivered in the same millisecond, both compute the same
+  //      `INV-{code}-{year}-{seq}` and one of them loses the
+  //      UNIQUE constraint. A second `generateInvoice` call
+  //      computes the right seq and succeeds.
   let invoiceId: string | null = null;
+  let invoiceError: string | undefined;
   if (status === "delivered") {
     try {
       // Re-fetch the order to get the current invoice_id (the
@@ -172,9 +191,10 @@ export async function updateOrderStatus(
         invoiceId = await generateInvoice(id);
       }
     } catch (err) {
+      invoiceError = (err as Error).message;
       console.error(
         `[updateOrderStatus] failed to auto-generate invoice for delivered order ${id}:`,
-        (err as Error).message,
+        invoiceError,
       );
     }
   }
@@ -182,7 +202,7 @@ export async function updateOrderStatus(
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}`);
   if (invoiceId) revalidatePath(`/invoices/${invoiceId}`);
-  return { invoiceId };
+  return { invoiceId, invoiceError };
 }
 
 export async function updatePaymentStatus(id: string, payment_status: PaymentStatus) {
