@@ -4,6 +4,9 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { StoreRow } from "../actions";
 import type { StoreRelations } from "../actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleString.
+import ClientDate from "@/components/ClientDate";
 
 type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
@@ -19,11 +22,6 @@ export default function StoreDetailClient({
   actionPerms?: ActionPermissions;
 }) {
   const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
-  const fmtDateTime = (s: string) =>
-    new Date(s).toLocaleString("en-IN", {
-      year: "numeric", month: "short", day: "2-digit",
-      hour: "2-digit", minute: "2-digit",
-    });
 
   return (
     <div data-testid="store-detail-root">
@@ -278,7 +276,13 @@ export default function StoreDetailClient({
                             {i.status.replace("_", " ")}
                           </span>
                         </td>
-                        <td className="text-muted small">{fmtDateTime(i.created_at)}</td>
+                        <td className="text-muted small">
+                          <ClientDate
+                            value={i.created_at}
+                            format="datetime"
+                            options={{ year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" }}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>

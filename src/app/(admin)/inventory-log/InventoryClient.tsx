@@ -1,6 +1,9 @@
 "use client";
 
 import { type getInventoryLogs } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleString.
+import ClientDate from "@/components/ClientDate";
 
 type Log = Awaited<ReturnType<typeof getInventoryLogs>>[number];
 
@@ -45,7 +48,9 @@ export default function InventoryClient({ logs }: { logs: Log[] }) {
                   {log.notes || "—"}
                 </td>
                 <td style={{ fontFamily: "monospace", fontSize: "0.85em" }}>{log.adjusted_by ? log.adjusted_by.slice(0, 8) + "…" : "—"}</td>
-                <td>{log.created_at ? new Date(log.created_at).toLocaleString() : "—"}</td>
+                <td>
+                  <ClientDate value={log.created_at} format="datetime" fallback="—" />
+                </td>
               </tr>
             ))}
           </tbody>

@@ -6,6 +6,7 @@ import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
 import { deleteOrder, type OrderListItem, type PaymentStatus } from "./actions";
+import ClientDate from "@/components/ClientDate";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -173,9 +174,11 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
                   </span>
                 </td>
                 <td className="text-nowrap">
-                  {new Date(order.placed_at).toLocaleDateString("en-IN", {
-                    day: "numeric", month: "short", year: "numeric",
-                  })}
+                  <ClientDate
+                    value={order.placed_at}
+                    format="date"
+                    dataTestid={`order-date-${order.id}`}
+                  />
                 </td>
                 <td className="text-center" onClick={(e) => e.stopPropagation()}>
                   <div className="d-flex gap-1 justify-content-center">

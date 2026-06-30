@@ -4,6 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { InvoiceDetail } from "../actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetail }) {
   const [downloading, setDownloading] = useState(false);
@@ -77,7 +80,7 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                   <tbody>
                     <tr><td className="text-muted" style={{ width: 130 }}>Invoice #</td><td className="fw-semibold">{invoice.invoice_number}</td></tr>
                     <tr><td className="text-muted">Type</td><td>{invoice.invoice_type}</td></tr>
-                    <tr><td className="text-muted">Date</td><td>{new Date(invoice.invoice_date).toLocaleDateString("en-IN")}</td></tr>
+                    <tr><td className="text-muted">Date</td><td><ClientDate value={invoice.invoice_date} format="date" /></td></tr>
                     <tr><td className="text-muted">Status</td><td><span className={`badge ${invoice.status === "paid" ? "bg-success" : "bg-info"}`}>{invoice.status}</span></td></tr>
                   </tbody>
                 </table>

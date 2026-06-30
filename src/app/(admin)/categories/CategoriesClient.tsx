@@ -13,6 +13,9 @@ import {
   type StoreProductRow,
   type StoreProductsResult,
 } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 // P61: per-product Delete on the P45 drill-down panel. Reuses the
 // existing products action (cascades variants + images, writes an
 // activity_log entry with the product name). Lets Super Admin
@@ -703,7 +706,7 @@ export default function CategoriesClient({
               ) : deleting.pending_deletion_at ? (
                 <div className="alert alert-warning py-2 mb-0">
                   Already scheduled for deletion on{" "}
-                  {new Date(deleting.pending_deletion_at).toLocaleDateString()}.
+                  <ClientDate value={deleting.pending_deletion_at} format="date" />.
                 </div>
               ) : (
                 <p className="text-muted small mb-0">

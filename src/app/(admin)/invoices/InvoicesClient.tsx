@@ -4,6 +4,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { InvoiceListItem } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 export default function InvoicesClient({ invoices }: { invoices: InvoiceListItem[] }) {
   const [search, setSearch] = useState("");
@@ -89,9 +92,7 @@ export default function InvoicesClient({ invoices }: { invoices: InvoiceListItem
                   </span>
                 </td>
                 <td className="text-nowrap">
-                  {new Date(inv.invoice_date).toLocaleDateString("en-IN", {
-                    day: "numeric", month: "short", year: "numeric",
-                  })}
+                  <ClientDate value={inv.invoice_date} format="date" />
                 </td>
                 <td className="text-center">
                   <div className="btn-group btn-group-sm" role="group">

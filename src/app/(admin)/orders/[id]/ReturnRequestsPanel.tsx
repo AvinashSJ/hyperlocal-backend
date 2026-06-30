@@ -20,6 +20,9 @@ import type {
   ReturnRequestResolution,
   ReturnRequestState,
 } from "@/lib/types/supabase";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleString.
+import ClientDate from "@/components/ClientDate";
 
 type ActionPermissions = {
   canView: boolean;
@@ -532,7 +535,7 @@ function RequestCard({
         <span className="badge bg-light text-muted">{req.source}</span>
         <span className="text-muted small">Reason: <strong>{req.reason}</strong></span>
         <span className="text-muted small ms-auto" data-testid={`return-request-created-${req.id}`}>
-          Raised {new Date(req.created_at).toLocaleString("en-IN")}
+          Raised <ClientDate value={req.created_at} format="datetime" />
         </span>
       </div>
       {items.length > 0 && (
@@ -561,12 +564,12 @@ function RequestCard({
       )}
       {req.decided_at && (
         <div className="small text-muted">
-          Decided {new Date(req.decided_at).toLocaleString("en-IN")} {decidedByLabel}
+          Decided <ClientDate value={req.decided_at} format="datetime" /> {decidedByLabel}
         </div>
       )}
       {req.fulfilled_at && (
         <div className="small text-muted">
-          Fulfilled {new Date(req.fulfilled_at).toLocaleString("en-IN")}
+          Fulfilled <ClientDate value={req.fulfilled_at} format="datetime" />
         </div>
       )}
 

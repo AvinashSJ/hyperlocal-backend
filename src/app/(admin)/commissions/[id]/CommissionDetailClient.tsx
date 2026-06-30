@@ -8,6 +8,9 @@ import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
 import { recordPayment, deleteCommissionPayment } from "../actions";
 import type { CommissionRow, CommissionPayment } from "../actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleString.
+import ClientDate from "@/components/ClientDate";
 import type { ActionPermissions } from "@/lib/require-permission";
 
 const STATUS_BADGES: Record<string, string> = {
@@ -74,7 +77,7 @@ export default function CommissionDetailClient({
             </div>
             <div className="col-md-3">
               <small className="text-muted d-block">Period</small>
-              <span>{new Date(commission.period_start).toLocaleDateString("en-IN")} - {new Date(commission.period_end).toLocaleDateString("en-IN")}</span>
+              <span><ClientDate value={commission.period_start} format="date" /> - <ClientDate value={commission.period_end} format="date" /></span>
             </div>
             <div className="col-md-2">
               <small className="text-muted d-block">Total Revenue</small>
@@ -170,7 +173,7 @@ export default function CommissionDetailClient({
                   <td className="fw-medium text-success">₹{p.amount.toLocaleString()}</td>
                   <td>{p.notes ?? "—"}</td>
                   <td>{p.created_by_name ?? "—"}</td>
-                  <td>{new Date(p.created_at).toLocaleString("en-IN")}</td>
+                  <td><ClientDate value={p.created_at} format="datetime" /></td>
                   {actionPerms.canDelete && (
                     <td className="text-center">
                       <button

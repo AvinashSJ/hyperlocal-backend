@@ -11,6 +11,9 @@ import {
   type ProductActivityTrail,
 } from "./actions";
 import BulkImportModal from "./BulkImportModal";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 type Product = {
   id: string;
@@ -419,9 +422,7 @@ export default function ProductsClient({
                                 <td>
                                   <div className="fw-semibold">{o.orderNumber}</div>
                                   <small className="text-muted">
-                                    {new Date(o.placedAt).toLocaleDateString("en-IN", {
-                                      day: "numeric", month: "short", year: "numeric",
-                                    })}
+                                    <ClientDate value={o.placedAt} format="date" />
                                   </small>
                                 </td>
                                 <td>{o.customerName ?? "—"}</td>
@@ -464,9 +465,11 @@ export default function ProductsClient({
                             {trail!.inventoryLog.map((row) => (
                               <tr key={row.id}>
                                 <td className="text-nowrap">
-                                  {new Date(row.createdAt).toLocaleString("en-IN", {
-                                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
-                                  })}
+                                  <ClientDate
+                                    value={row.createdAt}
+                                    format="datetime"
+                                    options={{ day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }}
+                                  />
                                 </td>
                                 <td>
                                   <span className="badge bg-secondary-subtle text-secondary">

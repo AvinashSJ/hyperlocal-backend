@@ -5,13 +5,11 @@ import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { deleteNotification, type getNotifications } from "./actions";
 import NotificationForm from "./NotificationForm";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 type Notification = Awaited<ReturnType<typeof getNotifications>>[number];
-
-function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-}
 
 const TYPE_BADGES: Record<string, string> = {
   order: "bg-primary",
@@ -89,7 +87,9 @@ export default function NotificationsClient({ notifications: initial, canSend, c
                     {n.is_read ? "Read" : "Unread"}
                   </span>
                 </td>
-                <td className="small text-muted">{formatDate(n.created_at)}</td>
+                <td className="small text-muted">
+                  <ClientDate value={n.created_at} format="datetime" fallback="—" />
+                </td>
                 <td className="text-center">
                   {canDelete && (
                     <button className="btn btn-sm btn-outline-danger" title="Delete" onClick={() => handleDelete(n.id)}>

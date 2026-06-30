@@ -7,6 +7,9 @@ import Link from "next/link";
 import { generateCommission, generateAllCommissions } from "./actions";
 import type { CommissionRow, SimpleStore, GenerateAllResult } from "./actions";
 import type { ActionPermissions } from "@/lib/require-permission";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 const STATUS_BADGES: Record<string, string> = {
   unpaid: "bg-warning bg-opacity-10 text-warning",
@@ -128,7 +131,7 @@ export default function CommissionsClient({
                 <tr key={c.id}>
                   <td className="fw-medium">{c.store_name ?? "—"}</td>
                   <td style={{ fontSize: "0.85rem" }}>
-                    {new Date(c.period_start).toLocaleDateString("en-IN")} - {new Date(c.period_end).toLocaleDateString("en-IN")}
+                    <ClientDate value={c.period_start} format="date" /> - <ClientDate value={c.period_end} format="date" />
                   </td>
                   <td className="text-end">₹{c.total_revenue.toLocaleString()}</td>
                   <td className="text-center">{c.commission_rate}%</td>

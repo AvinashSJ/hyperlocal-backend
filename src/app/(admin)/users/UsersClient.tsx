@@ -5,6 +5,9 @@ import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { toggleUserActive, createUser, updateUser, deleteUser, resetUserPassword, toggleManagerActiveWithCascade } from "./actions";
 import type { UserRow, SimpleRole, SimpleStore } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
@@ -214,7 +217,7 @@ export default function UsersClient({
                       </span>
                     </td>
                     <td style={{ fontSize: "0.85rem" }}>
-                      {new Date(u.created_at).toLocaleDateString()}
+                      <ClientDate value={u.created_at} format="date" />
                     </td>
                     <td>
                       <div className="d-flex gap-1 justify-content-center align-items-center">

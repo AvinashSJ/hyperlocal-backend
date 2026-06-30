@@ -7,6 +7,9 @@ import { createRole, updateRole, deleteRole } from "./actions";
 import { PERMISSION_MODULES } from "@/lib/permissions";
 import type { PermissionModule, PermissionAction } from "@/lib/permissions";
 import type { RoleRow } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 const ACTION_LABELS: Record<string, string> = {
   view: "View",
@@ -186,7 +189,7 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
                     </span>
                   </td>
                   <td style={{ fontSize: "0.85rem" }}>
-                    {new Date(r.created_at).toLocaleDateString()}
+                    <ClientDate value={r.created_at} format="date" />
                   </td>
                     <td>
                         <div className="d-flex gap-1 justify-content-center">

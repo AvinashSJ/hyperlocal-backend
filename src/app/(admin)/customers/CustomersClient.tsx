@@ -4,6 +4,9 @@ import { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
 import type { CustomerUser } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 export default function CustomersClient({
   customers,
@@ -86,12 +89,10 @@ export default function CustomersClient({
                     </span>
                   </td>
                   <td style={{ fontSize: "0.85rem" }}>
-                    {new Date(c.created_at).toLocaleDateString()}
+                    <ClientDate value={c.created_at} format="date" />
                   </td>
                   <td style={{ fontSize: "0.85rem" }}>
-                    {c.last_sign_in_at
-                      ? new Date(c.last_sign_in_at).toLocaleDateString()
-                      : "—"}
+                    <ClientDate value={c.last_sign_in_at} format="date" fallback="—" />
                   </td>
                 </tr>
               ))

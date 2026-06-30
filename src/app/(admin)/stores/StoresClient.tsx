@@ -13,6 +13,9 @@ import {
   getLockedStoreCategories,
 } from "./actions";
 import type { LockedCategory } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 type CategoryOption = {
   id: string;
@@ -349,8 +352,8 @@ export default function StoresClient({
               {viewing.is_active ? "Yes" : "No"}
             </span>
           } />
-          <DetailRow label="Created" value={new Date(viewing.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} />
-          <DetailRow label="Last Updated" value={new Date(viewing.updated_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })} />
+          <DetailRow label="Created" value={<ClientDate value={viewing.created_at} format="date" locale={undefined} options={{ year: "numeric", month: "short", day: "numeric" }} />} />
+          <DetailRow label="Last Updated" value={<ClientDate value={viewing.updated_at} format="date" locale={undefined} options={{ year: "numeric", month: "short", day: "numeric" }} />} />
 
           {/* P49: link to the per-store detail page. The modal stays
               compact (attributes + categories); the heavy data

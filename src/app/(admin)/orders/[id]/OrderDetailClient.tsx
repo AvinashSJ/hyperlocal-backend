@@ -10,6 +10,9 @@ import OrderActionControls from "./OrderActionControls";
 // Self-contained: fetches its own data, owns its modals, talks
 // to the returns/ server actions directly.
 import ReturnRequestsPanel from "./ReturnRequestsPanel";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -77,10 +80,10 @@ export default function OrderDetailClient({
                       )}
                     </td>
                   </tr>
-                  <tr><td className="text-muted">Placed At</td><td>{new Date(order.placed_at).toLocaleString("en-IN")}</td></tr>
+                  <tr><td className="text-muted">Placed At</td><td><ClientDate value={order.placed_at} format="datetime" /></td></tr>
                   <tr><td className="text-muted">Payment</td><td><span className={`badge ${order.payment_status === "paid" ? "bg-success" : "bg-warning text-dark"}`}>{order.payment_status}</span></td></tr>
                   <tr><td className="text-muted">Method</td><td>{order.payment_method ?? "—"}</td></tr>
-                  <tr><td className="text-muted">Delivery</td><td>{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString("en-IN") : "—"}</td></tr>
+                  <tr><td className="text-muted">Delivery</td><td><ClientDate value={order.delivery_date} format="date" fallback="—" /></td></tr>
                   <tr><td className="text-muted">GSTIN</td><td>{order.gstin ?? "—"}</td></tr>
                 </tbody>
               </table>
@@ -224,7 +227,7 @@ export default function OrderDetailClient({
                           {track.status}
                         </span>
                         <div className="text-muted small">
-                          {new Date(track.created_at).toLocaleString("en-IN")}
+                          <ClientDate value={track.created_at} format="datetime" />
                         </div>
                         {track.notes && <div className="small mt-1">{track.notes}</div>}
                       </div>

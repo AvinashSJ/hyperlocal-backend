@@ -4,6 +4,9 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import OrderActionControls from "../../orders/[id]/OrderActionControls";
 import type { CartGroup, CartGroupOrder } from "./actions";
+// P63: client-side date renderer. Avoids hydration mismatches caused
+// by server/client timezone divergence in toLocaleDateString.
+import ClientDate from "@/components/ClientDate";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -120,13 +123,6 @@ export default function CartGroupClient({
   actionPerms?: ActionPermissions;
 }) {
   const addr = cart.delivery_address;
-  const placed = new Date(cart.placed_at).toLocaleString("en-IN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
   return (
     <div data-testid="cart-group-root">
@@ -169,15 +165,11 @@ export default function CartGroupClient({
             <div className="col-md-4">
               <div className="text-muted small">Delivery</div>
               <div>
-                {cart.delivery_date
-                  ? new Date(cart.delivery_date).toLocaleDateString("en-IN", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : "—"}
+                <ClientDate value={cart.delivery_date} format="date" fallback="—" />
               </div>
-              <div className="text-muted small mt-1">Placed {placed}</div>
+              <div className="text-muted small mt-1">
+                Placed <ClientDate value={cart.placed_at} format="datetime" />
+              </div>
               <div className="text-muted small">
                 Payment: {cart.payment_method ?? "—"}
               </div>
