@@ -153,3 +153,49 @@ export async function deleteGstNumber(id: string) {
   if (error) throw new Error(error.message);
   revalidatePath("/gst-numbers");
 }
+
+// P67: attach an orphan GST number (store_id IS NULL) to a store.
+// Forced is_primary=false on attach: orphan rows must be promoted
+// manually to primary, never auto-promoted. Refuses to attach if
+// the row is not currently an orphan (defense against double-click
+// or stale UI).
+export async function attachGstNumberToStore(gstId: string, storeId: string) {
+  await assertPermission("gst_numbers", "edit");
+  if (!gstId) throw new Error("GST number id is required");
+  if (!storeId) throw new Error("Store id is required");
+  const supabase = createAdminClient();
+
+  // Confirm the row is currently an orphan
+  const { data: row, error: fetchError } = await supabase
+    .from("gst_numbers")
+    .select("id, store_id")
+    .eq("id", gstId)
+    .maybeSingle();
+  if (fetchError) throw new Error(fetchError.message);
+  if (!row) throw new Error("GST number not found");
+  if (row.store_id !== null) {
+    throw new Error("This GST number is already attached to a store");
+  }
+
+  const { error: updateError } = await supabase
+    .from("gst_numbers")
+    .update({ store_id: storeId, is_primary: false })
+    .eq("id", gstId);
+  if (updateError) throw new Error(updateError.message);
+  revalidatePath("/gst-numbers");
+}
+
+// P67: list of stores for the "Attach to store" dropdown. Excludes
+// inactive stores. Returns id + name + code for compact display.
+export async function getStoresForGstAttach(): Promise<
+  { id: string; name: string; code: string }[]
+> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("stores")
+    .select("id, name, code")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}

@@ -24,6 +24,8 @@ import {
   updateGstNumber,
   deleteGstNumber,
   validateGstin,
+  attachGstNumberToStore,
+  getStoresForGstAttach,
 } from "./actions";
 
 beforeEach(() => {
@@ -444,5 +446,73 @@ describe("Primary uniqueness RPC (P64c): only one is_primary=true per store", ()
 
     const insertCall = admin.chainsForTable("gst_numbers")[0].find((c) => c.method === "insert");
     expect(insertCall).toBeDefined();
+  });
+});
+
+describe("attachGstNumberToStore (P67): link orphan GST rows to a store", () => {
+  it("rejects users without gst_numbers:edit permission", async () => {
+    asAdmin({ gst_numbers: ["view"] });
+    await expect(attachGstNumberToStore("g-orphan", "s-1")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("attaches an orphan row to the store with is_primary=false", async () => {
+    asAdmin({ gst_numbers: ["edit"] });
+    const admin = getAdminClient();
+    // Order: (1) maybeSingle (orphan row), (2) update
+    admin.enqueueResponse({ data: { id: "g-orphan", store_id: null }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    // attachGstNumberToStore takes (gstId, storeId) as positional args,
+    // not a FormData. Call it directly.
+    await attachGstNumberToStore("g-orphan", "s-1");
+
+    const updateCall = admin.chainsForTable("gst_numbers").flatMap((c) => c).find((c) => c.method === "update");
+    expect(updateCall).toBeDefined();
+    expect(updateCall!.args[0]).toEqual({ store_id: "s-1", is_primary: false });
+    const allEqs = admin.chainsForTable("gst_numbers").flatMap((c) => c).filter((c) => c.method === "eq");
+    const idEq = allEqs.find((e) => (e.args as unknown[])[1] === "g-orphan");
+    expect(idEq).toBeDefined();
+    expect(idEq!.args).toEqual(["id", "g-orphan"]);
+    expect(revalidatePathMock).toHaveBeenCalledWith("/gst-numbers");
+  });
+
+  it("throws when the row is not an orphan (already has store_id)", async () => {
+    asAdmin({ gst_numbers: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { id: "g-1", store_id: "s-existing" }, error: null });
+
+    await expect(attachGstNumberToStore("g-1", "s-1")).rejects.toThrow(/already attached/);
+  });
+
+  it("throws when the row does not exist", async () => {
+    asAdmin({ gst_numbers: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+
+    await expect(attachGstNumberToStore("g-missing", "s-1")).rejects.toThrow(/not found/);
+  });
+});
+
+describe("getStoresForGstAttach (P67): active stores for attach dropdown", () => {
+  it("returns only active stores ordered by name", async () => {
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [
+        { id: "s-2", name: "Bravo", code: "BRV" },
+        { id: "s-1", name: "Alpha", code: "ALP" },
+      ],
+      error: null,
+    });
+
+    const result = await getStoresForGstAttach();
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("Bravo");
+    expect(result[1].name).toBe("Alpha");
+
+    const chains = admin.chainsForTable("stores");
+    const selectCall = chains[0].find((c) => c.method === "select")!;
+    expect(selectCall.args[0]).toBe("id, name, code");
+    const eqCall = chains[0].find((c) => c.method === "eq")!;
+    expect(eqCall.args).toEqual(["is_active", true]);
   });
 });
