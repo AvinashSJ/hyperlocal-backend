@@ -21,14 +21,18 @@ type GstNumberInput = {
 // letter + 'Z' + 1 check digit. Example: 29ABCDE1234F1Z5.
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
-export function validateGstin(gstin: string): void {
+// These helpers are exported but must be async because the file has
+// "use server" — Next.js requires every direct export from a "use
+// server" file to be an async function. The throw/console.warn
+// behavior is preserved; callers just need to `await` them.
+export async function validateGstin(gstin: string): Promise<void> {
   if (!gstin) throw new Error("GSTIN is required");
   if (!GSTIN_REGEX.test(gstin)) {
     throw new Error("GSTIN must be a valid 15-character Indian GSTIN (e.g. 29ABCDE1234F1Z5)");
   }
 }
 
-export function warnGstinStateMismatch(gstin: string, stateCode: string): void {
+export async function warnGstinStateMismatch(gstin: string, stateCode: string): Promise<void> {
   if (!gstin || !stateCode) return;
   const gstinState = gstin.slice(0, 2);
   if (gstinState !== stateCode) {
@@ -102,9 +106,9 @@ export async function createGstNumber(formData: FormData) {
     financial_year: String(formData.get("financial_year") ?? ""),
     threshold_amount: Number(formData.get("threshold_amount") ?? 0),
   };
-  validateGstin(data.gstin);
+  await validateGstin(data.gstin);
   if (!data.store_id) throw new Error("Store is required");
-  warnGstinStateMismatch(data.gstin, data.state_code);
+  await warnGstinStateMismatch(data.gstin, data.state_code);
 
   // P64: ensure only one primary per store. Demote any existing primary
   // before inserting the new one.
@@ -132,8 +136,8 @@ export async function updateGstNumber(id: string, formData: FormData) {
     financial_year: String(formData.get("financial_year") ?? ""),
     threshold_amount: Number(formData.get("threshold_amount") ?? 0),
   };
-  validateGstin(data.gstin);
-  warnGstinStateMismatch(data.gstin, data.state_code);
+  await validateGstin(data.gstin);
+  await warnGstinStateMismatch(data.gstin, data.state_code);
 
   // P64: ensure only one primary per store. Demote any other primary
   // (excluding this row) before updating to is_primary=true.

@@ -349,25 +349,25 @@ describe("deleteGstNumber", () => {
 });
 
 describe("validateGstin (P64b): Indian GSTIN format", () => {
-  it("accepts a valid 15-character Indian GSTIN", () => {
-    expect(() => validateGstin("29ABCDE1234F1Z5")).not.toThrow();
-    expect(() => validateGstin("07XYZAB9876M2Z9")).not.toThrow();
+  it("accepts a valid 15-character Indian GSTIN", async () => {
+    await expect(validateGstin("29ABCDE1234F1Z5")).resolves.not.toThrow();
+    await expect(validateGstin("07XYZAB9876M2Z9")).resolves.not.toThrow();
   });
 
-  it("rejects empty GSTIN", () => {
-    expect(() => validateGstin("")).toThrow(/required/);
+  it("rejects empty GSTIN", async () => {
+    await expect(validateGstin("")).rejects.toThrow(/required/);
   });
 
-  it("rejects GSTIN that is too short or too long", () => {
-    expect(() => validateGstin("29ABCDE1234F1Z")).toThrow(/15-character/);
-    expect(() => validateGstin("29ABCDE1234F1Z55")).toThrow(/15-character/);
+  it("rejects GSTIN that is too short or too long", async () => {
+    await expect(validateGstin("29ABCDE1234F1Z")).rejects.toThrow(/15-character/);
+    await expect(validateGstin("29ABCDE1234F1Z55")).rejects.toThrow(/15-character/);
   });
 
-  it("rejects GSTIN with wrong structure (missing Z, wrong chars)", () => {
-    expect(() => validateGstin("29ABCDE1234F1X5")).toThrow(/15-character/); // wrong char before Z
-    expect(() => validateGstin("29abcde1234f1z5")).toThrow(/15-character/); // lowercase
-    expect(() => validateGstin("29ABCDE1234F15")).toThrow(/15-character/); // missing Z
-    expect(() => validateGstin("ABABCDE1234F1Z5")).toThrow(/15-character/); // state code is letters
+  it("rejects GSTIN with wrong structure (missing Z, wrong chars)", async () => {
+    await expect(validateGstin("29ABCDE1234F1X5")).rejects.toThrow(/15-character/); // wrong char before Z
+    await expect(validateGstin("29abcde1234f1z5")).rejects.toThrow(/15-character/); // lowercase
+    await expect(validateGstin("29ABCDE1234F15")).rejects.toThrow(/15-character/); // missing Z
+    await expect(validateGstin("ABABCDE1234F1Z5")).rejects.toThrow(/15-character/); // state code is letters
   });
 });
 

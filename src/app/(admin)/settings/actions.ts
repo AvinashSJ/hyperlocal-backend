@@ -235,8 +235,8 @@ export async function updateStore(formData: FormData) {
         if (delError) throw new Error(delError.message);
       }
     } else {
-      validateGstin(gstinValue);
-      warnGstinStateMismatch(gstinValue, String(formData.get("state") ?? "").trim());
+      await validateGstin(gstinValue);
+      await warnGstinStateMismatch(gstinValue, String(formData.get("state") ?? "").trim());
 
       if (existingPrimary) {
         // Update existing primary row.
@@ -319,8 +319,8 @@ export async function createStore(formData: FormData) {
   // Mirrors the updateStore sub-handler for consistency.
   const gstinValue = String(formData.get("gstin") ?? "").trim().toUpperCase();
   if (gstinValue) {
-    validateGstin(gstinValue);
-    warnGstinStateMismatch(gstinValue, String(formData.get("state") ?? "").trim());
+    await validateGstin(gstinValue);
+    await warnGstinStateMismatch(gstinValue, String(formData.get("state") ?? "").trim());
     await demoteOtherPrimaries(newStore.id, null);
     const { error: insError } = await supabase
       .from("gst_numbers")
