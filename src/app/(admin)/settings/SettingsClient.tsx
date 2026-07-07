@@ -745,7 +745,9 @@ function StoreInfoSection({
                 the admin can set/change the primary GSTIN without diving into
                 the full GST Numbers section below. The full management UI
                 (legal name, business address, state code, turnover, etc.)
-                remains in the GST Numbers section card. */}
+                remains in the GST Numbers section card.
+                P66: also rendered in create mode (optional) so a new
+                store can be created with a primary GSTIN in one go. */}
             <div className="col-md-6">
               <label className="form-label">Primary GSTIN</label>
               <input
@@ -755,17 +757,16 @@ function StoreInfoSection({
                 placeholder="e.g. 29ABCDE1234F1Z5"
                 pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
                 maxLength={15}
-                disabled={!store}
+                disabled={!store && !createMode}
               />
               <div className="form-text">
-                The GSTIN used for invoicing.{" "}
+                {createMode
+                  ? "Optional. The GSTIN used for invoicing. You can add additional GST numbers after the store is created."
+                  : "The GSTIN used for invoicing."}
                 {!createMode && store && (
-                  <Link href={`/gst-numbers?store_id=${store.id}`}>
+                  <>{" "}<Link href={`/gst-numbers?store_id=${store.id}`}>
                     Manage all GST numbers →
-                  </Link>
-                )}
-                {createMode && (
-                  <span>You can add additional GST numbers after the store is created.</span>
+                  </Link></>
                 )}
               </div>
             </div>

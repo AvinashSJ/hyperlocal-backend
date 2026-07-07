@@ -313,7 +313,29 @@ export async function createStore(formData: FormData) {
     }
   }
 
+  // P66: auto-create primary GSTIN on store create. Field is optional
+  // (most stores will add GSTIN later via /gst-numbers). Only runs if
+  // the form included the 'gstin' field with a non-empty value.
+  // Mirrors the updateStore sub-handler for consistency.
+  const gstinValue = String(formData.get("gstin") ?? "").trim().toUpperCase();
+  if (gstinValue) {
+    validateGstin(gstinValue);
+    warnGstinStateMismatch(gstinValue, String(formData.get("state") ?? "").trim());
+    await demoteOtherPrimaries(newStore.id, null);
+    const { error: insError } = await supabase
+      .from("gst_numbers")
+      .insert({
+        store_id: newStore.id,
+        gstin: gstinValue,
+        legal_name: String(data.name ?? ""),
+        is_primary: true,
+        is_active: true,
+      });
+    if (insError) throw new Error(insError.message);
+  }
+
   revalidatePath("/stores");
+  revalidatePath("/gst-numbers");
   return { id: newStore.id };
 }
 

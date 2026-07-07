@@ -462,6 +462,65 @@ describe("createStore", () => {
     const fd = buildFormData({ name: "X", slug: "x" });
     await expect(createStore(fd)).rejects.toThrow("insert failed");
   });
+
+  // P66: auto-create primary GSTIN on store create
+  it("creates a primary gst_numbers row when form has a valid gstin", async () => {
+    asAdmin({ stores: ["create"] });
+    const admin = getAdminClient();
+    // Order: (1) store insert returning id, (2) owner update, (3) demote RPC, (4) gst insert
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.setRpcResult("demote_other_primaries", { data: 0, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({
+      name: "New Store",
+      slug: "new-store",
+      owner_id: "u-owner",
+      gstin: "29ABCDE1234F1Z5",
+    });
+    await createStore(fd);
+
+    const gstChains = admin.chainsForTable("gst_numbers");
+    const gstInsert = gstChains.flatMap((c) => c).find((c) => c.method === "insert");
+    expect(gstInsert).toBeDefined();
+    const insertArg = gstInsert!.args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      store_id: "new-store",
+      gstin: "29ABCDE1234F1Z5",
+      legal_name: "New Store",
+      is_primary: true,
+      is_active: true,
+    });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/gst-numbers");
+  });
+
+  it("does NOT create a gst_numbers row when form omits the gstin field (optional)", async () => {
+    asAdmin({ stores: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({ name: "X", slug: "x" });
+    await createStore(fd);
+
+    const gstChains = admin.chainsForTable("gst_numbers");
+    expect(gstChains).toHaveLength(0);
+  });
+
+  it("throws when the gstin field has an invalid format", async () => {
+    asAdmin({ stores: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({
+      name: "X",
+      slug: "x",
+      gstin: "not-a-gstin",
+    });
+    await expect(createStore(fd)).rejects.toThrow(/15-character/);
+  });
 });
 
 describe("updateStoreSetting", () => {
