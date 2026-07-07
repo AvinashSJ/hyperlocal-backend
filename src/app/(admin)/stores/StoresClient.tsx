@@ -16,6 +16,8 @@ import type { LockedCategory } from "./actions";
 // P63: client-side date renderer. Avoids hydration mismatches caused
 // by server/client timezone divergence in toLocaleDateString.
 import ClientDate from "@/components/ClientDate";
+// P65: lightweight read for the store view modal.
+import { getPrimaryGstin } from "@/app/(admin)/gst-numbers/actions";
 
 type CategoryOption = {
   id: string;
@@ -88,6 +90,11 @@ export default function StoresClient({
   const [editingCategories, setEditingCategories] = useState(false);
   const [pendingCategoryIds, setPendingCategoryIds] = useState<string[]>([]);
   const [savingCategories, setSavingCategories] = useState(false);
+  // P65: primary GSTIN for the currently viewed store. null = not yet
+  // loaded, undefined = no primary GSTIN configured.
+  const [primaryGstin, setPrimaryGstin] = useState<
+    { gstin: string; legal_name: string; state_code: string | null } | null | undefined
+  >(null);
 
   // P51: Super Admin gets a one-click path to the per-store detail
   // page (P49 follow-up). Clicking anywhere on the row navigates to
@@ -120,6 +127,7 @@ export default function StoresClient({
     setPendingCategoryIds([]);
     setAssignedIds([]);
     setLockedCategories([]);
+    setPrimaryGstin(null); // P65: reset until the new fetch resolves
   }, []);
 
   useEffect(() => {
@@ -133,8 +141,9 @@ export default function StoresClient({
     Promise.all([
       getStoreCategories(storeId),
       getLockedStoreCategories(storeId),
+      getPrimaryGstin(storeId),
     ])
-      .then(([assigned, locked]) => {
+      .then(([assigned, locked, primary]) => {
         if (cancelled) return;
         const assignedIdsLocal = assigned.map((c) => c.id);
         setAssignedIds(assignedIdsLocal);
@@ -148,6 +157,7 @@ export default function StoresClient({
           lockedIds.forEach((id) => next.add(id));
           return Array.from(next);
         });
+        setPrimaryGstin(primary ?? undefined); // P65
       })
       .catch(() => {
         if (cancelled) return;
@@ -342,6 +352,27 @@ export default function StoresClient({
           <DetailRow label="State" value={viewing.state} />
           <DetailRow label="Delivery Radius" value={viewing.delivery_radius_km ? `${viewing.delivery_radius_km} km` : null} />
           <DetailRow label="Commission Rate" value={viewing.commission_rate ? `${viewing.commission_rate}%` : null} />
+          {/* P65: primary GSTIN for quick reference. Links to /gst-numbers
+              for full management. Null = not loaded, undefined = no
+              primary GSTIN configured for this store. */}
+          <DetailRow label="Primary GSTIN" value={
+            primaryGstin === null
+              ? <span className="text-muted small">Loading…</span>
+              : primaryGstin === undefined
+                ? <span className="text-muted small">No GSTIN configured</span>
+                : (
+                  <span className="d-inline-flex align-items-center gap-2">
+                    <code>{primaryGstin.gstin}</code>
+                    <Link
+                      href={`/gst-numbers?store_id=${viewing.id}`}
+                      className="btn btn-sm btn-link p-0"
+                      data-testid="view-store-gstin-link"
+                    >
+                      Manage
+                    </Link>
+                  </span>
+                )
+          } />
           <DetailRow label="Open" value={
             <span className={`badge ${viewing.is_open ? "bg-success" : "bg-secondary"}`}>
               {viewing.is_open ? "Yes" : "No"}

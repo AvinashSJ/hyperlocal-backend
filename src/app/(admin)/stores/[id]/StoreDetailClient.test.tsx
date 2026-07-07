@@ -73,6 +73,7 @@ function render(
   store: StoreRow = baseStore(),
   relations: StoreRelations = baseRelations(),
   canEdit = true,
+  primaryGstin?: { gstin: string; legal_name: string; state_code: string | null } | null,
 ) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -84,6 +85,7 @@ function render(
         store={store}
         relations={relations}
         actionPerms={{ canView: true, canCreate: true, canEdit, canDelete: true }}
+        primaryGstin={primaryGstin}
       />,
     );
   });
@@ -249,6 +251,32 @@ describe("StoreDetailClient (P49)", () => {
     expect(customers?.textContent).toMatch(/No customers/);
     expect(invoices?.textContent).toMatch(/No invoices/);
     expect(products?.textContent).toMatch(/No products/);
+    cleanup();
+  });
+
+  it("renders the GST Information card with the primary GSTIN when set", () => {
+    const { container, cleanup } = render(
+      baseStore(),
+      baseRelations(),
+      true,
+      { gstin: "29ABCDE1234F1Z5", legal_name: "FreshCart Pvt Ltd", state_code: "29" },
+    );
+    const card = container.querySelector('[data-testid="store-detail-gst-card"]');
+    expect(card).not.toBeNull();
+    const gstinEl = container.querySelector('[data-testid="store-detail-primary-gstin"]');
+    expect(gstinEl?.textContent).toBe("29ABCDE1234F1Z5");
+    expect(card?.textContent).toMatch(/FreshCart Pvt Ltd/);
+    expect(card?.textContent).toMatch(/29/);
+    const manageLink = container.querySelector('[data-testid="store-detail-gst-manage-link"]') as HTMLAnchorElement;
+    expect(manageLink?.getAttribute("href")).toBe("/gst-numbers?store_id=s-1");
+    cleanup();
+  });
+
+  it("shows 'No primary GSTIN configured' when primaryGstin is null", () => {
+    const { container, cleanup } = render(baseStore(), baseRelations(), true, null);
+    const empty = container.querySelector('[data-testid="store-detail-no-gstin"]');
+    expect(empty).not.toBeNull();
+    expect(empty?.textContent).toMatch(/No primary GSTIN configured/);
     cleanup();
   });
 });

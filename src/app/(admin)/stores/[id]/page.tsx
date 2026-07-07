@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { createClient } from "@/lib/supabase/server";
 import { getStoreById, getStoreRelations } from "../actions";
+import { getPrimaryGstin } from "@/app/(admin)/gst-numbers/actions";
 import StoreDetailClient from "./StoreDetailClient";
 
 /**
@@ -54,9 +55,10 @@ export default async function StoreDetailPage({
 
   if (roleName !== "Super Admin") redirect("/dashboard");
 
-  const [store, relations] = await Promise.all([
+  const [store, relations, primaryGstin] = await Promise.all([
     getStoreById(id),
     getStoreRelations(id),
+    getPrimaryGstin(id),
   ]);
 
   if (!store) {
@@ -86,6 +88,7 @@ export default async function StoreDetailPage({
         store={store}
         relations={relations}
         actionPerms={actionPerms}
+        primaryGstin={primaryGstin}
       />
     </div>
   );

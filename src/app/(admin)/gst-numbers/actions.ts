@@ -68,6 +68,25 @@ export async function getGstNumbers(storeId?: string | null) {
   return data ?? [];
 }
 
+// P65: lightweight read used by /stores list (view modal) and
+// /stores/[id] (detail page). Returns only the primary GSTIN for a
+// store, or null. Avoids the full list payload.
+export async function getPrimaryGstin(storeId: string): Promise<{
+  gstin: string;
+  legal_name: string;
+  state_code: string | null;
+} | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("gst_numbers")
+    .select("gstin, legal_name, state_code")
+    .eq("store_id", storeId)
+    .eq("is_primary", true)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ?? null;
+}
+
 export async function createGstNumber(formData: FormData) {
   await assertPermission("gst_numbers", "create");
   const supabase = createAdminClient();

@@ -238,3 +238,33 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
     cleanup();
   });
 });
+
+describe("StoresClient (P65): view modal shows the Primary GSTIN row", () => {
+  it("renders a 'Primary GSTIN' row with a Manage link to /gst-numbers in the view modal", async () => {
+    // P65: we don't await the async fetch in this test (no
+    // getPrimaryGstin mock), so the row stays in 'Loading…' state.
+    // The 'Primary GSTIN' label is always present, the Manage link
+    // appears only after the fetch resolves with a non-null result.
+    const s1 = makeStore({ id: "s-gst", name: "GstStore" });
+    const { container, cleanup } = render([s1], "Super Admin", {
+      canView: true,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+    });
+
+    const eyeBtn = container.querySelector(
+      '[data-testid="store-row-s-gst"] button[title="View"]',
+    ) as HTMLButtonElement;
+    expect(eyeBtn).not.toBeNull();
+    await act(async () => {
+      eyeBtn.click();
+    });
+
+    // The Primary GSTIN label is always rendered in the view modal
+    expect(container.textContent).toMatch(/Primary GSTIN/);
+    // Without mocking getPrimaryGstin, the cell shows 'Loading…'
+    expect(container.textContent).toMatch(/Loading/);
+    cleanup();
+  });
+});

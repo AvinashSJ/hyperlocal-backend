@@ -16,10 +16,16 @@ export default function StoreDetailClient({
   store,
   relations,
   actionPerms,
+  primaryGstin,
 }: {
   store: StoreRow;
   relations: StoreRelations;
   actionPerms?: ActionPermissions;
+  primaryGstin?: {
+    gstin: string;
+    legal_name: string;
+    state_code: string | null;
+  } | null;
 }) {
   const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
@@ -84,6 +90,53 @@ export default function StoreDetailClient({
               </Link>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* P65: GST Information card. Shows the primary GSTIN used for
+          invoicing, with quick access to the full /gst-numbers
+          management page. Null = not loaded, undefined = no primary
+          configured for this store. */}
+      <div className="card mb-3" data-testid="store-detail-gst-card">
+        <div className="card-header d-flex justify-content-between align-items-center">
+          <strong>
+            <Icon icon="ri:file-shield-2-line" className="me-1" />
+            GST Information
+          </strong>
+          <Link
+            href={`/gst-numbers?store_id=${store.id}`}
+            className="btn btn-sm btn-outline-primary"
+            data-testid="store-detail-gst-manage-link"
+          >
+            <Icon icon="ri:external-link-line" className="me-1" />
+            Manage GST Numbers
+          </Link>
+        </div>
+        <div className="card-body">
+          {primaryGstin ? (
+            <div className="row g-2">
+              <div className="col-md-6">
+                <div className="text-muted small">Primary GSTIN</div>
+                <code data-testid="store-detail-primary-gstin">{primaryGstin.gstin}</code>
+              </div>
+              <div className="col-md-4">
+                <div className="text-muted small">Legal Name</div>
+                <div>{primaryGstin.legal_name || <span className="text-muted">—</span>}</div>
+              </div>
+              <div className="col-md-2">
+                <div className="text-muted small">State Code</div>
+                <div>{primaryGstin.state_code || <span className="text-muted">—</span>}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted small" data-testid="store-detail-no-gstin">
+              No primary GSTIN configured for this store.{" "}
+              <Link href={`/settings?store_id=${store.id}`}>
+                Add one in Store Settings
+              </Link>
+              .
+            </div>
+          )}
         </div>
       </div>
 
