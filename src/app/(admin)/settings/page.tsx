@@ -71,6 +71,18 @@ export default async function SettingsPage({
       .map((l) => l.categoryId);
   }
 
+  // P64: fetch the store's primary GSTIN for the quick-edit field.
+  let primaryGstin: string | null = null;
+  if (!createMode && data?.store?.id) {
+    const { data: primaryRow } = await adminSupabase
+      .from("gst_numbers")
+      .select("gstin")
+      .eq("store_id", data.store.id)
+      .eq("is_primary", true)
+      .maybeSingle();
+    primaryGstin = primaryRow?.gstin ?? null;
+  }
+
   const managers = createMode ? await getEligibleManagers() : [];
 
   return (
@@ -85,6 +97,7 @@ export default async function SettingsPage({
         lockedCategoryIds={lockedCategoryIds}
         managers={managers}
         actionPerms={actionPerms}
+        primaryGstin={primaryGstin}
       />
     </div>
   );

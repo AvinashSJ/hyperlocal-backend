@@ -23,6 +23,7 @@ import {
   createGstNumber,
   updateGstNumber,
   deleteGstNumber,
+  validateGstin,
 } from "./actions";
 
 beforeEach(() => {
@@ -342,5 +343,106 @@ describe("deleteGstNumber", () => {
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: { message: "fk violation" } });
     await expect(deleteGstNumber("g-1")).rejects.toThrow(/fk violation/);
+  });
+});
+
+describe("validateGstin (P64b): Indian GSTIN format", () => {
+  it("accepts a valid 15-character Indian GSTIN", () => {
+    expect(() => validateGstin("29ABCDE1234F1Z5")).not.toThrow();
+    expect(() => validateGstin("07XYZAB9876M2Z9")).not.toThrow();
+  });
+
+  it("rejects empty GSTIN", () => {
+    expect(() => validateGstin("")).toThrow(/required/);
+  });
+
+  it("rejects GSTIN that is too short or too long", () => {
+    expect(() => validateGstin("29ABCDE1234F1Z")).toThrow(/15-character/);
+    expect(() => validateGstin("29ABCDE1234F1Z55")).toThrow(/15-character/);
+  });
+
+  it("rejects GSTIN with wrong structure (missing Z, wrong chars)", () => {
+    expect(() => validateGstin("29ABCDE1234F1X5")).toThrow(/15-character/); // wrong char before Z
+    expect(() => validateGstin("29abcde1234f1z5")).toThrow(/15-character/); // lowercase
+    expect(() => validateGstin("29ABCDE1234F15")).toThrow(/15-character/); // missing Z
+    expect(() => validateGstin("ABABCDE1234F1Z5")).toThrow(/15-character/); // state code is letters
+  });
+});
+
+describe("Primary uniqueness RPC (P64c): only one is_primary=true per store", () => {
+  it("createGstNumber with is_primary=true calls demote_other_primaries before insert", async () => {
+    asAdmin({ gst_numbers: ["create"] });
+    const admin = getAdminClient();
+    // RPC response (no error), then insert response
+    admin.setRpcResult("demote_other_primaries", { data: 0, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({
+      store_id: "s-1",
+      gstin: "29ABCDE1234F1Z5",
+      is_primary: "on",
+    });
+    await runAction(createGstNumber, fd);
+
+    const rpcCall = admin.calls.find((c) => c.method === "rpc");
+    expect(rpcCall).toBeDefined();
+    expect(rpcCall!.args[0]).toBe("demote_other_primaries");
+    expect(rpcCall!.args[1]).toEqual({ p_store_id: "s-1", p_exclude_id: null });
+
+    // Insert still happens after the demote
+    const insertCall = admin.chainsForTable("gst_numbers")[0].find((c) => c.method === "insert");
+    expect(insertCall).toBeDefined();
+  });
+
+  it("updateGstNumber with is_primary=true calls demote_other_primaries with exclude_id", async () => {
+    asAdmin({ gst_numbers: ["edit"] });
+    const admin = getAdminClient();
+    admin.setRpcResult("demote_other_primaries", { data: 1, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({
+      store_id: "s-1",
+      gstin: "29XYZAB5678F2Z6",
+      is_primary: "true",
+    });
+    await runAction((f) => updateGstNumber("g-1", f), fd);
+
+    const rpcCall = admin.calls.find((c) => c.method === "rpc");
+    expect(rpcCall).toBeDefined();
+    expect(rpcCall!.args[1]).toEqual({ p_store_id: "s-1", p_exclude_id: "g-1" });
+  });
+
+  it("createGstNumber with is_primary=false does NOT call the demote RPC", async () => {
+    asAdmin({ gst_numbers: ["create"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({
+      store_id: "s-1",
+      gstin: "29ABCDE1234F1Z5",
+      is_primary: "off",
+    });
+    await runAction(createGstNumber, fd);
+
+    const rpcCall = admin.calls.find((c) => c.method === "rpc");
+    expect(rpcCall).toBeUndefined();
+  });
+
+  it("RPC failure does not block the insert (non-fatal, logs a warning)", async () => {
+    asAdmin({ gst_numbers: ["create"] });
+    const admin = getAdminClient();
+    admin.setRpcResult("demote_other_primaries", { data: null, error: { message: "rpc down" } });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const fd = buildFormData({
+      store_id: "s-1",
+      gstin: "29ABCDE1234F1Z5",
+      is_primary: "on",
+    });
+    // Should not throw — RPC failure is non-fatal
+    await runAction(createGstNumber, fd);
+
+    const insertCall = admin.chainsForTable("gst_numbers")[0].find((c) => c.method === "insert");
+    expect(insertCall).toBeDefined();
   });
 });

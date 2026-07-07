@@ -666,6 +666,7 @@ function StoreInfoSection({
   assignedCategoryIds = [],
   lockedCategoryIds = [],
   managers,
+  primaryGstin,
 }: {
   store: StoreSettingsData["store"];
   isSuperAdmin: boolean;
@@ -674,6 +675,7 @@ function StoreInfoSection({
   assignedCategoryIds?: string[];
   lockedCategoryIds?: string[];
   managers: ManagerOption[];
+  primaryGstin?: string | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(
@@ -737,6 +739,35 @@ function StoreInfoSection({
             <div className="col-md-6">
               <label className="form-label">Slug <span className="text-danger">*</span></label>
               <input name="slug" className="form-control" defaultValue={store?.slug ?? ""} required />
+            </div>
+
+            {/* P64: Primary GSTIN quick-edit. Lives on the store edit form so
+                the admin can set/change the primary GSTIN without diving into
+                the full GST Numbers section below. The full management UI
+                (legal name, business address, state code, turnover, etc.)
+                remains in the GST Numbers section card. */}
+            <div className="col-md-6">
+              <label className="form-label">Primary GSTIN</label>
+              <input
+                name="gstin"
+                className="form-control"
+                defaultValue={store ? (primaryGstin ?? "") : ""}
+                placeholder="e.g. 29ABCDE1234F1Z5"
+                pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
+                maxLength={15}
+                disabled={!store}
+              />
+              <div className="form-text">
+                The GSTIN used for invoicing.{" "}
+                {!createMode && store && (
+                  <Link href={`/gst-numbers?store_id=${store.id}`}>
+                    Manage all GST numbers →
+                  </Link>
+                )}
+                {createMode && (
+                  <span>You can add additional GST numbers after the store is created.</span>
+                )}
+              </div>
             </div>
 
             <div className="col-md-6">
@@ -1101,6 +1132,7 @@ export default function SettingsClient({
   lockedCategoryIds = [],
   managers,
   actionPerms,
+  primaryGstin,
 }: {
   data: StoreSettingsData | null;
   roleName: string;
@@ -1110,6 +1142,7 @@ export default function SettingsClient({
   lockedCategoryIds?: string[];
   managers: ManagerOption[];
   actionPerms?: ActionPermissions;
+  primaryGstin?: string | null;
 }) {
   const isSuperAdmin = roleName === "Super Admin";
 
@@ -1136,6 +1169,7 @@ export default function SettingsClient({
         assignedCategoryIds={assignedCategoryIds}
         lockedCategoryIds={lockedCategoryIds}
         managers={managers}
+        primaryGstin={primaryGstin}
       />
       <PoliciesSection policies={displayData.policies} disabled={isCreate} />
       <PaymentSection payment={displayData.payment} disabled={isCreate} />

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission } from "@/lib/require-permission";
 import { assertCategoriesRemovable } from "@/app/(admin)/stores/actions";
+import { demoteOtherPrimaries, validateGstin, warnGstinStateMismatch } from "@/app/(admin)/gst-numbers/actions";
 
 export type StoreData = {
   id: string;
@@ -207,8 +208,65 @@ export async function updateStore(formData: FormData) {
     }
   }
 
+  // P64: Primary GSTIN sub-handler. Only runs if the form included the
+  // "gstin" field — so loading the page without the field is a no-op.
+  // Sync semantics: empty = delete primary, non-empty = create or update
+  // the primary row for this store. The store's own columns are untouched
+  // (GSTIN lives in gst_numbers, not stores).
+  const gstinField = formData.get("gstin");
+  if (gstinField !== null) {
+    const gstinValue = String(gstinField).trim().toUpperCase();
+    const storeName = String(formData.get("name") ?? "").trim();
+
+    const { data: existingPrimary } = await supabase
+      .from("gst_numbers")
+      .select("id")
+      .eq("store_id", id)
+      .eq("is_primary", true)
+      .maybeSingle();
+
+    if (!gstinValue) {
+      // User cleared the field. Delete the primary row if one exists.
+      if (existingPrimary) {
+        const { error: delError } = await supabase
+          .from("gst_numbers")
+          .delete()
+          .eq("id", existingPrimary.id);
+        if (delError) throw new Error(delError.message);
+      }
+    } else {
+      validateGstin(gstinValue);
+      warnGstinStateMismatch(gstinValue, String(formData.get("state") ?? "").trim());
+
+      if (existingPrimary) {
+        // Update existing primary row.
+        const { error: updError } = await supabase
+          .from("gst_numbers")
+          .update({ gstin: gstinValue, legal_name: storeName || undefined })
+          .eq("id", existingPrimary.id);
+        if (updError) throw new Error(updError.message);
+      } else {
+        // No primary exists — create one. Defensive demote in case a
+        // legacy row is_primary=true without a match (shouldn't happen
+        // post-P64, but cheap insurance).
+        await demoteOtherPrimaries(id, null);
+        const { error: insError } = await supabase
+          .from("gst_numbers")
+          .insert({
+            store_id: id,
+            gstin: gstinValue,
+            legal_name: storeName,
+            is_primary: true,
+            is_active: true,
+          });
+        if (insError) throw new Error(insError.message);
+      }
+    }
+  }
+
   revalidatePath("/settings");
   revalidatePath("/stores");
+  revalidatePath("/gst-numbers");
 }
 
 export async function createStore(formData: FormData) {

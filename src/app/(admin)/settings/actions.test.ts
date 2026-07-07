@@ -254,6 +254,149 @@ describe("updateStore", () => {
   });
 });
 
+describe("updateStore GSTIN sub-handler (P64a): primary GSTIN on store edit form", () => {
+  it("creates a new primary gst_numbers row when form has gstin and no primary exists", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    // No category_ids in formData → category_ids branch skipped.
+    // Queries: (1) store update, (2) maybeSingle (no primary), (3) insert
+    admin.enqueueResponse({ data: null, error: null }); // store update
+    admin.enqueueResponse({ data: null, error: null }); // maybeSingle: no primary
+    admin.setRpcResult("demote_other_primaries", { data: 0, error: null }); // demote
+    admin.enqueueResponse({ data: null, error: null }); // insert gst_numbers
+
+    const fd = buildFormData({
+      id: "s-1",
+      name: "Store A",
+      gstin: "29ABCDE1234F1Z5",
+    });
+    await runAction(updateStore, fd);
+
+    const gstChains = admin.chainsForTable("gst_numbers");
+    const gstInsert = gstChains.flatMap((c) => c).find((c) => c.method === "insert");
+    expect(gstInsert).toBeDefined();
+    const insertArg = gstInsert!.args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      store_id: "s-1",
+      gstin: "29ABCDE1234F1Z5",
+      legal_name: "Store A",
+      is_primary: true,
+      is_active: true,
+    });
+  });
+
+  it("updates the existing primary gst_numbers row when form has gstin and primary exists", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    // No category_ids → only 3 queries: store update, maybeSingle (primary), update
+    admin.enqueueResponse({ data: null, error: null }); // store update
+    admin.enqueueResponse({ data: { id: "g-1", gstin: "29OLDDD0000F1Z5" }, error: null }); // maybeSingle: primary exists
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    const fd = buildFormData({
+      id: "s-1",
+      name: "Store A",
+      gstin: "29NEWST1234F1Z5",
+    });
+    await runAction(updateStore, fd);
+
+    const gstChains = admin.chainsForTable("gst_numbers");
+    const gstUpdate = gstChains.flatMap((c) => c).find((c) => c.method === "update");
+    expect(gstUpdate).toBeDefined();
+    expect(gstUpdate!.args[0]).toMatchObject({ gstin: "29NEWST1234F1Z5" });
+    // The second chain (update) ends with eq("id", "g-1")
+    const allEqs = gstChains.flatMap((c) => c).filter((c) => c.method === "eq");
+    const updateEq = allEqs.find((e) => (e.args as unknown[])[1] === "g-1");
+    expect(updateEq).toBeDefined();
+    expect(updateEq!.args).toEqual(["id", "g-1"]);
+  });
+
+  it("deletes the primary gst_numbers row when form has empty gstin and primary exists", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null }); // store update
+    admin.enqueueResponse({ data: { id: "g-1" }, error: null }); // maybeSingle: primary exists
+    admin.enqueueResponse({ data: null, error: null }); // delete
+
+    const fd = buildFormData({
+      id: "s-1",
+      name: "Store A",
+      gstin: "",
+    });
+    await runAction(updateStore, fd);
+
+    const gstChains = admin.chainsForTable("gst_numbers");
+    const gstDelete = gstChains.flatMap((c) => c).find((c) => c.method === "delete");
+    expect(gstDelete).toBeDefined();
+    const allEqs = gstChains.flatMap((c) => c).filter((c) => c.method === "eq");
+    const deleteEq = allEqs.find((e) => (e.args as unknown[])[1] === "g-1");
+    expect(deleteEq).toBeDefined();
+    expect(deleteEq!.args).toEqual(["id", "g-1"]);
+  });
+
+  it("no-ops on empty gstin when no primary exists (does not throw)", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    // Form has no category_ids, so the category_ids branch is skipped.
+    // Only 2 queries run: (1) store update, (2) maybeSingle for primary.
+    admin.enqueueResponse({ data: null, error: null }); // store update
+    admin.enqueueResponse({ data: null, error: null }); // maybeSingle: no primary
+
+    const fd = buildFormData({ id: "s-1", name: "Store A", gstin: "" });
+    const result = await runAction(updateStore, fd);
+    expect(result.ok).toBe(true);
+
+    const gstChains = admin.chainsForTable("gst_numbers");
+    const methods = gstChains.flatMap((chain) => chain.map((c) => c.method));
+    expect(methods).not.toContain("insert");
+    expect(methods).not.toContain("update");
+    expect(methods).not.toContain("delete");
+  });
+
+  it("does NOT include gstin in the stores table update payload (defense)", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: [], error: null });
+    admin.enqueueResponse({ count: 0, data: [], error: null });
+    admin.enqueueResponse({ count: 0, data: [], error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null }); // maybeSingle (no primary)
+    admin.enqueueResponse({ data: null, error: null }); // insert gst_numbers
+
+    const fd = buildFormData({
+      id: "s-1",
+      name: "Store A",
+      gstin: "29ABCDE1234F1Z5",
+    });
+    await runAction(updateStore, fd);
+
+    const storeUpdateArg = admin.chainsForTable("stores")[0]
+      .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
+    expect(storeUpdateArg).not.toHaveProperty("gstin");
+  });
+
+  it("does NOT touch gst_numbers when the form omits the gstin field entirely (defense)", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: [], error: null });
+    admin.enqueueResponse({ count: 0, data: [], error: null });
+    admin.enqueueResponse({ count: 0, data: [], error: null });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    // No gstin field at all
+    const fd = buildFormData({ id: "s-1", name: "Store A" });
+    await runAction(updateStore, fd);
+
+    // No gst_numbers chains should have been created
+    const gstChains = admin.chainsForTable("gst_numbers");
+    expect(gstChains).toHaveLength(0);
+  });
+});
+
 describe("createStore", () => {
   it("rejects users without stores:create permission", async () => {
     asAdmin({ stores: ["view"] });
