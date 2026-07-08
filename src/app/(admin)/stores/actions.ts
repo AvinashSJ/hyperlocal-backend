@@ -23,6 +23,7 @@ export type StoreRow = {
   state: string | null;
   delivery_radius_km: number | null;
   commission_rate: number | null;
+  order_id_prefix: string | null;
   is_open: boolean;
   is_active: boolean;
   updated_at: string;

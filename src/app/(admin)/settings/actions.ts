@@ -19,6 +19,7 @@ export type StoreData = {
   state: string | null;
   delivery_radius_km: number | null;
   commission_rate: number | null;
+  order_id_prefix: string | null;
   is_open: boolean;
   is_active: boolean;
 };
@@ -100,7 +101,7 @@ export async function getStoreSettings(storeId?: string): Promise<StoreSettingsD
   function buildStoreQuery() {
     return supabase
       .from("stores")
-      .select("id, name, slug, logo_url, banner_url, phone, email, address, city, state, delivery_radius_km, commission_rate, is_open, is_active");
+      .select("id, name, slug, logo_url, banner_url, phone, email, address, city, state, delivery_radius_km, commission_rate, order_id_prefix, is_open, is_active");
   }
 
   const storeRes = storeId
@@ -165,6 +166,11 @@ export async function updateStore(formData: FormData) {
   for (const f of numFields) {
     const v = formData.get(f);
     updates[f] = v ? Number(v) : null;
+  }
+
+  const prefixRaw = formData.get("order_id_prefix");
+  if (prefixRaw !== null) {
+    updates.order_id_prefix = String(prefixRaw) || null;
   }
 
   updates.is_open = formData.get("is_open") === "on";
@@ -278,6 +284,8 @@ export async function createStore(formData: FormData) {
     const v = formData.get(f);
     data[f] = v ? String(v) : null;
   }
+  const prefixRaw = formData.get("order_id_prefix");
+  if (prefixRaw) data.order_id_prefix = String(prefixRaw);
   const numFields = ["delivery_radius_km", "commission_rate"];
   for (const f of numFields) {
     const v = formData.get(f);

@@ -821,6 +821,13 @@ function StoreInfoSection({
                 <input name="commission_rate" type="number" className="form-control" defaultValue={store?.commission_rate ?? ""} min={0} step={0.1} />
               </div>
             )}
+            {isSuperAdmin && (
+              <div className="col-md-4">
+                <label className="form-label">Order ID Prefix</label>
+                <input name="order_id_prefix" type="text" className="form-control" defaultValue={store?.order_id_prefix ?? ""} placeholder="e.g. ASORD, AS-ORD" maxLength={20} />
+                <div className="form-text">Prefix used for order numbering (e.g. ASORD-001). Leave empty for default.</div>
+              </div>
+            )}
 
             {categories.length > 0 && (createMode || isSuperAdmin) && (
               <div className="col-12">

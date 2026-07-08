@@ -38,6 +38,7 @@ const baseStore = (overrides: Partial<StoreRow> = {}): StoreRow => ({
   state: "MH",
   delivery_radius_km: 5,
   commission_rate: 10,
+  order_id_prefix: null,
   is_open: true,
   is_active: true,
   updated_at: "2025-02-01T00:00:00.000Z",

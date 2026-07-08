@@ -103,8 +103,8 @@ beforeEach(() => {
 
 describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   it("renders each store row with role=button + tabIndex=0 + data-testid", () => {
-    const s1 = makeStore({ id: "s-1", name: "Alpha" });
-    const s2 = makeStore({ id: "s-2", name: "Beta" });
+    const s1 = { ...makeStore({ id: "s-1", name: "Alpha" }), order_id_prefix: null };
+    const s2 = { ...makeStore({ id: "s-2", name: "Beta" }), order_id_prefix: null };
     const { container, cleanup } = render([s1, s2], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -123,7 +123,7 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   });
 
   it("navigates to /stores/<id> when a row is clicked", async () => {
-    const s1 = makeStore({ id: "s-click", name: "Clickable" });
+    const s1 = { ...makeStore({ id: "s-click", name: "Clickable" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -142,7 +142,7 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   });
 
   it("navigates to /stores/<id> when Enter is pressed on a row", async () => {
-    const s1 = makeStore({ id: "s-kb", name: "Keyboard" });
+    const s1 = { ...makeStore({ id: "s-kb", name: "Keyboard" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -159,7 +159,7 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   });
 
   it("navigates to /stores/<id> when Space is pressed on a row", async () => {
-    const s1 = makeStore({ id: "s-space", name: "Spacebar" });
+    const s1 = { ...makeStore({ id: "s-space", name: "Spacebar" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -176,7 +176,7 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   });
 
   it("does NOT navigate when an unrelated key (e.g. 'a') is pressed on a row", async () => {
-    const s1 = makeStore({ id: "s-a", name: "Letter" });
+    const s1 = { ...makeStore({ id: "s-a", name: "Letter" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -193,7 +193,7 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   });
 
   it("View (eye) button does NOT trigger row navigation — opens modal instead", async () => {
-    const s1 = makeStore({ id: "s-eye", name: "EyeStore" });
+    const s1 = { ...makeStore({ id: "s-eye", name: "EyeStore" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -216,7 +216,7 @@ describe("StoresClient (P51): row click navigates to /stores/[id]", () => {
   });
 
   it("Edit (pencil) link does NOT trigger row navigation", async () => {
-    const s1 = makeStore({ id: "s-pen", name: "PencilStore" });
+    const s1 = { ...makeStore({ id: "s-pen", name: "PencilStore" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,
@@ -245,7 +245,7 @@ describe("StoresClient (P65): view modal shows the Primary GSTIN row", () => {
     // getPrimaryGstin mock), so the row stays in 'Loading…' state.
     // The 'Primary GSTIN' label is always present, the Manage link
     // appears only after the fetch resolves with a non-null result.
-    const s1 = makeStore({ id: "s-gst", name: "GstStore" });
+    const s1 = { ...makeStore({ id: "s-gst", name: "GstStore" }), order_id_prefix: null };
     const { container, cleanup } = render([s1], "Super Admin", {
       canView: true,
       canCreate: false,

@@ -25,6 +25,7 @@ export type Store = {
   lng: number | null;
   delivery_radius_km: number | null;
   commission_rate: number | null;
+  order_id_prefix: string | null;
   is_active: boolean;
   is_open: boolean;
   created_at: string;
