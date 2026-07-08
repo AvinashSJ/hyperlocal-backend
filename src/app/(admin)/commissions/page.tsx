@@ -1,25 +1,20 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
-import { getStoreScope } from "@/lib/store-scope";
-import { getCommissions, getStoresLight } from "./actions";
+import { getCommissionStoresForList } from "./actions";
 import CommissionsClient from "./CommissionsClient";
 
 export default async function CommissionsPage() {
   const perm = await requirePermission("commissions", "view");
-  const scope = await getStoreScope();
-
-  const commissions = await getCommissions(scope.storeId);
-  const stores = perm.isSuperAdmin ? await getStoresLight() : [];
   const actionPerms = getActionPermissions(perm.permissions, "commissions");
+
+  // P68: the list page now shows STORES, not commissions. Each store
+  // has a live aggregate of total commission, paid, and balance
+  // across all its commission periods.
+  const stores = await getCommissionStoresForList();
 
   return (
     <div>
       <h4 className="mb-3">Store Commissions</h4>
-      <CommissionsClient
-        commissions={commissions}
-        stores={stores}
-        storeId={scope.storeId}
-        actionPerms={actionPerms}
-      />
+      <CommissionsClient stores={stores} actionPerms={actionPerms} />
     </div>
   );
 }

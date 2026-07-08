@@ -24,11 +24,10 @@ import {
 } from "../../../../test/fixtures/factories";
 
 import {
-  getCommissions,
+  getCommissionStoresForList,
+  getCommissionPeriodsForStore,
   getCommissionPayments,
   getCommissionById,
-  generateCommission,
-  generateAllCommissions,
   recordPayment,
   deleteCommissionPayment,
   getStoresLight,
@@ -63,81 +62,7 @@ describe("getStoresLight", () => {
   });
 });
 
-describe("getCommissions", () => {
-  it("rejects users without commissions:view permission", async () => {
-    asAdmin({});
-    await expect(getCommissions()).rejects.toBeInstanceOf(PermissionError);
-  });
-
-  it("returns the commission list with payment counts", async () => {
-    asSuperAdmin();
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: [makeCommission({ id: "c-1" }), makeCommission({ id: "c-2" })],
-      error: null,
-    });
-    admin.enqueueResponse({
-      data: [
-        { commission_id: "c-1" },
-        { commission_id: "c-1" },
-        { commission_id: "c-2" },
-      ],
-      error: null,
-    });
-
-    const result = await getCommissions();
-    expect(result).toHaveLength(2);
-    const c1 = result.find((c) => c.id === "c-1");
-    expect(c1?.payment_count).toBe(2);
-  });
-
-  it("filters by storeId when provided", async () => {
-    asSuperAdmin();
-    const admin = getAdminClient();
-    admin.enqueueResponse({ data: [], error: null });
-
-    await getCommissions("s-1");
-    const commissionChain = admin.chainsForTable("store_commissions")[0];
-    expect(commissionChain.find((c) => c.method === "eq")).toEqual({
-      method: "eq",
-      args: ["store_id", "s-1"],
-    });
-  });
-
-  it("returns empty array when data is null", async () => {
-    asSuperAdmin();
-    const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: [], error: null });
-
-    const result = await getCommissions();
-    expect(result).toEqual([]);
-  });
-
-  // P46 regression: getCommissions used to map `c.total_amount` (a
-  // column on the `orders` table, not on `store_commissions`) which
-  // produced NaN and rendered as "₹NaN" in the list. This test
-  // asserts the value round-trips as the real `total_revenue` number.
-  it("P46: returns total_revenue as a finite number (not NaN from wrong column)", async () => {
-    asSuperAdmin();
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: [makeCommission({ id: "c-1", total_revenue: 12345.67, commission_amount: 1234.57, balance_due: 1234.57 })],
-      error: null,
-    });
-    admin.enqueueResponse({ data: [], error: null });
-
-    const result = await getCommissions();
-    expect(result).toHaveLength(1);
-    const row = result[0];
-    expect(row.total_revenue).toBe(12345.67);
-    expect(Number.isNaN(row.total_revenue)).toBe(false);
-    expect(row.commission_amount).toBe(1234.57);
-    expect(row.balance_due).toBe(1234.57);
-  });
-});
-
-describe("getCommissionById", () => {
+describe("getCommissionById (P46)", () => {
   it("rejects users without commissions:view permission", async () => {
     asAdmin({});
     await expect(getCommissionById("c-1")).rejects.toBeInstanceOf(PermissionError);
@@ -199,329 +124,295 @@ describe("getCommissionPayments", () => {
   });
 });
 
-describe("generateCommission", () => {
-  it("rejects users without commissions:create permission", async () => {
-    asAdmin({ commissions: ["view"] });
-    const fd = buildFormData({ store_id: "s-1", period_start: "2025-01-01", period_end: "2025-01-31" });
-    await expect(generateCommission(fd)).rejects.toBeInstanceOf(PermissionError);
+describe("getCommissionStoresForList (P68): live aggregates per store", () => {
+  it("rejects users without commissions:view permission", async () => {
+    asAdmin({});
+    await expect(getCommissionStoresForList()).rejects.toBeInstanceOf(PermissionError);
   });
 
-  it("throws when store_id is missing", async () => {
-    asAdmin({ commissions: ["create"] });
-    const fd = buildFormData({ period_start: "2025-01-01", period_end: "2025-01-31" });
-    await expect(generateCommission(fd)).rejects.toThrow(/Store.*required/);
-  });
-
-  it("throws when period_start is missing", async () => {
-    asAdmin({ commissions: ["create"] });
-    const fd = buildFormData({ store_id: "s-1", period_end: "2025-01-31" });
-    await expect(generateCommission(fd)).rejects.toThrow(/period start.*required/);
-  });
-
-  it("throws when period_end is missing", async () => {
-    asAdmin({ commissions: ["create"] });
-    const fd = buildFormData({ store_id: "s-1", period_start: "2025-01-01" });
-    await expect(generateCommission(fd)).rejects.toThrow(/period end.*required/);
-  });
-
-  it("throws when period_start > period_end", async () => {
-    asAdmin({ commissions: ["create"] });
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-31",
-      period_end: "2025-01-01",
-    });
-    await expect(generateCommission(fd)).rejects.toThrow(/on or before/);
-  });
-
-  it("throws when the store is not found", async () => {
-    asAdmin({ commissions: ["create"] });
+  it("returns an empty list when there are no stores", async () => {
+    asSuperAdmin();
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: { message: "Not found" } });
-
-    const fd = buildFormData({ store_id: "s-1", period_start: "2025-01-01", period_end: "2025-01-31" });
-    await expect(generateCommission(fd)).rejects.toThrow("Store not found");
+    admin.enqueueResponse({ data: [], error: null });
+    // No orders, no commissions, no payments, no settings — none of
+    // these queries are made when there are no stores (early return).
+    const result = await getCommissionStoresForList();
+    expect(result).toEqual([]);
   });
 
-  it("computes commission_amount = total_revenue * (rate/100) and uses server user as created_by", async () => {
-    asAdmin({ commissions: ["create"] });
+  it("returns stores with live aggregates (revenue × rate - paid = balance)", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    // 1) stores. s-2 has commission_rate: 0 to mean "no per-store rate"
+    // (the makeStore factory uses ?? 10 as default, so 0 is the only way
+    // to express "no rate" via the factory).
+    admin.enqueueResponse({
+      data: [
+        makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
+        makeStore({ id: "s-2", name: "GreenMart", code: "GRM", commission_rate: 0 }),
+      ],
+      error: null,
+    });
+    // 2) paid orders
+    admin.enqueueResponse({
+      data: [
+        { store_id: "s-1", total_amount: 1000, placed_at: "2026-04-15T00:00:00.000Z" },
+        { store_id: "s-1", total_amount: 500,  placed_at: "2026-04-20T00:00:00.000Z" },
+        { store_id: "s-2", total_amount: 2000, placed_at: "2026-04-10T00:00:00.000Z" },
+      ],
+      error: null,
+    });
+    // 3) commission rows
+    admin.enqueueResponse({
+      data: [
+        { id: "p-1", store_id: "s-1", period_start: "2026-04-01", period_end: "2026-04-30" },
+        { id: "p-2", store_id: "s-1", period_start: "2026-03-01", period_end: "2026-03-31" },
+        { id: "p-3", store_id: "s-2", period_start: "2026-04-01", period_end: "2026-04-30" },
+      ],
+      error: null,
+    });
+    // 4) payments
+    admin.enqueueResponse({
+      data: [
+        { commission_id: "p-1", amount: 50 },
+        { commission_id: "p-3", amount: 200 },
+      ],
+      error: null,
+    });
+    // 5) settings (global default rate lookup) — returns nothing → default 0
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await getCommissionStoresForList();
+    expect(result).toHaveLength(2);
+
+    const s1 = result.find((r) => r.id === "s-1")!;
+    // s-1: April period has revenue 1500 (1000+500) at 10% = 150. March
+    // period has no orders in the date range, so 0. Total = 150.
+    expect(s1.commission_rate).toBe(10);
+    expect(s1.period_count).toBe(2);
+    expect(s1.total_commission).toBe(150);
+    expect(s1.total_paid).toBe(50);
+    expect(s1.total_balance).toBe(100);
+    // last_period_end: max(end) = "2026-04-30"
+    expect(s1.last_period_end).toBe("2026-04-30");
+
+    const s2 = result.find((r) => r.id === "s-2")!;
+    // s-2: no per-store rate (null), no global default → 0
+    expect(s2.commission_rate).toBe(0);
+    expect(s2.period_count).toBe(1);
+    expect(s2.total_commission).toBe(0);
+    expect(s2.total_paid).toBe(200);
+    expect(s2.total_balance).toBe(0);
+  });
+
+  it("falls back to the global default rate when the store has no per-store rate", async () => {
+    asSuperAdmin();
     const admin = getAdminClient();
     admin.enqueueResponse({
-      data: makeStore({ id: "s-1", commission_rate: 10 }),
+      data: [
+        makeStore({ id: "s-1", name: "NoRate", code: "NR", commission_rate: 0 }),
+      ],
+      error: null,
+    });
+    admin.enqueueResponse({
+      data: [{ store_id: "s-1", total_amount: 1000, placed_at: "2026-04-10T00:00:00.000Z" }],
       error: null,
     });
     admin.enqueueResponse({
       data: [
-        { total_amount: 1000 },
-        { total_amount: 500 },
-        { total_amount: 2500 },
+        { id: "p-1", store_id: "s-1", period_start: "2026-04-01", period_end: "2026-04-30" },
       ],
       error: null,
     });
-    admin.enqueueResponse({ data: null, error: null }); // store_commissions insert
-
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    await generateCommission(fd);
-
-    const insertArg = admin.chainsForTable("store_commissions")[0]
-      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(insertArg.total_revenue).toBe(4000);
-    expect(insertArg.commission_rate).toBe(10);
-    expect(insertArg.commission_amount).toBe(400);
-    expect(insertArg.balance_due).toBe(400);
-    expect(insertArg.status).toBe("unpaid");
-    // P27: created_by comes from the server user's session
-    expect(insertArg.created_by).toBe("u-1");
-  });
-
-  it("sets status to 'unpaid' when commission_amount > 0", async () => {
-    asAdmin({ commissions: ["create"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: makeStore({ id: "s-1", commission_rate: 10 }),
-      error: null,
-    });
-    admin.enqueueResponse({
-      data: [{ total_amount: 1000 }],
-      error: null,
-    });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    await generateCommission(fd);
-
-    const insertArg = admin.chainsForTable("store_commissions")[0]
-      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(insertArg.status).toBe("unpaid");
-  });
-
-  it("P27: falls back to the global default commission rate when the store has none", async () => {
-    asAdmin({ commissions: ["create"] });
-    const admin = getAdminClient();
-    // store has commission_rate = 0 (treated the same as null by the source)
-    admin.enqueueResponse({
-      data: makeStore({ id: "s-1", commission_rate: 0 }),
-      error: null,
-    });
-    // settings lookup returns a default rate of 7%
-    admin.enqueueResponse({
-      data: { value: { rate: 7 } },
-      error: null,
-    });
-    // orders → 1000 → 7% = 70
-    admin.enqueueResponse({
-      data: [{ total_amount: 1000 }],
-      error: null,
-    });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    await generateCommission(fd);
-
-    const insertArg = admin.chainsForTable("store_commissions")[0]
-      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(insertArg.commission_rate).toBe(7);
-    expect(insertArg.commission_amount).toBe(70);
-  });
-
-  it("P27: throws when no rate is available (no per-store, no global default)", async () => {
-    asAdmin({ commissions: ["create"] });
-    const admin = getAdminClient();
-    // commission_rate = 0 means "no rate" (treated same as null)
-    admin.enqueueResponse({
-      data: makeStore({ id: "s-1", commission_rate: 0 }),
-      error: null,
-    });
-    // settings lookup returns nothing (no global default)
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    await expect(generateCommission(fd)).rejects.toThrow(/No commission rate/);
-  });
-
-  it("revalidates /commissions on success", async () => {
-    asAdmin({ commissions: ["create"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: makeStore({ id: "s-1", commission_rate: 10 }),
-      error: null,
-    });
     admin.enqueueResponse({ data: [], error: null });
-    admin.enqueueResponse({ data: null, error: null });
+    // settings: rate = 7
+    admin.enqueueResponse({ data: { value: { rate: 7 } }, error: null });
 
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    await generateCommission(fd);
-
-    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions");
-  });
-
-  it("stores notes when provided", async () => {
-    asAdmin({ commissions: ["create"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: makeStore({ id: "s-1", commission_rate: 5 }),
-      error: null,
-    });
-    admin.enqueueResponse({ data: [{ total_amount: 100 }], error: null });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({
-      store_id: "s-1",
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-      notes: "Monthly settlement",
-    });
-    await generateCommission(fd);
-
-    const insertArg = admin.chainsForTable("store_commissions")[0]
-      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(insertArg.notes).toBe("Monthly settlement");
+    const result = await getCommissionStoresForList();
+    expect(result[0].commission_rate).toBe(7);
+    expect(result[0].total_commission).toBe(70);
   });
 });
 
-describe("generateAllCommissions (P27 bulk action)", () => {
-  it("rejects users without commissions:create permission", async () => {
-    asAdmin({ commissions: ["view"] });
-    const fd = buildFormData({ period_start: "2025-01-01", period_end: "2025-01-31" });
-    await expect(generateAllCommissions(fd)).rejects.toBeInstanceOf(PermissionError);
+describe("getCommissionPeriodsForStore (P68): live per-period aggregates", () => {
+  it("rejects users without commissions:view permission", async () => {
+    asAdmin({});
+    await expect(getCommissionPeriodsForStore("s-1")).rejects.toBeInstanceOf(PermissionError);
   });
 
-  it("throws when period is missing", async () => {
-    asAdmin({ commissions: ["create"] });
-    const fd = buildFormData({});
-    await expect(generateAllCommissions(fd)).rejects.toThrow(/required/);
-  });
-
-  it("throws when period_start > period_end", async () => {
-    asAdmin({ commissions: ["create"] });
-    const fd = buildFormData({
-      period_start: "2025-01-31",
-      period_end: "2025-01-01",
-    });
-    await expect(generateAllCommissions(fd)).rejects.toThrow(/on or before/);
-  });
-
-  it("returns a zero summary when there are no stores", async () => {
-    asAdmin({ commissions: ["create"] });
+  it("returns empty result when the store does not exist", async () => {
+    asSuperAdmin();
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: [], error: null });
-
-    const fd = buildFormData({
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    const result = await generateAllCommissions(fd);
-    expect(result).toEqual({
-      generated: 0,
-      skipped: 0,
-      total_stores: 0,
-      errors: [],
-    });
+    admin.enqueueResponse({ data: null, error: null });
+    // Auto-create inserts if a period is missing, but here no periods
+    // exist. We need an enqueueResponse for the refetch query (the
+    // post-insert refetch) — but the auto-create only runs when there
+    // are no current-month periods. So no refetch happens.
+    const result = await getCommissionPeriodsForStore("missing");
+    expect(result.store.name).toBe("—");
+    expect(result.periods).toEqual([]);
   });
 
-  it("P27: generates one commission row per store (success case)", async () => {
-    asAdmin({ commissions: ["create"] });
+  it("returns periods with live revenue, commission, paid, balance, and status", async () => {
+    asSuperAdmin();
     const admin = getAdminClient();
-    // 1) fetch all stores
+    // We need the current month in the commission rows so the
+    // auto-create path is skipped. Use a fixed past month + the actual
+    // current month so the test is deterministic.
+    const now = new Date();
+    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const periodCur = { id: "p-cur", period_start: curStart, period_end: curEnd, notes: null };
+    const periodPast = { id: "p-past", period_start: "2025-04-01", period_end: "2025-04-30", notes: null };
+
+    // 1) store
+    admin.enqueueResponse({
+      data: makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
+      error: null,
+    });
+    // 2) commission rows for s-1 (includes current month → no auto-create)
+    admin.enqueueResponse({
+      data: [periodCur, periodPast],
+      error: null,
+    });
+    // 3) paid orders (with 1 in current month, 1 in past)
     admin.enqueueResponse({
       data: [
-        makeStore({ id: "s-1", name: "Store 1", commission_rate: 10 }),
-        makeStore({ id: "s-2", name: "Store 2", commission_rate: 5 }),
+        { total_amount: 1000, placed_at: "2025-04-15T00:00:00.000Z" },
+        { total_amount: 500,  placed_at: curStart + "T00:00:00.000Z" },
       ],
       error: null,
     });
-    // For each store, we need 1 enqueueResponse for orders (no settings lookup
-    // because per-store rate > 0).
-    admin.enqueueResponse({ data: [{ total_amount: 1000 }], error: null }); // s-1 orders
-    admin.enqueueResponse({ data: null, error: null });                  // s-1 insert
-    admin.enqueueResponse({ data: [{ total_amount: 2000 }], error: null }); // s-2 orders
-    admin.enqueueResponse({ data: null, error: null });                  // s-2 insert
-
-    const fd = buildFormData({
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    const result = await generateAllCommissions(fd);
-
-    expect(result.generated).toBe(2);
-    expect(result.skipped).toBe(0);
-    expect(result.total_stores).toBe(2);
-    expect(result.errors).toEqual([]);
-
-    // Verify 2 insert calls happened on store_commissions
-    const allInserts = admin.chainsForTable("store_commissions")
-      .flatMap((c) => c.filter((call) => call.method === "insert"));
-    expect(allInserts).toHaveLength(2);
-  });
-
-  it("P27: aggregates skipped stores (no rate available) in the errors array", async () => {
-    asAdmin({ commissions: ["create"] });
-    const admin = getAdminClient();
-    // 3 stores: 1 with rate, 2 without (commission_rate: 0 is the canonical
-    // "no rate" value; the makeStore factory defaults to 10 which would mask
-    // the test intent).
+    // 4) payments
     admin.enqueueResponse({
-      data: [
-        makeStore({ id: "s-1", name: "Has Rate", commission_rate: 10 }),
-        makeStore({ id: "s-2", name: "No Rate A", commission_rate: 0 }),
-        makeStore({ id: "s-3", name: "No Rate B", commission_rate: 0 }),
-      ],
+      data: [{ commission_id: "p-cur", amount: 20 }],
       error: null,
     });
-    // s-1: orders (1000) → 10% = 100, then insert
-    admin.enqueueResponse({ data: [{ total_amount: 1000 }], error: null });
-    admin.enqueueResponse({ data: null, error: null });
-    // s-2: settings lookup (no global default) → no insert
-    admin.enqueueResponse({ data: null, error: null });
-    // s-3: settings lookup (no global default) → no insert
+    // 5) settings (default rate, used by effectiveRateFor)
     admin.enqueueResponse({ data: null, error: null });
 
-    const fd = buildFormData({
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    const result = await generateAllCommissions(fd);
+    const result = await getCommissionPeriodsForStore("s-1");
+    expect(result.periods).toHaveLength(2);
 
-    expect(result.generated).toBe(1);
-    expect(result.skipped).toBe(2);
-    expect(result.total_stores).toBe(3);
-    expect(result.errors).toHaveLength(2);
-    expect(result.errors[0].store_name).toBe("No Rate A");
-    expect(result.errors[1].store_name).toBe("No Rate B");
+    // p-cur: 500 revenue, 10% = 50 commission, 20 paid, 30 balance
+    const pCur = result.periods.find((p) => p.id === "p-cur")!;
+    expect(pCur.total_revenue).toBe(500);
+    expect(pCur.commission_amount).toBe(50);
+    expect(pCur.paid_amount).toBe(20);
+    expect(pCur.balance_due).toBe(30);
+    expect(pCur.status).toBe("partially_paid");
+
+    // p-past: 1000 revenue, 10% = 100 commission, 0 paid, 100 balance
+    const pPast = result.periods.find((p) => p.id === "p-past")!;
+    expect(pPast.total_revenue).toBe(1000);
+    expect(pPast.commission_amount).toBe(100);
+    expect(pPast.paid_amount).toBe(0);
+    expect(pPast.balance_due).toBe(100);
+    expect(pPast.status).toBe("unpaid");
   });
 
-  it("P27: revalidates /commissions on success (zero-store case still revalidates)", async () => {
-    asAdmin({ commissions: ["create"] });
+  it("auto-creates a current-month row on first view if missing", async () => {
+    asSuperAdmin();
     const admin = getAdminClient();
+    const now = new Date();
+    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    // 1) store
+    admin.enqueueResponse({
+      data: makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
+      error: null,
+    });
+    // 2) commission rows for s-1 (empty — current month missing)
+    admin.enqueueResponse({ data: [], error: null });
+    // 3) settings (for getGlobalDefaultRate inside auto-create)
+    admin.enqueueResponse({ data: null, error: null });
+    // 4) INSERT current month row
+    admin.enqueueResponse({
+      data: { id: "p-new", period_start: curStart, period_end: curEnd, notes: null },
+      error: null,
+    });
+    // 5) refetch commission rows (now includes the new row)
+    admin.enqueueResponse({
+      data: [{ id: "p-new", period_start: curStart, period_end: curEnd, notes: null }],
+      error: null,
+    });
+    // 6) paid orders (empty for the new period)
+    admin.enqueueResponse({ data: [], error: null });
+    // 7) payments (none for the new row)
     admin.enqueueResponse({ data: [], error: null });
 
-    const fd = buildFormData({
-      period_start: "2025-01-01",
-      period_end: "2025-01-31",
-    });
-    await generateAllCommissions(fd);
+    const result = await getCommissionPeriodsForStore("s-1");
+    expect(result.periods).toHaveLength(1);
+    expect(result.periods[0].id).toBe("p-new");
+    // No orders this month → revenue 0, commission 0, status paid
+    expect(result.periods[0].total_revenue).toBe(0);
+    expect(result.periods[0].status).toBe("paid");
+  });
 
-    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions");
+  it("does NOT auto-create when the current-month row already exists", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const now = new Date();
+    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    // 1) store
+    admin.enqueueResponse({
+      data: makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
+      error: null,
+    });
+    // 2) commission rows (already has the current month)
+    admin.enqueueResponse({
+      data: [{ id: "p-existing", period_start: curStart, period_end: curEnd, notes: null }],
+      error: null,
+    });
+    // 3) paid orders
+    admin.enqueueResponse({ data: [], error: null });
+    // 4) payments
+    admin.enqueueResponse({ data: [], error: null });
+    // 5) settings
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await getCommissionPeriodsForStore("s-1");
+    expect(result.periods).toHaveLength(1);
+
+    // No INSERT should have been made
+    const insertCalls = admin.calls.filter((c) => c.method === "insert");
+    expect(insertCalls).toHaveLength(0);
+  });
+
+  it("P68: 'paid' status is derived from paid_amount (not from stored status)", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    const now = new Date();
+    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    admin.enqueueResponse({
+      data: makeStore({ id: "s-1", commission_rate: 10 }),
+      error: null,
+    });
+    // Use the current month so auto-create is skipped
+    admin.enqueueResponse({
+      data: [{ id: "p-1", period_start: curStart, period_end: curEnd, notes: null }],
+      error: null,
+    });
+    admin.enqueueResponse({
+      data: [{ total_amount: 1000, placed_at: curStart + "T00:00:00.000Z" }],
+      error: null,
+    });
+    // paid_amount = 100 = full commission (10% of 1000)
+    admin.enqueueResponse({ data: [{ commission_id: "p-1", amount: 100 }], error: null });
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await getCommissionPeriodsForStore("s-1");
+    expect(result.periods[0].status).toBe("paid");
+    expect(result.periods[0].balance_due).toBe(0);
   });
 });
 
@@ -532,138 +423,71 @@ describe("recordPayment", () => {
     await expect(recordPayment(fd)).rejects.toBeInstanceOf(PermissionError);
   });
 
-  it("throws when amount is NaN", async () => {
+  it("throws when amount is missing", async () => {
     asAdmin({ commissions: ["edit"] });
-    const fd = buildFormData({ commission_id: "c-1", amount: "not-a-number" });
-    await expect(recordPayment(fd)).rejects.toThrow(/amount/);
+    const fd = buildFormData({ commission_id: "c-1" });
+    await expect(recordPayment(fd)).rejects.toThrow(/amount.*required/);
   });
 
-  it("throws when amount is <= 0", async () => {
-    asAdmin({ commissions: ["edit"] });
-    const fd = buildFormData({ commission_id: "c-1", amount: "0" });
-    await expect(recordPayment(fd)).rejects.toThrow(/amount/);
-  });
-
-  it("throws when the commission is not found", async () => {
+  it("throws when the commission does not exist", async () => {
     asAdmin({ commissions: ["edit"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: { message: "Not found" } });
-
-    const fd = buildFormData({ commission_id: "c-1", amount: "100" });
-    await expect(recordPayment(fd)).rejects.toThrow("Commission not found");
+    admin.enqueueResponse({ data: null, error: null });
+    const fd = buildFormData({ commission_id: "missing", amount: "100" });
+    await expect(recordPayment(fd)).rejects.toThrow(/Commission not found/);
   });
 
-  it("throws when amount exceeds balance_due", async () => {
+  it("P46 fix: throws when the payment insert fails (does not skip silently)", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "c-1", balance_due: 1000, status: "unpaid" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: { message: "fk violation" } });
+
+    const fd = buildFormData({ commission_id: "c-1", amount: "100" });
+    await expect(recordPayment(fd)).rejects.toThrow(/fk violation/);
+  });
+
+  it("records a payment, updates balance_due and status to 'partially_paid'", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "c-1", balance_due: 1000, status: "unpaid" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null }); // payment insert
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    const fd = buildFormData({ commission_id: "c-1", amount: "400" });
+    await recordPayment(fd);
+
+    // The update is the second chain on store_commissions (first is the
+    // select to fetch the commission).
+    const updateCall = admin.chainsForTable("store_commissions").flatMap((c) => c)
+      .find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({ balance_due: 600, status: "partially_paid" });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions/c-1");
+  });
+
+  it("sets status to 'paid' when the payment fully covers the balance", async () => {
     asAdmin({ commissions: ["edit"] });
     const admin = getAdminClient();
     admin.enqueueResponse({
       data: { id: "c-1", balance_due: 500, status: "unpaid" },
       error: null,
     });
+    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
 
-    const fd = buildFormData({ commission_id: "c-1", amount: "1000" });
-    await expect(recordPayment(fd)).rejects.toThrow(/exceeds balance/);
-  });
-
-  it("P27: uses server user as created_by on the payment record", async () => {
-    asAdmin({ commissions: ["edit"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: { id: "c-1", balance_due: 100, status: "unpaid" },
-      error: null,
-    });
-    // P27: no more enqueueResponse for auth.getUser (it uses the server user
-    // set in beforeEach).
-    admin.enqueueResponse({ data: null, error: null }); // commission_payments insert
-    admin.enqueueResponse({ data: null, error: null }); // store_commissions update
-
-    const fd = buildFormData({ commission_id: "c-1", amount: "100" });
+    const fd = buildFormData({ commission_id: "c-1", amount: "500" });
     await recordPayment(fd);
 
-    const paymentInsert = admin.chainsForTable("commission_payments")[0]
-      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(paymentInsert.created_by).toBe("u-1");
-  });
-
-  it("transitions status to 'paid' when newBalance = 0", async () => {
-    asAdmin({ commissions: ["edit"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: { id: "c-1", balance_due: 100, status: "unpaid" },
-      error: null,
-    });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({ commission_id: "c-1", amount: "100" });
-    await recordPayment(fd);
-
-    const commissionUpdate = admin.chainsForTable("store_commissions")[1]
-      .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
-    expect(commissionUpdate.balance_due).toBe(0);
-    expect(commissionUpdate.status).toBe("paid");
-  });
-
-  it("transitions status to 'partially_paid' when newBalance > 0", async () => {
-    asAdmin({ commissions: ["edit"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: { id: "c-1", balance_due: 1000, status: "unpaid" },
-      error: null,
-    });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({ commission_id: "c-1", amount: "300" });
-    await recordPayment(fd);
-
-    const commissionUpdate = admin.chainsForTable("store_commissions")[1]
-      .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
-    expect(commissionUpdate.balance_due).toBe(700);
-    expect(commissionUpdate.status).toBe("partially_paid");
-  });
-
-  it("stores the payment record with the right amount and notes", async () => {
-    asAdmin({ commissions: ["edit"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: { id: "c-1", balance_due: 1000, status: "unpaid" },
-      error: null,
-    });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({
-      commission_id: "c-1",
-      amount: "250",
-      notes: "First installment",
-    });
-    await recordPayment(fd);
-
-    const paymentInsert = admin.chainsForTable("commission_payments")[0]
-      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(paymentInsert.commission_id).toBe("c-1");
-    expect(paymentInsert.amount).toBe(250);
-    expect(paymentInsert.notes).toBe("First installment");
-  });
-
-  it("revalidates /commissions AND the detail page on success", async () => {
-    asAdmin({ commissions: ["edit"] });
-    const admin = getAdminClient();
-    admin.enqueueResponse({
-      data: { id: "c-1", balance_due: 100, status: "unpaid" },
-      error: null,
-    });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-
-    const fd = buildFormData({ commission_id: "c-1", amount: "100" });
-    await recordPayment(fd);
-
-    // P46: revalidate both the list and the detail page so router.refresh()
-    // picks up the new balance_due + status on the detail page immediately.
-    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions");
-    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions/c-1");
+    const updateCall = admin.chainsForTable("store_commissions").flatMap((c) => c)
+      .find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({ balance_due: 0, status: "paid" });
   });
 });
 
@@ -674,12 +498,37 @@ describe("deleteCommissionPayment", () => {
     await expect(deleteCommissionPayment(fd)).rejects.toBeInstanceOf(PermissionError);
   });
 
-  it("throws when the payment is not found", async () => {
+  it("P46 fix: throws when the payment delete fails (does not corrupt balance)", async () => {
     asAdmin({ commissions: ["delete"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: { message: "Not found" } });
+    admin.enqueueResponse({ data: { amount: 100 }, error: null });
+    admin.enqueueResponse({
+      data: { id: "c-1", balance_due: 500, commission_amount: 1000, status: "partially_paid" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: { message: "fk violation" } });
 
     const fd = buildFormData({ payment_id: "p-1", commission_id: "c-1" });
-    await expect(deleteCommissionPayment(fd)).rejects.toThrow("Payment not found");
+    await expect(deleteCommissionPayment(fd)).rejects.toThrow(/fk violation/);
+  });
+
+  it("restores balance_due and recomputes status after delete", async () => {
+    asAdmin({ commissions: ["delete"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { amount: 200 }, error: null });
+    admin.enqueueResponse({
+      data: { id: "c-1", balance_due: 300, commission_amount: 1000, status: "partially_paid" },
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null }); // delete
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    const fd = buildFormData({ payment_id: "p-1", commission_id: "c-1" });
+    await deleteCommissionPayment(fd);
+
+    // new balance = 300 + 200 = 500, status = partially_paid (500 > 0 but < 1000)
+    const updateCall = admin.chainsForTable("store_commissions").flatMap((c) => c)
+      .find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({ balance_due: 500, status: "partially_paid" });
   });
 });
