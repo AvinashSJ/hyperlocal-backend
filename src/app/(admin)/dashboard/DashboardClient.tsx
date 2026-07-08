@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
+import { Sensitive } from "@/components/SensitiveAmount";
 
 const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -40,6 +41,21 @@ const STATUS_BADGES: Record<string, string> = {
 };
 
 export default function DashboardClient({ stats }: { stats: Stats }) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("dash_sensitive_visible");
+    if (stored !== null) setVisible(stored === "true");
+  }, []);
+
+  const toggle = () => {
+    setVisible((v) => {
+      const next = !v;
+      localStorage.setItem("dash_sensitive_visible", String(next));
+      return next;
+    });
+  };
+
   const chartOptions = useMemo(() => ({
     chart: { type: "area" as const, toolbar: { show: false } },
     dataLabels: { enabled: false },
@@ -75,15 +91,24 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4 className="fw-bold mb-0">Dashboard</h4>
+        <button
+          className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+          onClick={toggle}
+          title={visible ? "Hide revenue amounts" : "Show revenue amounts"}
+          data-testid="dash-sensitive-toggle"
+        >
+          <Icon icon={visible ? "mdi:eye-outline" : "mdi:eye-off-outline"} width={16} />
+          {visible ? "Hide" : "Show"}
+        </button>
       </div>
 
       <div className="row g-3 mb-4">
         <StatCard title="Products" value={stats.productCount} icon="ri:store-2-line" color="#0d6efd" href="/products" />
         <StatCard title="Orders" value={stats.orderCount} icon="ri:shopping-cart-line" color="#198754" href="/orders" />
         <StatCard title="Customers" value={stats.customerCount} icon="ri:user-3-line" color="#6f42c1" href="/customers" />
-        <StatCard title="Total Revenue" value={`₹${stats.totalRevenue.toLocaleString()}`} icon="ri:money-rupee-circle-line" color="#fd7e14" href="/invoices" />
+        <StatCard title="Total Revenue" value={<Sensitive visible={visible}>₹{stats.totalRevenue.toLocaleString()}</Sensitive>} icon="ri:money-rupee-circle-line" color="#fd7e14" href="/invoices" />
         <StatCard title="Today's Orders" value={stats.todayOrders} icon="ri:calendar-check-line" color="#0dcaf0" href="/orders" />
-        <StatCard title="Today's Revenue" value={`₹${stats.todayRevenue.toLocaleString()}`} icon="ri:coin-line" color="#d63384" href="/invoices" />
+        <StatCard title="Today's Revenue" value={<Sensitive visible={visible}>₹{stats.todayRevenue.toLocaleString()}</Sensitive>} icon="ri:coin-line" color="#d63384" href="/invoices" />
       </div>
 
       <div className="row g-3">
@@ -124,7 +149,7 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
                           <td>{o.profiles?.[0]?.full_name ?? "—"}</td>
                           <td><span className={`badge ${STATUS_BADGES[o.status] ?? "bg-secondary"}`}>{o.status}</span></td>
                           <td><span className={`badge ${o.payment_status === "paid" ? "bg-success" : "bg-warning text-dark"}`}>{o.payment_status}</span></td>
-                          <td className="text-end fw-medium">₹{Number(o.total_amount).toLocaleString()}</td>
+                          <td className="text-end fw-medium"><Sensitive visible={visible}>₹{Number(o.total_amount).toLocaleString()}</Sensitive></td>
                         </tr>
                       ))}
                     </tbody>
@@ -180,7 +205,7 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
   );
 }
 
-function StatCard({ title, value, icon, color, href }: { title: string; value: string | number; icon: string; color: string; href: string }) {
+function StatCard({ title, value, icon, color, href }: { title: string; value: string | number | ReactNode; icon: string; color: string; href: string }) {
   return (
     <div className="col-sm-6 col-xl-4">
       <Link href={href} className="text-decoration-none">
