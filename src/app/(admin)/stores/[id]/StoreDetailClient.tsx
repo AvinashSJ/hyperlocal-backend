@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { StoreRow } from "../actions";
@@ -28,6 +29,17 @@ export default function StoreDetailClient({
   } | null;
 }) {
   const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+  const [expanded, setExpanded] = useState<Set<string>>(
+    new Set(["orders", "customers", "invoices", "products"]),
+  );
+  const toggleSection = (id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div data-testid="store-detail-root">
@@ -188,22 +200,38 @@ export default function StoreDetailClient({
         </div>
       </div>
 
-      {/* 4 sections: orders, customers, invoices, products */}
-      <div className="row g-3">
+      {/* 4 collapsible sections: orders, customers, invoices, products */}
+      <div>
         {/* Recent orders */}
-        <div className="col-12 col-lg-6" data-testid="store-detail-orders-section">
-          <div className="card h-100">
-            <div className="card-header d-flex justify-content-between align-items-center">
+        <div className="mb-3" data-testid="store-detail-orders-section">
+          <div className="card">
+            <button
+              type="button"
+              className="card-header d-flex align-items-center justify-content-between w-100 border-0 bg-transparent text-start"
+              onClick={() => toggleSection("orders")}
+              style={{ cursor: "pointer" }}
+            >
               <strong>
                 <Icon icon="ri:shopping-cart-2-line" className="me-1" />
                 Recent Orders
               </strong>
-              {relations.orderCount > relations.orders.length && (
-                <span className="text-muted small">
-                  showing {relations.orders.length} of {relations.orderCount}
-                </span>
-              )}
-            </div>
+              <div className="d-flex align-items-center gap-2">
+                {relations.orderCount > relations.orders.length && (
+                  <span className="text-muted small">
+                    showing {relations.orders.length} of {relations.orderCount}
+                  </span>
+                )}
+                <Icon
+                  icon="ri:arrow-down-s-line"
+                  width={20}
+                  style={{
+                    transform: expanded.has("orders") ? "rotate(180deg)" : "",
+                    transition: "transform 0.2s",
+                  }}
+                />
+              </div>
+            </button>
+            {expanded.has("orders") && (
             <div className="table-responsive" style={{ maxHeight: 320 }}>
               {relations.orders.length === 0 ? (
                 <div className="text-muted small text-center py-3">No orders</div>
@@ -238,23 +266,40 @@ export default function StoreDetailClient({
                 </table>
               )}
             </div>
+            )}
           </div>
         </div>
 
         {/* Top customers */}
-        <div className="col-12 col-lg-6" data-testid="store-detail-customers-section">
-          <div className="card h-100">
-            <div className="card-header d-flex justify-content-between align-items-center">
+        <div className="mb-3" data-testid="store-detail-customers-section">
+          <div className="card">
+            <button
+              type="button"
+              className="card-header d-flex align-items-center justify-content-between w-100 border-0 bg-transparent text-start"
+              onClick={() => toggleSection("customers")}
+              style={{ cursor: "pointer" }}
+            >
               <strong>
                 <Icon icon="ri:user-line" className="me-1" />
                 Top Customers
               </strong>
-              {relations.customerCount > relations.customers.length && (
-                <span className="text-muted small">
-                  showing {relations.customers.length} of {relations.customerCount}
-                </span>
-              )}
-            </div>
+              <div className="d-flex align-items-center gap-2">
+                {relations.customerCount > relations.customers.length && (
+                  <span className="text-muted small">
+                    showing {relations.customers.length} of {relations.customerCount}
+                  </span>
+                )}
+                <Icon
+                  icon="ri:arrow-down-s-line"
+                  width={20}
+                  style={{
+                    transform: expanded.has("customers") ? "rotate(180deg)" : "",
+                    transition: "transform 0.2s",
+                  }}
+                />
+              </div>
+            </button>
+            {expanded.has("customers") && (
             <div className="table-responsive" style={{ maxHeight: 320 }}>
               {relations.customers.length === 0 ? (
                 <div className="text-muted small text-center py-3">No customers</div>
@@ -283,23 +328,40 @@ export default function StoreDetailClient({
                 </table>
               )}
             </div>
+            )}
           </div>
         </div>
 
         {/* Recent invoices */}
-        <div className="col-12 col-lg-6" data-testid="store-detail-invoices-section">
-          <div className="card h-100">
-            <div className="card-header d-flex justify-content-between align-items-center">
+        <div className="mb-3" data-testid="store-detail-invoices-section">
+          <div className="card">
+            <button
+              type="button"
+              className="card-header d-flex align-items-center justify-content-between w-100 border-0 bg-transparent text-start"
+              onClick={() => toggleSection("invoices")}
+              style={{ cursor: "pointer" }}
+            >
               <strong>
                 <Icon icon="ri:file-text-line" className="me-1" />
                 Recent Invoices
               </strong>
-              {relations.invoiceCount > relations.invoices.length && (
-                <span className="text-muted small">
-                  showing {relations.invoices.length} of {relations.invoiceCount}
-                </span>
-              )}
-            </div>
+              <div className="d-flex align-items-center gap-2">
+                {relations.invoiceCount > relations.invoices.length && (
+                  <span className="text-muted small">
+                    showing {relations.invoices.length} of {relations.invoiceCount}
+                  </span>
+                )}
+                <Icon
+                  icon="ri:arrow-down-s-line"
+                  width={20}
+                  style={{
+                    transform: expanded.has("invoices") ? "rotate(180deg)" : "",
+                    transition: "transform 0.2s",
+                  }}
+                />
+              </div>
+            </button>
+            {expanded.has("invoices") && (
             <div className="table-responsive" style={{ maxHeight: 320 }}>
               {relations.invoices.length === 0 ? (
                 <div className="text-muted small text-center py-3">No invoices</div>
@@ -342,23 +404,40 @@ export default function StoreDetailClient({
                 </table>
               )}
             </div>
+            )}
           </div>
         </div>
 
         {/* Products */}
-        <div className="col-12 col-lg-6" data-testid="store-detail-products-section">
-          <div className="card h-100">
-            <div className="card-header d-flex justify-content-between align-items-center">
+        <div className="mb-3" data-testid="store-detail-products-section">
+          <div className="card">
+            <button
+              type="button"
+              className="card-header d-flex align-items-center justify-content-between w-100 border-0 bg-transparent text-start"
+              onClick={() => toggleSection("products")}
+              style={{ cursor: "pointer" }}
+            >
               <strong>
                 <Icon icon="ri:box-3-line" className="me-1" />
                 Products
               </strong>
-              {relations.productCount > relations.products.length && (
-                <span className="text-muted small">
-                  showing {relations.products.length} of {relations.productCount}
-                </span>
-              )}
-            </div>
+              <div className="d-flex align-items-center gap-2">
+                {relations.productCount > relations.products.length && (
+                  <span className="text-muted small">
+                    showing {relations.products.length} of {relations.productCount}
+                  </span>
+                )}
+                <Icon
+                  icon="ri:arrow-down-s-line"
+                  width={20}
+                  style={{
+                    transform: expanded.has("products") ? "rotate(180deg)" : "",
+                    transition: "transform 0.2s",
+                  }}
+                />
+              </div>
+            </button>
+            {expanded.has("products") && (
             <div className="table-responsive" style={{ maxHeight: 320 }}>
               {relations.products.length === 0 ? (
                 <div className="text-muted small text-center py-3">No products</div>
@@ -401,6 +480,7 @@ export default function StoreDetailClient({
                 </table>
               )}
             </div>
+            )}
           </div>
         </div>
       </div>
