@@ -86,6 +86,7 @@ type Product = {
   max_order_qty: number | null;
   stock_quantity: number;
   low_stock_threshold: number | null;
+  purchase_rate: number | null;
   status: string;
   store_id: string | null;
   categories?: { name: string } | null;
@@ -144,6 +145,7 @@ describe("ProductForm — Pricing & Inventory state (P17)", () => {
       max_order_qty: null,
       stock_quantity: 10,
       low_stock_threshold: 5,
+      purchase_rate: null,
       status: "active",
       store_id: null,
       variants: [],
@@ -191,6 +193,7 @@ describe("ProductForm — Pricing & Inventory state (P17)", () => {
       max_order_qty: null,
       stock_quantity: 10,
       low_stock_threshold: 5,
+      purchase_rate: null,
       status: "active",
       store_id: null,
       variants: sampleVariants, // 80g: mrp=100/price=80, 90g: mrp=120/price=90
@@ -243,6 +246,7 @@ describe("ProductForm — Pricing & Inventory state (P17)", () => {
       max_order_qty: null,
       stock_quantity: 10,
       low_stock_threshold: 5,
+      purchase_rate: null,
       status: "active",
       store_id: null,
       variants: sampleVariants,

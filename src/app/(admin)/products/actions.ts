@@ -38,6 +38,8 @@ export async function createProduct(formData: FormData) {
   const hsnCode = String(formData.get("hsn_code") ?? "");
   const stockQty = Number(formData.get("stock_quantity") ?? 0);
   const lowStockThreshold = Number(formData.get("low_stock_threshold") ?? 10);
+  const purchaseRateRaw = formData.get("purchase_rate");
+  const purchaseRate = purchaseRateRaw ? Number(purchaseRateRaw) : null;
   const status = String(formData.get("status") ?? "active") as (typeof VALID_STATUS)[number];
   const sku = String(formData.get("sku") ?? "");
   const variantsRaw = String(formData.get("variants") ?? "[]");
@@ -86,6 +88,7 @@ export async function createProduct(formData: FormData) {
       hsn_code: hsnCode || null,
       stock_quantity: stockQty,
       low_stock_threshold: lowStockThreshold || null,
+      purchase_rate: purchaseRate,
       status,
       sku: sku || null,
       store_id: userStoreId ?? null,
@@ -161,6 +164,8 @@ export async function updateProduct(id: string, formData: FormData) {
   const hsnCode = String(formData.get("hsn_code") ?? "");
   const stockQty = Number(formData.get("stock_quantity") ?? 0);
   const lowStockThreshold = Number(formData.get("low_stock_threshold") ?? 10);
+  const purchaseRateRaw = formData.get("purchase_rate");
+  const purchaseRate = purchaseRateRaw ? Number(purchaseRateRaw) : null;
   const status = String(formData.get("status") ?? "active") as (typeof VALID_STATUS)[number];
   const sku = String(formData.get("sku") ?? "");
   const variantsRaw = String(formData.get("variants") ?? "[]");
@@ -195,6 +200,7 @@ export async function updateProduct(id: string, formData: FormData) {
     hsn_code: hsnCode || null,
     stock_quantity: stockQty,
     low_stock_threshold: lowStockThreshold || null,
+    purchase_rate: purchaseRate,
     status,
     sku: sku || null,
   };

@@ -62,6 +62,7 @@ export type Product = {
   max_order_qty: number | null;
   stock_quantity: number;
   low_stock_threshold: number | null;
+  purchase_rate: number | null;
   status: "active" | "inactive" | "out_of_stock";
   store_id: string | null;
   created_at: string;

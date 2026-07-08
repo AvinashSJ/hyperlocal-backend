@@ -28,6 +28,7 @@ type Product = {
   max_order_qty: number | null;
   stock_quantity: number;
   low_stock_threshold: number | null;
+  purchase_rate: number | null;
   status: string;
   store_id: string | null;
   cascade_locked?: boolean; // P33: Super-Admin-only cascade flag
@@ -320,7 +321,7 @@ export default function ProductForm({
                 )}
 
                 <div className="row g-3 mt-2">
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <label className="form-label">Stock Quantity</label>
                     <input
                       name="stock_quantity"
@@ -332,7 +333,7 @@ export default function ProductForm({
                       onChange={(e) => setStockQty(Number(e.target.value) || 0)}
                     />
                   </div>
-                  <div className="col-md-4">
+                  <div className="col-md-3">
                     <label className="form-label">Low Stock Threshold</label>
                     <input
                       name="low_stock_threshold"
@@ -342,7 +343,19 @@ export default function ProductForm({
                       defaultValue={product?.low_stock_threshold ?? 10}
                     />
                   </div>
-                  <div className="col-md-4">
+                  <div className="col-md-3">
+                    <label className="form-label">Purchase Rate (₹)</label>
+                    <input
+                      name="purchase_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="form-control"
+                      defaultValue={product?.purchase_rate ?? ""}
+                      placeholder="Cost per unit"
+                    />
+                  </div>
+                  <div className="col-md-3">
                     <label className="form-label">Unit of Measurement</label>
                     <select
                       name="unit_of_measurement"
