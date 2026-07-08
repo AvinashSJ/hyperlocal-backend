@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
+import { canAccess } from "@/lib/permissions";
 import { getStoreScope, UnassignedStoreError, assertStoreScope } from "@/lib/store-scope";
 import { getOrders } from "./actions";
 import OrdersClient from "./OrdersClient";
@@ -22,11 +23,12 @@ export default async function OrdersPage() {
   }
   const orders = await getOrders(scope.storeId);
   const actionPerms = getActionPermissions(permissions, "orders");
+  const canCreateInvoice = canAccess(permissions, "invoices", "create");
 
   return (
     <div>
       <h4 className="fw-bold mb-4">Orders</h4>
-      <OrdersClient orders={orders} actionPerms={actionPerms} />
+      <OrdersClient orders={orders} actionPerms={{ ...actionPerms, canCreateInvoice }} />
     </div>
   );
 }

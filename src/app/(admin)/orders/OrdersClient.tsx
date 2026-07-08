@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
-import { deleteOrder, type OrderListItem, type PaymentStatus } from "./actions";
+import { deleteOrder, generateInvoiceForOrder, bulkGenerateInvoices, type OrderListItem, type PaymentStatus } from "./actions";
 import ClientDate from "@/components/ClientDate";
 
 const STATUS_BADGES: Record<string, string> = {
@@ -27,6 +27,7 @@ const PAYMENT_BADGES: Record<string, string> = {
 
 type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
+  canCreateInvoice?: boolean;
 };
 
 export default function OrdersClient({ orders, actionPerms }: { orders: OrderListItem[]; actionPerms?: ActionPermissions }) {
@@ -38,6 +39,8 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
   // stores".
   const [storeFilter, setStoreFilter] = useState("");
   const [deleting, setDeleting] = useState<{ id: string; orderNumber: string } | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
 
   // P43: distinct list of stores present in the data, sorted by name.
   // Used to populate the store filter dropdown.
@@ -116,6 +119,36 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
                 </option>
               ))}
             </select>
+          )}
+          {actionPerms?.canCreateInvoice && (
+            <button
+              className="btn btn-sm btn-outline-warning"
+              disabled={bulkGenerating}
+              onClick={async () => {
+                setBulkGenerating(true);
+                const result = await runServerAction(bulkGenerateInvoices);
+                setBulkGenerating(false);
+                if (result.ok) {
+                  const { generated, failed } = result.value;
+                  if (generated > 0) {
+                    toast.success(`Generated ${generated} invoice${generated !== 1 ? "s" : ""}`);
+                  } else {
+                    toast.info("No pending orders to generate");
+                  }
+                  if (failed.length > 0) {
+                    toast.error(`${failed.length} failed`);
+                  }
+                } else {
+                  toast.error(result.error.message);
+                }
+              }}
+            >
+              {bulkGenerating ? (
+                <><Icon icon="ri:loader-4-line" className="spinner me-1" /> Generating...</>
+              ) : (
+                <><Icon icon="ri:file-list-3-line" className="me-1" /> Bulk Generate Invoices</>
+              )}
+            </button>
           )}
         </div>
       </div>
@@ -203,6 +236,27 @@ export default function OrdersClient({ orders, actionPerms }: { orders: OrderLis
                       >
                         <Icon icon="ri:download-2-line" width={16} />
                       </a>
+                    )}
+                    {/* Per-row Generate Invoice button. Shown only when
+                        the order is delivered but has no invoice_id
+                        (auto-generation may have failed). */}
+                    {actionPerms?.canCreateInvoice && order.status === "delivered" && !order.invoice_id && (
+                      <button
+                        className="btn btn-sm btn-outline-warning"
+                        title="Generate invoice"
+                        onClick={async () => {
+                          const result = await runServerAction(generateInvoiceForOrder, order.id);
+                          if (result.ok) {
+                            toast.success("Invoice generated");
+                            router.refresh();
+                          } else {
+                            toast.error(result.error.message);
+                          }
+                        }}
+                        data-testid={`order-row-generate-invoice-${order.id}`}
+                      >
+                        <Icon icon="ri:file-list-3-line" width={16} />
+                      </button>
                     )}
                     {actionPerms?.canDelete && (
                       <button

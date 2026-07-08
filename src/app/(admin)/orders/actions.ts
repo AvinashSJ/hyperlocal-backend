@@ -260,3 +260,46 @@ export async function deleteOrder(id: string) {
 
   revalidatePath("/orders");
 }
+
+export type BulkGenerateResult = {
+  generated: number;
+  failed: { id: string; order_number: string; error: string }[];
+};
+
+export async function bulkGenerateInvoices(
+  storeId?: string | null,
+): Promise<BulkGenerateResult> {
+  await assertPermission("invoices", "create");
+  const supabase = createAdminClient();
+
+  let query = supabase
+    .from("orders")
+    .select("id, order_number")
+    .eq("status", "delivered")
+    .is("invoice_id", null);
+  if (storeId) query = query.eq("store_id", storeId);
+
+  const { data: orders, error } = await query;
+  if (error) throw new Error(error.message);
+  if (!orders || orders.length === 0) return { generated: 0, failed: [] };
+
+  const failed: { id: string; order_number: string; error: string }[] = [];
+  let generated = 0;
+
+  for (const order of orders) {
+    try {
+      const invoiceId = await generateInvoice(order.id);
+      if (invoiceId) generated++;
+    } catch (err) {
+      failed.push({
+        id: order.id,
+        order_number: order.order_number,
+        error: (err as Error).message,
+      });
+    }
+  }
+
+  revalidatePath("/orders");
+  revalidatePath("/invoices");
+  return { generated, failed };
+}
