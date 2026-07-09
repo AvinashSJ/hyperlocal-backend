@@ -52,7 +52,7 @@ export type Product = {
   barcode: string | null;
   category_id: string | null;
   brand: string | null;
-  unit_of_measurement: "kg" | "g" | "liter" | "ml" | "piece" | "pack" | "dozen";
+  unit_of_measurement: "kg" | "gram" | "ml" | "ltr" | "pcs" | "pack" | "dozen" | "box" | "bundle" | "pouch" | "unit" | "tin";
   mrp: number;
   selling_price: number;
   discount_percent: number;

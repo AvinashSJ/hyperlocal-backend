@@ -525,6 +525,35 @@ function CategoryEditor({
   const [selected, setSelected] = useState<string[]>(initialSelected);
   const lockedSet = useMemo(() => new Set(lockedCategoryIds), [lockedCategoryIds]);
 
+  // Full parent→children map for auto-check cascade (unfiltered)
+  const allChildrenByParent = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const c of categories) {
+      if (c.parent_id) {
+        const list = map.get(c.parent_id) ?? [];
+        list.push(c.id);
+        map.set(c.parent_id, list);
+      }
+    }
+    return map;
+  }, [categories]);
+
+  const getAllDescendants = useCallback(
+    (parentId: string): string[] => {
+      const result: string[] = [];
+      const walk = (ids: string[]) => {
+        for (const id of ids) {
+          result.push(id);
+          const kids = allChildrenByParent.get(id);
+          if (kids) walk(kids);
+        }
+      };
+      walk([parentId]);
+      return result;
+    },
+    [allChildrenByParent],
+  );
+
   useEffect(() => {
     const h = document.getElementById("categoryIdsHidden") as HTMLInputElement | null;
     if (h) h.value = selected.join(",");
@@ -532,9 +561,23 @@ function CategoryEditor({
 
   const toggle = (id: string) => {
     if (lockedSet.has(id)) return;
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id],
-    );
+    const wasChecked = selected.includes(id);
+    const descendants = getAllDescendants(id);
+    setSelected((prev) => {
+      const set = new Set(prev);
+      if (wasChecked) {
+        // Uncheck the category and all its descendants (skip locked)
+        set.delete(id);
+        for (const d of descendants) {
+          if (!lockedSet.has(d)) set.delete(d);
+        }
+      } else {
+        // Check the category and all its descendants
+        set.add(id);
+        for (const d of descendants) set.add(d);
+      }
+      return Array.from(set);
+    });
   };
 
   const clearAll = () => {

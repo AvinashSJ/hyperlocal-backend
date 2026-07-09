@@ -9,7 +9,7 @@ import { computeDiscountPercent } from "./discount";
 import { logActivity } from "@/lib/activity-log";
 import type { Product } from "@/lib/types/supabase";
 
-const VALID_UNITS = ["kg", "g", "liter", "ml", "piece", "pack", "dozen"] as const;
+const VALID_UNITS = ["kg", "gram", "ml", "ltr", "pcs", "pack", "dozen", "box", "bundle", "pouch", "unit", "tin"] as const;
 const VALID_GST = [0, 5, 12, 18, 28] as const;
 const VALID_STATUS = ["active", "inactive", "out_of_stock"] as const;
 
@@ -30,7 +30,7 @@ export async function createProduct(formData: FormData) {
   const description = String(formData.get("description") ?? "");
   const categoryId = String(formData.get("category_id") ?? "");
   const brand = String(formData.get("brand") ?? "");
-  const unit = String(formData.get("unit_of_measurement") ?? "piece");
+  const unit = String(formData.get("unit_of_measurement") ?? "pcs");
   const mrp = Number(formData.get("mrp") ?? 0);
   const sellingPrice = Number(formData.get("selling_price") ?? 0);
   const discountPercent = computeDiscountPercent(mrp, sellingPrice);
@@ -156,7 +156,7 @@ export async function updateProduct(id: string, formData: FormData) {
   const description = String(formData.get("description") ?? "");
   const categoryId = String(formData.get("category_id") ?? "");
   const brand = String(formData.get("brand") ?? "");
-  const unit = String(formData.get("unit_of_measurement") ?? "piece");
+  const unit = String(formData.get("unit_of_measurement") ?? "pcs");
   const mrp = Number(formData.get("mrp") ?? 0);
   const sellingPrice = Number(formData.get("selling_price") ?? 0);
   const discountPercent = computeDiscountPercent(mrp, sellingPrice);
@@ -555,7 +555,7 @@ export async function bulkImportProducts(rows: ImportRow[]) {
         description: r.description?.trim() || null,
         category_id: categoryId,
         brand: r.brand?.trim() || null,
-        unit_of_measurement: r.unit_of_measurement?.trim() || "piece",
+        unit_of_measurement: r.unit_of_measurement?.trim() || "pcs",
         mrp,
         selling_price: sellingPrice,
         discount_percent: discountPercent,

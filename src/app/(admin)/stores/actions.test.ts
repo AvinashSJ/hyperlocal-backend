@@ -683,6 +683,10 @@ describe("setStoreCategories", () => {
       data: [{ category_id: "c-1" }, { category_id: "c-2" }],
       error: null,
     });
+    admin.enqueueResponse({
+      data: [{ id: "c-1", name: "Cat1", parent_id: null, sort_order: 0 }, { id: "c-2", name: "Cat2", parent_id: null, sort_order: 0 }, { id: "c-3", name: "Cat3", parent_id: null, sort_order: 0 }],
+      error: null,
+    });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -698,6 +702,10 @@ describe("setStoreCategories", () => {
     asAdmin({ stores: ["edit"] });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: [], error: null });
+    admin.enqueueResponse({
+      data: [{ id: "c-1", name: "Cat1", parent_id: null, sort_order: 0 }],
+      error: null,
+    });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -714,6 +722,10 @@ describe("setStoreCategories", () => {
       error: null,
     });
     admin.enqueueResponse({
+      data: [],
+      error: null,
+    });
+    admin.enqueueResponse({
       count: 1,
       data: [{ category_id: "c-1" }],
       error: null,
@@ -727,6 +739,10 @@ describe("setStoreCategories", () => {
     asAdmin({ stores: ["edit"] });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: [], error: null });
+    admin.enqueueResponse({
+      data: [{ id: "c-1", name: "Cat1", parent_id: null, sort_order: 0 }],
+      error: null,
+    });
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: { message: "insert failed" } });
 

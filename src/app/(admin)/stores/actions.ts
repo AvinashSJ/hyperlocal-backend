@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission } from "@/lib/require-permission";
 import { logActivity } from "@/lib/activity-log";
 import { getProducts } from "@/app/(admin)/products/actions";
+import { expandCategoryIdsWithDescendants } from "@/lib/categories";
 import type { Product } from "@/lib/types/supabase";
 
 export type StoreRow = {
@@ -432,9 +433,15 @@ export async function setStoreCategories(storeId: string, categoryIds: string[])
 
   await assertCategoriesRemovable(storeId, removed);
 
+  // Expand to include all sub-categories
+  const { data: allCats } = await supabase
+    .from("categories")
+    .select("id, name, parent_id, sort_order");
+  const expandedIds = expandCategoryIdsWithDescendants(categoryIds, allCats ?? []);
+
   await supabase.from("store_categories").delete().eq("store_id", storeId);
-  if (categoryIds.length > 0) {
-    const rows = categoryIds.map((category_id) => ({ store_id: storeId, category_id }));
+  if (expandedIds.length > 0) {
+    const rows = expandedIds.map((category_id) => ({ store_id: storeId, category_id }));
     const { error } = await supabase.from("store_categories").insert(rows);
     if (error) throw new Error(error.message);
   }

@@ -838,7 +838,7 @@ describe("bulkImportProducts", () => {
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
     expect(insertArg.mrp).toBe(0);
     expect(insertArg.selling_price).toBe(0);
-    expect(insertArg.unit_of_measurement).toBe("piece");
+    expect(insertArg.unit_of_measurement).toBe("pcs");
     expect(insertArg.status).toBe("active");
     expect(insertArg.sku).toBeNull();
   });

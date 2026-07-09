@@ -8,6 +8,48 @@ export type CategoryNode = {
 };
 
 /**
+ * Given a flat list of all categories and a subset of IDs, returns the union
+ * of the input IDs plus ALL descendants (recursively) of those IDs.
+ *
+ * Pure function — no DB calls. Used when assigning categories to a store so
+ * that sub-categories are also materialized in `store_categories`.
+ */
+export function expandCategoryIdsWithDescendants(
+  ids: string[],
+  allCategories: CategoryNode[],
+): string[] {
+  const byParent = new Map<string, string[]>();
+  for (const c of allCategories) {
+    if (c.parent_id) {
+      const list = byParent.get(c.parent_id) ?? [];
+      list.push(c.id);
+      byParent.set(c.parent_id, list);
+    }
+  }
+
+  const result = new Set(ids);
+
+  function walk(parentIds: string[]) {
+    const children: string[] = [];
+    for (const pid of parentIds) {
+      const kids = byParent.get(pid);
+      if (kids) {
+        for (const kid of kids) {
+          if (!result.has(kid)) {
+            result.add(kid);
+            children.push(kid);
+          }
+        }
+      }
+    }
+    if (children.length > 0) walk(children);
+  }
+
+  walk(ids);
+  return Array.from(result);
+}
+
+/**
  * Fetches the categories visible to a store-scoped user.
  *
  * Visibility rules:

@@ -56,7 +56,7 @@ type ProductImage = {
 
 type Category = { id: string; name: string; parent_id: string | null; sort_order: number };
 
-const UNITS = ["kg", "g", "liter", "ml", "piece", "pack", "dozen"];
+const UNITS = ["kg", "gram", "ml", "ltr", "pcs", "pack", "dozen", "box", "bundle", "pouch", "unit", "tin"];
 const GST_RATES = [0, 5, 12, 18, 28];
 const STATUSES = ["active", "inactive", "out_of_stock"];
 
@@ -360,7 +360,7 @@ export default function ProductForm({
                     <select
                       name="unit_of_measurement"
                       className="form-select"
-                      defaultValue={product?.unit_of_measurement ?? "piece"}
+                      defaultValue={product?.unit_of_measurement ?? "pcs"}
                     >
                       {UNITS.map((u) => (
                         <option key={u} value={u}>

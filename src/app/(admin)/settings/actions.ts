@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission } from "@/lib/require-permission";
 import { assertCategoriesRemovable } from "@/app/(admin)/stores/actions";
 import { demoteOtherPrimaries, validateGstin, warnGstinStateMismatch } from "@/app/(admin)/gst-numbers/actions";
+import { expandCategoryIdsWithDescendants } from "@/lib/categories";
 
 export type StoreData = {
   id: string;
@@ -181,10 +182,16 @@ export async function updateStore(formData: FormData) {
 
   const categoryIdsRaw = formData.get("category_ids");
   if (categoryIdsRaw !== null) {
-    const categoryIds = String(categoryIdsRaw)
+    let categoryIds = String(categoryIdsRaw)
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+
+    // Expand to include all sub-categories
+    const { data: allCats } = await supabase
+      .from("categories")
+      .select("id, name, parent_id, sort_order");
+    categoryIds = expandCategoryIdsWithDescendants(categoryIds, allCats ?? []);
 
     const { data: existingRows } = await supabase
       .from("store_categories")
@@ -314,8 +321,13 @@ export async function createStore(formData: FormData) {
 
   const categoryIdsRaw = String(formData.get("category_ids") ?? "");
   if (categoryIdsRaw) {
-    const categoryIds = categoryIdsRaw.split(",").filter(Boolean);
+    let categoryIds = categoryIdsRaw.split(",").filter(Boolean);
     if (categoryIds.length > 0) {
+      // Expand to include all sub-categories
+      const { data: allCats } = await supabase
+        .from("categories")
+        .select("id, name, parent_id, sort_order");
+      categoryIds = expandCategoryIdsWithDescendants(categoryIds, allCats ?? []);
       const rows = categoryIds.map((category_id) => ({ store_id: newStore.id, category_id }));
       await supabase.from("store_categories").insert(rows);
     }
