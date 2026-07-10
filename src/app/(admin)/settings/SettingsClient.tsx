@@ -794,8 +794,8 @@ function StoreInfoSection({
             {createMode && (
               <div className="col-md-6">
                 <label className="form-label">Store Code <span className="text-danger">*</span></label>
-                <input name="code" className="form-control text-uppercase" defaultValue={store?.code ?? ""} required pattern="[A-Z0-9_]{4,16}" maxLength={16} placeholder="e.g. STORE01" />
-                <div className="form-text">4-16 characters: uppercase letters, digits, and underscores. Used for invoice numbering.</div>
+                <input name="code" className="form-control text-uppercase" defaultValue={store?.code ?? ""} required pattern="[A-Za-z0-9_]{4,16}" maxLength={16} placeholder="e.g. STORE01" onChange={(e) => { e.target.value = e.target.value.toUpperCase(); }} />
+                <div className="form-text">4-16 characters: letters, digits, and underscores. Auto-uppercased. Used for invoice numbering.</div>
               </div>
             )}
 
