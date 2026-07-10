@@ -287,12 +287,11 @@ export async function createStore(formData: FormData) {
   await assertPermission("stores", "create");
   const supabase = createAdminClient();
   const data: Record<string, unknown> = {};
-  const fields = ["name", "slug", "code", "logo_url", "banner_url", "phone", "email", "address", "city", "state"];
+  const fields = ["name", "slug", "logo_url", "banner_url", "phone", "email", "address", "city", "state"];
   for (const f of fields) {
     const v = formData.get(f);
     data[f] = v ? String(v) : null;
   }
-  if (typeof data.code === "string") data.code = data.code.toUpperCase();
   const prefixRaw = formData.get("order_id_prefix");
   if (prefixRaw) data.order_id_prefix = String(prefixRaw);
   const numFields = ["delivery_radius_km", "commission_rate"];
@@ -308,8 +307,27 @@ export async function createStore(formData: FormData) {
 
   if (!data.name) throw new Error("Store name is required");
   if (!data.slug) throw new Error("Slug is required");
-  if (!data.code || typeof data.code !== "string") throw new Error("Store code is required");
-  if (!/^[A-Z0-9_]{4,16}$/.test(data.code)) throw new Error("Store code must be 4-16 uppercase letters, digits, or underscores");
+
+  // Auto-generate store code from the store name
+  let base = String(data.name)
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]/g, "")
+    .slice(0, 12);
+  if (base.length < 4) base = "STR_" + base.padEnd(4, "_");
+
+  let code = base;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { data: exists } = await supabase
+      .from("stores")
+      .select("id")
+      .eq("code", code)
+      .maybeSingle();
+    if (!exists) break;
+    if (attempt === 99) throw new Error("Unable to generate a unique store code");
+    const suffix = `_${attempt + 1}`;
+    code = base.slice(0, 16 - suffix.length) + suffix;
+  }
+  data.code = code;
 
   const { data: newStore, error } = await supabase
     .from("stores")

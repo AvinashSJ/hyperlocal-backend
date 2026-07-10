@@ -420,44 +420,34 @@ describe("createStore", () => {
 
   it("throws when slug is missing", async () => {
     asAdmin({ stores: ["create"] });
-    const fd = buildFormData({ name: "X", code: "TEST01" });
+    const fd = buildFormData({ name: "X" });
     await expect(createStore(fd)).rejects.toThrow(/Slug is required/);
-  });
-
-  it("throws when code is missing", async () => {
-    asAdmin({ stores: ["create"] });
-    const fd = buildFormData({ name: "X", slug: "x" });
-    await expect(createStore(fd)).rejects.toThrow(/Store code is required/);
-  });
-
-  it("throws when code format is invalid", async () => {
-    asAdmin({ stores: ["create"] });
-    const fd = buildFormData({ name: "X", slug: "x", code: "foo bar" });
-    await expect(createStore(fd)).rejects.toThrow(/Store code must be/);
   });
 
   it("inserts the store, sets owner store_id, and revalidates /stores", async () => {
     asAdmin({ stores: ["create"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
+    // 1. uniqueness check for auto-generated code
     admin.enqueueResponse({ data: null, error: null });
+    // 2. store insert
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
+    // 3. profile update
     admin.enqueueResponse({ data: null, error: null });
 
     const fd = buildFormData({
       name: "New Store",
       slug: "new-store",
-      code: "NWSTR01",
       owner_id: "u-owner",
     });
     const result = await createStore(fd);
 
     expect(result).toEqual({ id: "new-store" });
 
-    const storeInsert = admin.chainsForTable("stores")[0]
+    const storeInsert = admin.chainsForTable("stores")[1]
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
     expect(storeInsert.name).toBe("New Store");
     expect(storeInsert.slug).toBe("new-store");
-    expect(storeInsert.code).toBe("NWSTR01");
+    expect(storeInsert.code).toMatch(/^[A-Z0-9_]{4,16}$/);
     expect(storeInsert.owner_id).toBe("u-owner");
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/stores");
@@ -466,10 +456,10 @@ describe("createStore", () => {
   it("skips owner update when no owner_id is given", async () => {
     asAdmin({ stores: ["create"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
 
-    const fd = buildFormData({ name: "X", slug: "x", code: "TEST01" });
+    const fd = buildFormData({ name: "X", slug: "x" });
     await createStore(fd);
 
     const profileUpdate = admin.chainsForTable("profiles");
@@ -479,9 +469,10 @@ describe("createStore", () => {
   it("throws when the store insert fails", async () => {
     asAdmin({ stores: ["create"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: { message: "insert failed" } });
 
-    const fd = buildFormData({ name: "X", slug: "x", code: "TEST01" });
+    const fd = buildFormData({ name: "X", slug: "x" });
     await expect(createStore(fd)).rejects.toThrow("insert failed");
   });
 
@@ -489,7 +480,8 @@ describe("createStore", () => {
   it("creates a primary gst_numbers row when form has a valid gstin", async () => {
     asAdmin({ stores: ["create"] });
     const admin = getAdminClient();
-    // Order: (1) store insert returning id, (2) owner update, (3) demote RPC, (4) gst insert
+    // Order: (1) code uniqueness check, (2) store insert, (3) owner update, (4) demote RPC, (5) gst insert
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "new-store" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
     admin.setRpcResult("demote_other_primaries", { data: 0, error: null });
@@ -498,7 +490,6 @@ describe("createStore", () => {
     const fd = buildFormData({
       name: "New Store",
       slug: "new-store",
-      code: "NWSTR01",
       owner_id: "u-owner",
       gstin: "29ABCDE1234F1Z5",
     });
@@ -521,10 +512,10 @@ describe("createStore", () => {
   it("does NOT create a gst_numbers row when form omits the gstin field (optional)", async () => {
     asAdmin({ stores: ["create"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
 
-    const fd = buildFormData({ name: "X", slug: "x", code: "TEST01" });
+    const fd = buildFormData({ name: "X", slug: "x" });
     await createStore(fd);
 
     const gstChains = admin.chainsForTable("gst_numbers");
@@ -534,13 +525,12 @@ describe("createStore", () => {
   it("throws when the gstin field has an invalid format", async () => {
     asAdmin({ stores: ["create"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { id: "new-store" }, error: null });
 
     const fd = buildFormData({
       name: "X",
       slug: "x",
-      code: "TEST01",
       gstin: "not-a-gstin",
     });
     await expect(createStore(fd)).rejects.toThrow(/15-character/);

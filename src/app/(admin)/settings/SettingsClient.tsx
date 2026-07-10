@@ -788,14 +788,17 @@ function StoreInfoSection({
             )}
             <div className="col-md-6">
               <label className="form-label">Slug <span className="text-danger">*</span></label>
-              <input name="slug" className="form-control" defaultValue={store?.slug ?? ""} required />
+              <input name="slug" className="form-control" defaultValue={store?.slug ?? ""} required placeholder="e.g. my-store-name" />
+              <div className="form-text">URL-friendly identifier, used in the store page URL.</div>
             </div>
 
-            {createMode && (
+            {!createMode && store?.code && (
               <div className="col-md-6">
-                <label className="form-label">Store Code <span className="text-danger">*</span></label>
-                <input name="code" className="form-control text-uppercase" defaultValue={store?.code ?? ""} required pattern="[A-Za-z0-9_]{4,16}" maxLength={16} placeholder="e.g. STORE01" onChange={(e) => { e.target.value = e.target.value.toUpperCase(); }} />
-                <div className="form-text">4-16 characters: letters, digits, and underscores. Auto-uppercased. Used for invoice numbering.</div>
+                <label className="form-label">Store Code</label>
+                <div>
+                  <span className="badge bg-secondary bg-opacity-10 text-secondary fs-6">{store.code}</span>
+                  <div className="form-text">Auto-generated. Used for per-store invoice numbering.</div>
+                </div>
               </div>
             )}
 
