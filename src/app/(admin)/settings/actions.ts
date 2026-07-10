@@ -292,6 +292,7 @@ export async function createStore(formData: FormData) {
     const v = formData.get(f);
     data[f] = v ? String(v) : null;
   }
+  if (typeof data.code === "string") data.code = data.code.toUpperCase();
   const prefixRaw = formData.get("order_id_prefix");
   if (prefixRaw) data.order_id_prefix = String(prefixRaw);
   const numFields = ["delivery_radius_km", "commission_rate"];

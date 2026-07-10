@@ -43,16 +43,30 @@ BEGIN
   END LOOP;
 END $$;
 
--- 3. Enforce NOT NULL and UNIQUE. Safe now that every row has a code.
-ALTER TABLE public.stores
-  ALTER COLUMN code SET NOT NULL;
+-- 3. Enforce NOT NULL only if the column isn't already NOT NULL.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'stores'
+      AND column_name = 'code' AND is_nullable = 'YES'
+  ) THEN
+    ALTER TABLE public.stores ALTER COLUMN code SET NOT NULL;
+  END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS stores_code_unique
   ON public.stores(code);
 
--- 4. Add a CHECK so future inserts reject obvious garbage (4-16 chars,
--- uppercase letters / digits / underscore). The slug-like derived
--- format fits comfortably.
-ALTER TABLE public.stores
-  ADD CONSTRAINT stores_code_format_check
-  CHECK (code ~ '^[A-Z0-9_]{4,16}$');
+-- 4. Add a CHECK constraint if it doesn't already exist.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'stores_code_format_check'
+  ) THEN
+    ALTER TABLE public.stores
+      ADD CONSTRAINT stores_code_format_check
+      CHECK (code ~ '^[A-Z0-9_]{4,16}$');
+  END IF;
+END $$;
