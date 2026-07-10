@@ -319,7 +319,7 @@ type GstRow = {
   financial_year: string; threshold_amount: number; stores?: { name: string } | null;
 };
 
-function GstSection({ initial, disabled }: { initial: GstRow[]; disabled?: boolean }) {
+function GstSection({ initial, disabled, storeId }: { initial: GstRow[]; disabled?: boolean; storeId?: string }) {
   const [gstNumbers, setGstNumbers] = useState(initial);
 
   const handleDelete = useCallback(async (id: string, gstin: string) => {
@@ -338,6 +338,7 @@ function GstSection({ initial, disabled }: { initial: GstRow[]; disabled?: boole
         emptyMsg="No GST numbers yet"
         onDelete={handleDelete}
         FormComponent={GstFormBody}
+        formExtraProps={{ storeId }}
         formTitle={(g) => g ? "Edit GST Number" : "Add GST Number"}
         disabled={disabled}
         columns={[
@@ -359,7 +360,7 @@ function GstSection({ initial, disabled }: { initial: GstRow[]; disabled?: boole
   );
 }
 
-function GstFormBody({ item: gst, onActionDone }: { item: GstRow | null; onActionDone: () => void }) {
+function GstFormBody({ item: gst, onActionDone, storeId }: { item: GstRow | null; onActionDone: () => void; storeId?: string }) {
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
     const action = gst ? updateGstNumber.bind(null, gst.id) : createGstNumber;
     const result = await runServerAction(action, formData);
@@ -373,14 +374,18 @@ function GstFormBody({ item: gst, onActionDone }: { item: GstRow | null; onActio
   return (
     <form action={formAction}>
       {state.error && <div className="alert alert-danger py-2">{state.error}</div>}
-      <Field label="Store ID *">
-        <input type="text" name="store_id" className="form-control" defaultValue={gst?.store_id ?? ""} required placeholder="UUID" />
-      </Field>
+      {storeId && !gst ? (
+        <input type="hidden" name="store_id" value={storeId} />
+      ) : (
+        <Field label="Store ID *">
+          <input type="text" name="store_id" className="form-control" defaultValue={gst?.store_id ?? ""} required placeholder="UUID" />
+        </Field>
+      )}
       <Field label="GSTIN *">
         <input type="text" name="gstin" className="form-control" defaultValue={gst?.gstin ?? ""} required placeholder="e.g. 29ABCDE1234F1Z5" />
       </Field>
-      <Field label="Legal Name">
-        <input type="text" name="legal_name" className="form-control" defaultValue={gst?.legal_name ?? ""} />
+      <Field label="Legal Name *">
+        <input type="text" name="legal_name" className="form-control" defaultValue={gst?.legal_name ?? ""} required />
       </Field>
       <Field label="Business Address">
         <textarea name="business_address" className="form-control" rows={2} defaultValue={gst?.business_address ?? ""} />
@@ -437,15 +442,17 @@ function InlineCrud<T extends { id: string }>({
   formTitle,
   columns,
   disabled,
+  formExtraProps,
 }: {
   label: string;
   items: T[];
   emptyMsg: string;
   onDelete: (id: string, name: string) => void;
-  FormComponent: React.ComponentType<{ item: T | null; onActionDone: () => void }>;
+  FormComponent: React.ComponentType<{ item: T | null; onActionDone: () => void } & Record<string, unknown>>;
   formTitle: (item: T | null) => string;
   columns: Column<T>[];
   disabled?: boolean;
+  formExtraProps?: Record<string, unknown>;
 }) {
   const [editing, setEditing] = useState<T | null>(null);
   const [adding, setAdding] = useState(false);
@@ -503,7 +510,7 @@ function InlineCrud<T extends { id: string }>({
 
       {show && (
         <Modal title={formTitle(editing)} onClose={handleFormClose}>
-          <FormComponent item={editing} onActionDone={handleFormClose} />
+          <FormComponent item={editing} onActionDone={handleFormClose} {...(formExtraProps ?? {})} />
         </Modal>
       )}
     </>
@@ -783,6 +790,14 @@ function StoreInfoSection({
               <label className="form-label">Slug <span className="text-danger">*</span></label>
               <input name="slug" className="form-control" defaultValue={store?.slug ?? ""} required />
             </div>
+
+            {createMode && (
+              <div className="col-md-6">
+                <label className="form-label">Store Code <span className="text-danger">*</span></label>
+                <input name="code" className="form-control text-uppercase" defaultValue={store?.code ?? ""} required pattern="[A-Z0-9_]{4,16}" maxLength={16} placeholder="e.g. STORE01" />
+                <div className="form-text">4-16 characters: uppercase letters, digits, and underscores. Used for invoice numbering.</div>
+              </div>
+            )}
 
             {/* P64: Primary GSTIN quick-edit. Lives on the store edit form so
                 the admin can set/change the primary GSTIN without diving into
@@ -1238,7 +1253,7 @@ export default function SettingsClient({
       </SectionCard>
 
       <SectionCard title="GST Numbers" count={(displayData.gstNumbers as GstRow[]).length}>
-        <GstSection initial={displayData.gstNumbers as GstRow[]} disabled={isCreate || !actionPerms?.canEdit} />
+        <GstSection initial={displayData.gstNumbers as GstRow[]} storeId={displayData.store?.id} disabled={isCreate || !actionPerms?.canEdit} />
       </SectionCard>
     </>
   );

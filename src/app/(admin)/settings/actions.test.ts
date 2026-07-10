@@ -420,8 +420,20 @@ describe("createStore", () => {
 
   it("throws when slug is missing", async () => {
     asAdmin({ stores: ["create"] });
-    const fd = buildFormData({ name: "X" });
+    const fd = buildFormData({ name: "X", code: "TEST01" });
     await expect(createStore(fd)).rejects.toThrow(/Slug is required/);
+  });
+
+  it("throws when code is missing", async () => {
+    asAdmin({ stores: ["create"] });
+    const fd = buildFormData({ name: "X", slug: "x" });
+    await expect(createStore(fd)).rejects.toThrow(/Store code is required/);
+  });
+
+  it("throws when code format is invalid", async () => {
+    asAdmin({ stores: ["create"] });
+    const fd = buildFormData({ name: "X", slug: "x", code: "foo bar" });
+    await expect(createStore(fd)).rejects.toThrow(/Store code must be/);
   });
 
   it("inserts the store, sets owner store_id, and revalidates /stores", async () => {
@@ -434,6 +446,7 @@ describe("createStore", () => {
     const fd = buildFormData({
       name: "New Store",
       slug: "new-store",
+      code: "NWSTR01",
       owner_id: "u-owner",
     });
     const result = await createStore(fd);
@@ -444,6 +457,7 @@ describe("createStore", () => {
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
     expect(storeInsert.name).toBe("New Store");
     expect(storeInsert.slug).toBe("new-store");
+    expect(storeInsert.code).toBe("NWSTR01");
     expect(storeInsert.owner_id).toBe("u-owner");
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/stores");
@@ -455,7 +469,7 @@ describe("createStore", () => {
     admin.enqueueResponse({ data: { id: "new-store" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
-    const fd = buildFormData({ name: "X", slug: "x" });
+    const fd = buildFormData({ name: "X", slug: "x", code: "TEST01" });
     await createStore(fd);
 
     const profileUpdate = admin.chainsForTable("profiles");
@@ -467,7 +481,7 @@ describe("createStore", () => {
     const admin = getAdminClient();
     admin.enqueueResponse({ data: null, error: { message: "insert failed" } });
 
-    const fd = buildFormData({ name: "X", slug: "x" });
+    const fd = buildFormData({ name: "X", slug: "x", code: "TEST01" });
     await expect(createStore(fd)).rejects.toThrow("insert failed");
   });
 
@@ -484,6 +498,7 @@ describe("createStore", () => {
     const fd = buildFormData({
       name: "New Store",
       slug: "new-store",
+      code: "NWSTR01",
       owner_id: "u-owner",
       gstin: "29ABCDE1234F1Z5",
     });
@@ -509,7 +524,7 @@ describe("createStore", () => {
     admin.enqueueResponse({ data: { id: "new-store" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
-    const fd = buildFormData({ name: "X", slug: "x" });
+    const fd = buildFormData({ name: "X", slug: "x", code: "TEST01" });
     await createStore(fd);
 
     const gstChains = admin.chainsForTable("gst_numbers");
@@ -525,6 +540,7 @@ describe("createStore", () => {
     const fd = buildFormData({
       name: "X",
       slug: "x",
+      code: "TEST01",
       gstin: "not-a-gstin",
     });
     await expect(createStore(fd)).rejects.toThrow(/15-character/);

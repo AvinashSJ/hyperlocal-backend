@@ -11,6 +11,7 @@ export type StoreData = {
   id: string;
   name: string;
   slug: string;
+  code: string;
   logo_url: string | null;
   banner_url: string | null;
   phone: string | null;
@@ -102,7 +103,7 @@ export async function getStoreSettings(storeId?: string): Promise<StoreSettingsD
   function buildStoreQuery() {
     return supabase
       .from("stores")
-      .select("id, name, slug, logo_url, banner_url, phone, email, address, city, state, delivery_radius_km, commission_rate, order_id_prefix, is_open, is_active");
+      .select("id, name, slug, code, logo_url, banner_url, phone, email, address, city, state, delivery_radius_km, commission_rate, order_id_prefix, is_open, is_active");
   }
 
   const storeRes = storeId
@@ -286,7 +287,7 @@ export async function createStore(formData: FormData) {
   await assertPermission("stores", "create");
   const supabase = createAdminClient();
   const data: Record<string, unknown> = {};
-  const fields = ["name", "slug", "logo_url", "banner_url", "phone", "email", "address", "city", "state"];
+  const fields = ["name", "slug", "code", "logo_url", "banner_url", "phone", "email", "address", "city", "state"];
   for (const f of fields) {
     const v = formData.get(f);
     data[f] = v ? String(v) : null;
@@ -306,6 +307,8 @@ export async function createStore(formData: FormData) {
 
   if (!data.name) throw new Error("Store name is required");
   if (!data.slug) throw new Error("Slug is required");
+  if (!data.code || typeof data.code !== "string") throw new Error("Store code is required");
+  if (!/^[A-Z0-9_]{4,16}$/.test(data.code)) throw new Error("Store code must be 4-16 uppercase letters, digits, or underscores");
 
   const { data: newStore, error } = await supabase
     .from("stores")

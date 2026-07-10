@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useEffect, useActionState } from "react";
 import { runServerAction } from "@/lib/run-server-action";
-import { createGstNumber, updateGstNumber } from "./actions";
+import { createGstNumber, updateGstNumber, getStoresForGstAttach } from "./actions";
+
+type StoreOption = { id: string; name: string; code: string };
 
 type GstNumber = {
   id: string; store_id: string; gstin: string; legal_name: string; business_address: string;
@@ -11,6 +13,11 @@ type GstNumber = {
 };
 
 export default function GstForm({ gstNumber, onClose }: { gstNumber: GstNumber | null; onClose: () => void }) {
+  const [stores, setStores] = useState<StoreOption[]>([]);
+
+  useEffect(() => {
+    getStoresForGstAttach().then(setStores).catch(() => {});
+  }, []);
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
     const action = gstNumber
       ? updateGstNumber.bind(null, gstNumber.id)
@@ -38,8 +45,13 @@ export default function GstForm({ gstNumber, onClose }: { gstNumber: GstNumber |
             {state.error && <div className="alert alert-danger py-2">{state.error}</div>}
 
             <div className="mb-3">
-              <label className="form-label">Store ID <span className="text-danger">*</span></label>
-              <input type="text" name="store_id" className="form-control" defaultValue={gstNumber?.store_id ?? ""} required placeholder="UUID of the store" />
+              <label className="form-label">Store <span className="text-danger">*</span></label>
+              <select name="store_id" className="form-select" defaultValue={gstNumber?.store_id ?? ""} required>
+                <option value="">-- Select a store --</option>
+                {stores.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                ))}
+              </select>
             </div>
 
             <div className="mb-3">
@@ -48,8 +60,8 @@ export default function GstForm({ gstNumber, onClose }: { gstNumber: GstNumber |
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Legal Name</label>
-              <input type="text" name="legal_name" className="form-control" defaultValue={gstNumber?.legal_name ?? ""} />
+              <label className="form-label">Legal Name <span className="text-danger">*</span></label>
+              <input type="text" name="legal_name" className="form-control" defaultValue={gstNumber?.legal_name ?? ""} required />
             </div>
 
             <div className="mb-3">
