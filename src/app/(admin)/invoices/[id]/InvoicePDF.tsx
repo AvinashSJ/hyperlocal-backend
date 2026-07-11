@@ -25,15 +25,13 @@ const styles = StyleSheet.create({
   table: { width: "100%", borderWidth: 1, borderColor: "#ccc", marginBottom: 15 },
   tableHeader: { flexDirection: "row", backgroundColor: "#f0f0f0", borderBottomWidth: 1, borderBottomColor: "#ccc" },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#eee" },
-  cellNo: { width: "4%", padding: 4, textAlign: "center" },
-  cellProduct: { width: "22%", padding: 4 },
-  cellHsn: { width: "8%", padding: 4, textAlign: "center" },
-  cellQty: { width: "7%", padding: 4, textAlign: "center" },
-  cellRate: { width: "9%", padding: 4, textAlign: "right" },
-  cellTaxable: { width: "12%", padding: 4, textAlign: "right" },
-  cellCgst: { width: "12%", padding: 4, textAlign: "right" },
-  cellSgst: { width: "12%", padding: 4, textAlign: "right" },
-  cellTotal: { width: "14%", padding: 4, textAlign: "right" },
+  cellNo: { width: "5%", padding: 4, textAlign: "center", overflow: "hidden" },
+  cellProduct: { width: "32%", padding: 4, overflow: "hidden" },
+  cellHsn: { width: "10%", padding: 4, textAlign: "center", overflow: "hidden" },
+  cellQty: { width: "8%", padding: 4, textAlign: "center", overflow: "hidden" },
+  cellTaxable: { width: "16%", padding: 4, textAlign: "right", overflow: "hidden" },
+  cellGst: { width: "14%", padding: 4, textAlign: "right", overflow: "hidden" },
+  cellTotal: { width: "15%", padding: 4, textAlign: "right", overflow: "hidden" },
   headerText: { fontSize: 9, fontWeight: "bold" },
 
   totalsSection: { marginLeft: "auto", width: "45%", marginBottom: 20 },
@@ -110,13 +108,13 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
   const addr = order?.addresses;
   const items = order?.order_items ?? [];
   const store = invoice.store;
+  const orderStore = order?.stores ?? null;
   const gstin = resolveGstin(order, store);
   const storeAddressLines = buildStoreAddressLines(store);
-  const storeName = store?.name ?? "—";
+  const storeName = store?.name ?? orderStore?.name ?? "—";
   const legalName = store?.legal_name ?? storeName;
   const slabs = computeGstSlabs(items);
-  const totalCgst = slabs.reduce((s, slab) => s + slab.cgst, 0);
-  const totalSgst = slabs.reduce((s, slab) => s + slab.sgst, 0);
+  const totalGst = slabs.reduce((s, slab) => s + slab.cgst + slab.sgst, 0);
   const totalTaxable = slabs.reduce((s, slab) => s + slab.taxableAmount, 0);
 
   return (
@@ -164,16 +162,13 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
             <Text style={styles.cellProduct}><Text style={styles.headerText}>Product</Text></Text>
             <Text style={styles.cellHsn}><Text style={styles.headerText}>HSN</Text></Text>
             <Text style={styles.cellQty}><Text style={styles.headerText}>Qty</Text></Text>
-            <Text style={styles.cellRate}><Text style={styles.headerText}>Rate</Text></Text>
             <Text style={styles.cellTaxable}><Text style={styles.headerText}>Taxable</Text></Text>
-            <Text style={styles.cellCgst}><Text style={styles.headerText}>CGST</Text></Text>
-            <Text style={styles.cellSgst}><Text style={styles.headerText}>SGST</Text></Text>
+            <Text style={styles.cellGst}><Text style={styles.headerText}>GST</Text></Text>
             <Text style={styles.cellTotal}><Text style={styles.headerText}>Total</Text></Text>
           </View>
           {items.map((item, i) => {
             const taxable = Number(item.total_price) - Number(item.gst_amount);
-            const cgst = Number(item.gst_amount) / 2;
-            const sgst = Number(item.gst_amount) / 2;
+            const gstAmount = Number(item.gst_amount);
             const variant = item.variant_name ?? item.product_variants?.name;
             const productLabel = variant
               ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
@@ -185,11 +180,9 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
                 <Text style={styles.cellProduct}>{productLabel}</Text>
                 <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
                 <Text style={styles.cellQty}>{item.quantity}</Text>
-                <Text style={styles.cellRate}>₹{Number(item.unit_price).toFixed(2)}</Text>
-                <Text style={styles.cellTaxable}>₹{taxable.toFixed(2)}</Text>
-                <Text style={styles.cellCgst}>₹{cgst.toFixed(2)}</Text>
-                <Text style={styles.cellSgst}>₹{sgst.toFixed(2)}</Text>
-                <Text style={styles.cellTotal}>₹{Number(item.total_price).toFixed(2)}</Text>
+                <Text style={styles.cellTaxable}>Rs. {taxable.toFixed(2)}</Text>
+                <Text style={styles.cellGst}>Rs. {gstAmount.toFixed(2)}</Text>
+                <Text style={styles.cellTotal}>Rs. {Number(item.total_price).toFixed(2)}</Text>
               </View>
             );
           })}
@@ -201,15 +194,11 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
               <Text style={styles.slabTitle}>Items at {slab.rate}% GST</Text>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>  Taxable</Text>
-                <Text style={styles.totalValue}>₹{slab.taxableAmount.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>Rs. {slab.taxableAmount.toFixed(2)}</Text>
               </View>
               <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>  CGST @ {slab.rate / 2}%</Text>
-                <Text style={styles.totalValue}>₹{slab.cgst.toFixed(2)}</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>  SGST @ {slab.rate / 2}%</Text>
-                <Text style={styles.totalValue}>₹{slab.sgst.toFixed(2)}</Text>
+                <Text style={styles.totalLabel}>  GST @ {slab.rate}%</Text>
+                <Text style={styles.totalValue}>Rs. {(slab.cgst + slab.sgst).toFixed(2)}</Text>
               </View>
             </View>
           ))}
@@ -218,23 +207,17 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
 
           <View style={styles.totalRow}>
             <Text style={{ fontSize: 9, fontWeight: "bold" }}>Total Taxable</Text>
-            <Text style={{ fontSize: 9, fontWeight: "bold", textAlign: "right" }}>₹{totalTaxable.toFixed(2)}</Text>
+            <Text style={{ fontSize: 9, fontWeight: "bold", textAlign: "right" }}>Rs. {totalTaxable.toFixed(2)}</Text>
           </View>
-          {totalCgst > 0 && (
+          {totalGst > 0 && (
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total CGST</Text>
-              <Text style={styles.totalValue}>₹{totalCgst.toFixed(2)}</Text>
-            </View>
-          )}
-          {totalSgst > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total SGST</Text>
-              <Text style={styles.totalValue}>₹{totalSgst.toFixed(2)}</Text>
+              <Text style={styles.totalLabel}>Total GST</Text>
+              <Text style={styles.totalValue}>Rs. {totalGst.toFixed(2)}</Text>
             </View>
           )}
           <View style={{ ...styles.totalRow, ...styles.grandTotal }}>
             <Text>Total</Text>
-            <Text>₹{Number(invoice.total_amount).toFixed(2)}</Text>
+            <Text>Rs. {Number(invoice.total_amount).toFixed(2)}</Text>
           </View>
         </View>
 
