@@ -25,21 +25,25 @@ const styles = StyleSheet.create({
   table: { width: "100%", borderWidth: 1, borderColor: "#ccc", marginBottom: 15 },
   tableHeader: { flexDirection: "row", backgroundColor: "#f0f0f0", borderBottomWidth: 1, borderBottomColor: "#ccc" },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#eee" },
-  cellNo: { width: "5%", padding: 5, textAlign: "center" },
-  cellProduct: { width: "25%", padding: 5 },
-  cellHsn: { width: "10%", padding: 5, textAlign: "center" },
-  cellVariant: { width: "15%", padding: 5 },
-  cellQty: { width: "10%", padding: 5, textAlign: "center" },
-  cellRate: { width: "10%", padding: 5, textAlign: "right" },
-  cellAmount: { width: "12%", padding: 5, textAlign: "right" },
-  cellGst: { width: "13%", padding: 5, textAlign: "right" },
+  cellNo: { width: "4%", padding: 4, textAlign: "center" },
+  cellProduct: { width: "22%", padding: 4 },
+  cellHsn: { width: "8%", padding: 4, textAlign: "center" },
+  cellQty: { width: "7%", padding: 4, textAlign: "center" },
+  cellRate: { width: "9%", padding: 4, textAlign: "right" },
+  cellTaxable: { width: "12%", padding: 4, textAlign: "right" },
+  cellCgst: { width: "12%", padding: 4, textAlign: "right" },
+  cellSgst: { width: "12%", padding: 4, textAlign: "right" },
+  cellTotal: { width: "14%", padding: 4, textAlign: "right" },
   headerText: { fontSize: 9, fontWeight: "bold" },
 
-  totalsSection: { marginLeft: "auto", width: "40%", marginBottom: 20 },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3, borderBottomWidth: 1, borderBottomColor: "#eee" },
+  totalsSection: { marginLeft: "auto", width: "45%", marginBottom: 20 },
+  slabBlock: { marginBottom: 6 },
+  slabTitle: { fontSize: 9, fontWeight: "bold", marginBottom: 2 },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 2, borderBottomWidth: 1, borderBottomColor: "#eee" },
   totalLabel: { fontSize: 9 },
   totalValue: { fontSize: 9, textAlign: "right" },
   grandTotal: { fontWeight: "bold", fontSize: 12, paddingTop: 5 },
+  separator: { borderTopWidth: 1, borderTopColor: "#222", marginVertical: 4 },
 
   footer: { marginTop: 20, borderTopWidth: 1, borderTopColor: "#ccc", paddingTop: 10, fontSize: 8, color: "#666", textAlign: "center" },
 });
@@ -64,13 +68,28 @@ function numberToWords(n: number): string {
   return w + " Rupees" + (f > 0 ? " and " + convert(f) + " Paise" : "") + " Only";
 }
 
-/**
- * P39: build the lines that appear under the store name in the
- * PDF header. We prefer the customer-supplied GSTIN
- * (`order.gstin`) when present (B2B buyers supply their own
- * GSTIN), and fall back to the store's primary GSTIN from the
- * `gst_numbers` table.
- */
+type GstSlab = {
+  rate: number;
+  taxableAmount: number;
+  cgst: number;
+  sgst: number;
+};
+
+function computeGstSlabs(items: { gst_rate: number; gst_amount: number; total_price: number }[]): GstSlab[] {
+  const map = new Map<number, GstSlab>();
+  for (const item of items) {
+    const rate = item.gst_rate;
+    if (!map.has(rate)) {
+      map.set(rate, { rate, taxableAmount: 0, cgst: 0, sgst: 0 });
+    }
+    const slab = map.get(rate)!;
+    slab.taxableAmount += Number(item.total_price) - Number(item.gst_amount);
+    slab.cgst += Number(item.gst_amount) / 2;
+    slab.sgst += Number(item.gst_amount) / 2;
+  }
+  return Array.from(map.values()).sort((a, b) => b.rate - a.rate);
+}
+
 function resolveGstin(order: InvoiceDetail["orders"], store: InvoiceStore | null): string | null {
   return order?.gstin ?? store?.gstin ?? null;
 }
@@ -93,10 +112,12 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
   const store = invoice.store;
   const gstin = resolveGstin(order, store);
   const storeAddressLines = buildStoreAddressLines(store);
-  // Fallback to "—" only if the store is unknown. In production
-  // every order has a store, so this is purely defensive.
   const storeName = store?.name ?? "—";
   const legalName = store?.legal_name ?? storeName;
+  const slabs = computeGstSlabs(items);
+  const totalCgst = slabs.reduce((s, slab) => s + slab.cgst, 0);
+  const totalSgst = slabs.reduce((s, slab) => s + slab.sgst, 0);
+  const totalTaxable = slabs.reduce((s, slab) => s + slab.taxableAmount, 0);
 
   return (
     <Document>
@@ -142,49 +163,73 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
             <Text style={styles.cellNo}><Text style={styles.headerText}>#</Text></Text>
             <Text style={styles.cellProduct}><Text style={styles.headerText}>Product</Text></Text>
             <Text style={styles.cellHsn}><Text style={styles.headerText}>HSN</Text></Text>
-            <Text style={styles.cellVariant}><Text style={styles.headerText}>Variant</Text></Text>
             <Text style={styles.cellQty}><Text style={styles.headerText}>Qty</Text></Text>
             <Text style={styles.cellRate}><Text style={styles.headerText}>Rate</Text></Text>
-            <Text style={styles.cellAmount}><Text style={styles.headerText}>Amount</Text></Text>
-            <Text style={styles.cellGst}><Text style={styles.headerText}>GST</Text></Text>
+            <Text style={styles.cellTaxable}><Text style={styles.headerText}>Taxable</Text></Text>
+            <Text style={styles.cellCgst}><Text style={styles.headerText}>CGST</Text></Text>
+            <Text style={styles.cellSgst}><Text style={styles.headerText}>SGST</Text></Text>
+            <Text style={styles.cellTotal}><Text style={styles.headerText}>Total</Text></Text>
           </View>
-          {items.map((item, i) => (
-            <View key={item.id} style={styles.tableRow}>
-              <Text style={styles.cellNo}>{i + 1}</Text>
-              {/* P26: prefer the snapshot (survives product/variant deletion),
-                  fall back to the JOIN, then to a placeholder. */}
-              <Text style={styles.cellProduct}>{item.product_name ?? item.products?.name ?? "Deleted Product"}</Text>
-              <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
-              <Text style={styles.cellVariant}>{item.variant_name ?? item.product_variants?.name ?? "—"}</Text>
-              <Text style={styles.cellQty}>{item.quantity}</Text>
-              <Text style={styles.cellRate}>₹{Number(item.unit_price).toFixed(2)}</Text>
-              <Text style={styles.cellAmount}>₹{Number(item.total_price).toFixed(2)}</Text>
-              <Text style={styles.cellGst}>{item.gst_rate}%</Text>
-            </View>
-          ))}
+          {items.map((item, i) => {
+            const taxable = Number(item.total_price) - Number(item.gst_amount);
+            const cgst = Number(item.gst_amount) / 2;
+            const sgst = Number(item.gst_amount) / 2;
+            const variant = item.variant_name ?? item.product_variants?.name;
+            const productLabel = variant
+              ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
+              : item.product_name ?? item.products?.name ?? "Deleted Product";
+
+            return (
+              <View key={item.id} style={styles.tableRow}>
+                <Text style={styles.cellNo}>{i + 1}</Text>
+                <Text style={styles.cellProduct}>{productLabel}</Text>
+                <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
+                <Text style={styles.cellQty}>{item.quantity}</Text>
+                <Text style={styles.cellRate}>₹{Number(item.unit_price).toFixed(2)}</Text>
+                <Text style={styles.cellTaxable}>₹{taxable.toFixed(2)}</Text>
+                <Text style={styles.cellCgst}>₹{cgst.toFixed(2)}</Text>
+                <Text style={styles.cellSgst}>₹{sgst.toFixed(2)}</Text>
+                <Text style={styles.cellTotal}>₹{Number(item.total_price).toFixed(2)}</Text>
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.totalsSection}>
+          {slabs.map((slab) => (
+            <View key={slab.rate} style={styles.slabBlock}>
+              <Text style={styles.slabTitle}>Items at {slab.rate}% GST</Text>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>  Taxable</Text>
+                <Text style={styles.totalValue}>₹{slab.taxableAmount.toFixed(2)}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>  CGST @ {slab.rate / 2}%</Text>
+                <Text style={styles.totalValue}>₹{slab.cgst.toFixed(2)}</Text>
+              </View>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>  SGST @ {slab.rate / 2}%</Text>
+                <Text style={styles.totalValue}>₹{slab.sgst.toFixed(2)}</Text>
+              </View>
+            </View>
+          ))}
+
+          <View style={styles.separator} />
+
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Taxable Amount</Text>
-            <Text style={styles.totalValue}>₹{Number(invoice.taxable_amount).toFixed(2)}</Text>
+            <Text style={{ fontSize: 9, fontWeight: "bold" }}>Total Taxable</Text>
+            <Text style={{ fontSize: 9, fontWeight: "bold", textAlign: "right" }}>₹{totalTaxable.toFixed(2)}</Text>
           </View>
-          {invoice.cgst != null && Number(invoice.cgst) > 0 && (
+          {totalCgst > 0 && (
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>CGST</Text>
-              <Text style={styles.totalValue}>₹{Number(invoice.cgst).toFixed(2)}</Text>
+              <Text style={styles.totalLabel}>Total CGST</Text>
+              <Text style={styles.totalValue}>₹{totalCgst.toFixed(2)}</Text>
             </View>
           )}
-          {invoice.sgst != null && Number(invoice.sgst) > 0 && (
+          {totalSgst > 0 && (
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>SGST</Text>
-              <Text style={styles.totalValue}>₹{Number(invoice.sgst).toFixed(2)}</Text>
-            </View>
-          )}
-          {invoice.igst != null && Number(invoice.igst) > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>IGST</Text>
-              <Text style={styles.totalValue}>₹{Number(invoice.igst).toFixed(2)}</Text>
+              <Text style={styles.totalLabel}>Total SGST</Text>
+              <Text style={styles.totalValue}>₹{totalSgst.toFixed(2)}</Text>
             </View>
           )}
           <View style={{ ...styles.totalRow, ...styles.grandTotal }}>

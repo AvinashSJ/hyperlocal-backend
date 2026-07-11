@@ -176,6 +176,9 @@ describe("updateOrderStatus", () => {
     const admin = getAdminClient();
     admin.enqueueResponse({ data: null, error: null }); // orders.update
     admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    // "processing" triggers invoice-gen re-fetch (no invoices:create so it
+    // will throw PermissionError, but the try/catch handles it).
+    admin.enqueueResponse({ data: { invoice_id: null }, error: null });
 
     await updateOrderStatus("o-1", "processing");
 
@@ -292,22 +295,13 @@ describe("updateOrderStatus", () => {
     await expect(updateOrderStatus("o-1", "processing")).rejects.toThrow("track insert failed");
   });
 
-  // P44: auto-generate invoice on transition to 'delivered'.
-  // These tests need the caller to have BOTH orders:edit AND
-  // invoices:create permissions (the auto-gen path uses
-  // generateInvoice from invoices/actions.ts which checks
-  // invoices:create). The order tests use orders:["edit"] which
-  // is sufficient for status changes; the auto-gen will fail
-  // silently (per design) and the test still asserts the status
-  // update succeeded.
-
-  it("P44: status update succeeds even when the auto-invoice gen fails (no invoices:create perm)", async () => {
+  it("auto-generates invoice on transition to 'processing' (fails gracefully without invoices:create)", async () => {
     asAdmin({ orders: ["edit"] }); // no invoices:create
     const admin = getAdminClient();
     // Status update itself: orders.update + order_tracks.insert.
     admin.enqueueResponse({ data: null, error: null }); // 1) orders.update
     admin.enqueueResponse({ data: null, error: null }); // 2) order_tracks.insert
-    // P57: the action re-fetches the order to read its current
+    // The action re-fetches the order to read its current
     // invoice_id (was null, so auto-invoice is triggered). The re-fetch
     // succeeds. The subsequent generateInvoice call asserts
     // `invoices:create` which the caller does not have — it throws
@@ -315,16 +309,12 @@ describe("updateOrderStatus", () => {
     // surfaces it in `invoiceError` so OrderActionControls can show
     // a warning toast. The status update still succeeds.
     admin.enqueueResponse({
-      data: makeOrder({ id: "o-1", status: "delivered", invoice_id: null }),
+      data: makeOrder({ id: "o-1", status: "processing", invoice_id: null }),
       error: null,
     });
 
-    const result = await updateOrderStatus("o-1", "delivered");
+    const result = await updateOrderStatus("o-1", "processing");
     expect(result.invoiceId).toBeNull();
-    // P57: the error is now surfaced in `invoiceError` so the
-    // caller (OrderActionControls) can show a warning toast. The
-    // status update itself still succeeds (per the P44 design —
-    // a failed invoice must not block the status change).
     expect(result.invoiceError).toBeDefined();
     expect(result.invoiceError).toMatch(/Permission/i);
   });

@@ -4,15 +4,40 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { InvoiceDetail } from "../actions";
-// P63: client-side date renderer. Avoids hydration mismatches caused
-// by server/client timezone divergence in toLocaleDateString.
 import ClientDate from "@/components/ClientDate";
+
+type GstSlab = {
+  rate: number;
+  taxableAmount: number;
+  cgst: number;
+  sgst: number;
+};
+
+function computeGstSlabs(items: { gst_rate: number; gst_amount: number; total_price: number }[]): GstSlab[] {
+  const map = new Map<number, GstSlab>();
+  for (const item of items) {
+    const rate = item.gst_rate;
+    if (!map.has(rate)) {
+      map.set(rate, { rate, taxableAmount: 0, cgst: 0, sgst: 0 });
+    }
+    const slab = map.get(rate)!;
+    slab.taxableAmount += Number(item.total_price) - Number(item.gst_amount);
+    slab.cgst += Number(item.gst_amount) / 2;
+    slab.sgst += Number(item.gst_amount) / 2;
+  }
+  return Array.from(map.values()).sort((a, b) => b.rate - a.rate);
+}
 
 export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetail }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const order = invoice.orders;
   const addr = order?.addresses;
+  const items = order?.order_items ?? [];
+  const slabs = computeGstSlabs(items);
+  const totalCgst = slabs.reduce((s, slab) => s + slab.cgst, 0);
+  const totalSgst = slabs.reduce((s, slab) => s + slab.sgst, 0);
+  const totalTaxable = slabs.reduce((s, slab) => s + slab.taxableAmount, 0);
 
   async function handleDownload() {
     setDownloading(true);
@@ -143,28 +168,38 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                         <th>#</th>
                         <th>Product</th>
                         <th>HSN</th>
-                        <th>Variant</th>
                         <th className="text-center">Qty</th>
                         <th className="text-end">Rate</th>
-                        <th className="text-end">Amount</th>
-                        <th className="text-end">GST%</th>
+                        <th className="text-end">Taxable</th>
+                        <th className="text-end">CGST</th>
+                        <th className="text-end">SGST</th>
+                        <th className="text-end">Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {order?.order_items.map((item, i) => (
-                        <tr key={item.id}>
-                          <td>{i + 1}</td>
-                          {/* P26: prefer the snapshot (survives product/variant deletion),
-                              fall back to the JOIN, then to a placeholder. */}
-                          <td>{item.product_name ?? item.products?.name ?? "Deleted Product"}</td>
-                          <td>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</td>
-                          <td>{item.variant_name ?? item.product_variants?.name ?? "—"}</td>
-                          <td className="text-center">{item.quantity}</td>
-                          <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
-                          <td className="text-end">₹{Number(item.total_price).toLocaleString()}</td>
-                          <td className="text-end">{item.gst_rate}%</td>
-                        </tr>
-                      ))}
+                      {order?.order_items.map((item, i) => {
+                        const taxable = Number(item.total_price) - Number(item.gst_amount);
+                        const cgst = Number(item.gst_amount) / 2;
+                        const sgst = Number(item.gst_amount) / 2;
+                        const variant = item.variant_name ?? item.product_variants?.name;
+                        const productLabel = variant
+                          ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
+                          : item.product_name ?? item.products?.name ?? "Deleted Product";
+
+                        return (
+                          <tr key={item.id}>
+                            <td>{i + 1}</td>
+                            <td>{productLabel}</td>
+                            <td>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</td>
+                            <td className="text-center">{item.quantity}</td>
+                            <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
+                            <td className="text-end">₹{taxable.toLocaleString()}</td>
+                            <td className="text-end">₹{cgst.toLocaleString()}</td>
+                            <td className="text-end">₹{sgst.toLocaleString()}</td>
+                            <td className="text-end">₹{Number(item.total_price).toLocaleString()}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -176,15 +211,30 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
               <div className="card-body">
                 <table className="table table-sm mb-0">
                   <tbody>
-                    <tr><td className="text-muted">Taxable Amount</td><td className="text-end fw-semibold">₹{Number(invoice.taxable_amount).toLocaleString()}</td></tr>
-                    {invoice.cgst != null && Number(invoice.cgst) > 0 && (
-                      <tr><td className="text-muted">CGST</td><td className="text-end">₹{Number(invoice.cgst).toLocaleString()}</td></tr>
-                    )}
-                    {invoice.sgst != null && Number(invoice.sgst) > 0 && (
-                      <tr><td className="text-muted">SGST</td><td className="text-end">₹{Number(invoice.sgst).toLocaleString()}</td></tr>
-                    )}
-                    {invoice.igst != null && Number(invoice.igst) > 0 && (
-                      <tr><td className="text-muted">IGST</td><td className="text-end">₹{Number(invoice.igst).toLocaleString()}</td></tr>
+                    {slabs.flatMap((slab) => [
+                      <tr key={`h-${slab.rate}`}>
+                        <td colSpan={2}><strong>Items at {slab.rate}% GST</strong></td>
+                      </tr>,
+                      <tr key={`tx-${slab.rate}`}>
+                        <td className="text-muted ps-3">Taxable</td>
+                        <td className="text-end">₹{slab.taxableAmount.toLocaleString()}</td>
+                      </tr>,
+                      <tr key={`cg-${slab.rate}`}>
+                        <td className="text-muted ps-3">CGST @ {slab.rate / 2}%</td>
+                        <td className="text-end">₹{slab.cgst.toLocaleString()}</td>
+                      </tr>,
+                      <tr key={`sg-${slab.rate}`}>
+                        <td className="text-muted ps-3">SGST @ {slab.rate / 2}%</td>
+                        <td className="text-end">₹{slab.sgst.toLocaleString()}</td>
+                      </tr>,
+                    ])}
+                    <tr><td colSpan={2}><hr className="my-1" /></td></tr>
+                    {slabs.length > 0 && (
+                      <>
+                        <tr><td className="fw-semibold">Total Taxable</td><td className="text-end fw-semibold">₹{totalTaxable.toLocaleString()}</td></tr>
+                        {totalCgst > 0 && <tr><td className="text-muted">Total CGST</td><td className="text-end">₹{totalCgst.toLocaleString()}</td></tr>}
+                        {totalSgst > 0 && <tr><td className="text-muted">Total SGST</td><td className="text-end">₹{totalSgst.toLocaleString()}</td></tr>}
+                      </>
                     )}
                     <tr><td className="fw-bold">Total</td><td className="text-end fw-bold fs-5">₹{Number(invoice.total_amount).toLocaleString()}</td></tr>
                   </tbody>
