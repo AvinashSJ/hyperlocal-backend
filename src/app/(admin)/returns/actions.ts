@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission, PermissionError } from "@/lib/require-permission";
 import { logActivity } from "@/lib/activity-log";
@@ -115,7 +116,7 @@ export async function createReturnRequest({
   // 1. Read the order for the SLA check + state sync.
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("delivered_at, status, store_id")
+    .select("delivered_at, status, store_id, user_id")
     .eq("id", orderId)
     .single();
   if (orderError) throw new Error(orderError.message);
@@ -196,7 +197,11 @@ export async function createReturnRequest({
     }
   }
 
-  // 4. Insert the return_requests row.
+  // 4. Insert the return_requests row. requested_by is set to
+  //    the order owner's user_id so the customer can see the
+  //    return request through RLS (requested_by = auth.uid()
+  //    policy). The admin app uses the service-role key and
+  //    bypasses RLS entirely.
   const { data: inserted, error: insertError } = await supabase
     .from("return_requests")
     .insert({
@@ -206,6 +211,7 @@ export async function createReturnRequest({
       customer_notes: customerNotes ?? null,
       state: "pending",
       delivered_at_at_request: deliveredAtAtRequest,
+      requested_by: (order as { user_id: string | null }).user_id ?? null,
     })
     .select("*")
     .single();
@@ -500,11 +506,14 @@ export async function updateReturnRequestState({
   const updateFields: Record<string, unknown> = {
     state: toState,
     resolution_amount: finalResolutionAmount, // null or computed value
+    updated_at: new Date().toISOString(),
   };
   if (finalResolution) updateFields.resolution = finalResolution;
   if (managerNotes != null) updateFields.manager_notes = managerNotes;
-  if (toState === "approved") {
+  if (toState === "approved" || toState === "rejected") {
     updateFields.decided_at = new Date().toISOString();
+    const { data: { user } } = await (await createClient()).auth.getUser();
+    if (user) updateFields.decided_by = user.id;
   }
   if (toState === "fulfilled") {
     updateFields.fulfilled_at = new Date().toISOString();

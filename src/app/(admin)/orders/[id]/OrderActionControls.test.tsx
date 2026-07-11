@@ -51,7 +51,7 @@ import OrderActionControls from "./OrderActionControls";
 
 function render(props: {
   orderId: string;
-  currentStatus: "pending" | "confirmed" | "processing" | "shipped" | "delivered" | "cancelled" | "returned";
+  currentStatus: "pending" | "confirmed" | "processing" | "out_for_delivery" | "delivered" | "cancelled" | "returned" | "return_requested" | "return_processing" | "return_approved" | "return_rejected";
   currentPaymentStatus: "unpaid" | "paid" | "refunded" | "partially_refunded";
   // P57: defaults to a non-delivered, no-invoice state so existing
   // tests don't accidentally render the [Generate Invoice] button.
@@ -97,18 +97,17 @@ beforeEach(() => {
 });
 
 describe("OrderActionControls (P54 — shared status + payment controls)", () => {
-  it("renders both Update Status and Update Payment buttons when status is pending", () => {
+  it("renders Update Status button when status is pending", () => {
     const { container, cleanup } = render({
       orderId: "o-1",
       currentStatus: "pending",
       currentPaymentStatus: "unpaid",
     });
     expect(container.querySelector('[data-testid="open-status-modal"]')).not.toBeNull();
-    expect(container.querySelector('[data-testid="open-payment-modal"]')).not.toBeNull();
     cleanup();
   });
 
-  it("hides Update Status when the status is terminal (cancelled/returned/delivered)", () => {
+  it("hides action buttons when the status is terminal (cancelled/returned/delivered)", () => {
     for (const status of ["cancelled", "returned", "delivered"] as const) {
       const { container, cleanup } = render({
         orderId: "o-1",
@@ -116,8 +115,8 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
         currentPaymentStatus: "paid",
       });
       expect(container.querySelector('[data-testid="open-status-modal"]')).toBeNull();
-      // Update Payment stays visible so refunds can be applied
-      expect(container.querySelector('[data-testid="open-payment-modal"]')).not.toBeNull();
+      // Manage Return is hidden for terminal states (no return workflow)
+      expect(container.querySelector('[data-testid="open-return-modal"]')).toBeNull();
       cleanup();
     }
   });
@@ -165,7 +164,7 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     updateOrderStatusMock.mockResolvedValue({ invoiceId: "i-new" });
     const { container, cleanup } = render({
       orderId: "o-1",
-      currentStatus: "shipped",
+      currentStatus: "out_for_delivery",
       currentPaymentStatus: "unpaid",
     });
 
@@ -188,29 +187,42 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     cleanup();
   });
 
-  it("opens the payment modal and calls updatePaymentStatus", async () => {
+  it("opens the status modal with payment dropdown and calls updatePaymentStatus alongside status update", async () => {
+    updateOrderStatusMock.mockResolvedValue({ invoiceId: null });
     updatePaymentStatusMock.mockResolvedValue(undefined);
     const { container, cleanup } = render({
       orderId: "o-1",
-      currentStatus: "delivered",
+      currentStatus: "pending",
       currentPaymentStatus: "unpaid",
     });
 
     await act(async () => {
-      (container.querySelector('[data-testid="open-payment-modal"]') as HTMLButtonElement).click();
+      (container.querySelector('[data-testid="open-status-modal"]') as HTMLButtonElement).click();
     });
-    expect(container.querySelector('[data-testid="payment-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="status-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="status-payment-select"]')).not.toBeNull();
 
+    // Change payment to paid
     act(() => {
-      const select = container.querySelector('[data-testid="payment-select"]') as HTMLSelectElement;
+      const select = container.querySelector('[data-testid="status-payment-select"]') as HTMLSelectElement;
       const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!;
       setter.call(select, "paid");
       select.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    await act(async () => {
-      (container.querySelector('[data-testid="confirm-payment-update"]') as HTMLButtonElement).click();
+
+    // Change status to confirmed so button is enabled
+    act(() => {
+      const select = container.querySelector('[data-testid="status-select"]') as HTMLSelectElement;
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!;
+      setter.call(select, "confirmed");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
+    await act(async () => {
+      (container.querySelector('[data-testid="confirm-status-update"]') as HTMLButtonElement).click();
+    });
+
+    expect(updateOrderStatusMock).toHaveBeenCalledWith("o-1", "confirmed", undefined);
     expect(updatePaymentStatusMock).toHaveBeenCalledWith("o-1", "paid");
     expect(successMock).toHaveBeenCalled();
     expect(refreshMock).toHaveBeenCalled();
@@ -347,7 +359,7 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     });
     const { container, cleanup } = render({
       orderId: "o-1",
-      currentStatus: "shipped",
+      currentStatus: "out_for_delivery",
       currentPaymentStatus: "paid",
       currentInvoiceId: null,
       canCreateInvoice: true,

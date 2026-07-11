@@ -18,10 +18,14 @@ const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
   confirmed: "bg-info text-white",
   processing: "bg-primary text-white",
-  shipped: "bg-secondary text-white",
+  out_for_delivery: "bg-secondary text-white",
   delivered: "bg-success text-white",
   cancelled: "bg-danger text-white",
   returned: "bg-dark text-white",
+  return_requested: "bg-warning text-dark",
+  return_processing: "bg-info text-white",
+  return_approved: "bg-info text-white",
+  return_rejected: "bg-dark text-white",
 };
 
 type ActionPermissions = {
@@ -30,10 +34,12 @@ type ActionPermissions = {
 
 export default function OrderDetailClient({
   order,
-  actionPerms,
+  canCreateInvoice,
+  returnsActionPerms,
 }: {
   order: OrderDetail;
-  actionPerms?: ActionPermissions;
+  canCreateInvoice?: boolean;
+  returnsActionPerms?: ActionPermissions;
 }) {
   const addr = order.addresses;
   const profile = order.profiles;
@@ -53,7 +59,7 @@ export default function OrderDetailClient({
           currentStatus={order.status}
           currentPaymentStatus={order.payment_status}
           currentInvoiceId={order.invoice_id}
-          canCreateInvoice={actionPerms?.canCreate ?? false}
+          canCreateInvoice={canCreateInvoice ?? false}
         />
       </div>
 
@@ -247,7 +253,7 @@ export default function OrderDetailClient({
               Manager actions (Approve / Reject / Mark fulfilled)
               are gated by `returns:edit` and the Hard Delete button
               by `returns:delete`. */}
-          <ReturnRequestsPanel order={order} actionPerms={actionPerms} />
+          <ReturnRequestsPanel order={order} actionPerms={returnsActionPerms} />
 
           {/* P44: prominent Invoice card. Replaces the small inline
               buttons that used to live here. Visible whenever the

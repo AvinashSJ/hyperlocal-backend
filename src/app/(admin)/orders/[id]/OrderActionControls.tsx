@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
+import { listReturnRequestsForOrder, updateReturnRequestState } from "@/app/(admin)/returns/actions";
 import {
   updateOrderStatus,
   updatePaymentStatus,
@@ -11,37 +13,34 @@ import {
   type OrderStatus,
   type PaymentStatus,
 } from "../actions";
+import type { ReturnRequestState } from "@/lib/types/supabase";
 
 /**
- * P54: Reusable status + payment controls. Originally inlined in
- * OrderDetailClient (src/app/(admin)/orders/[id]/OrderDetailClient.tsx);
- * extracted so it can be embedded anywhere a single order needs
- * edit affordances — primarily the new /cart/[cart_id] page where
- * each sub-order card needs full inline editing.
+ * P54: Reusable status + payment controls.
  *
- * Behavior:
- *   - Update Status button hidden when the order is already
- *     terminal (cancelled / returned / delivered) — keeps the
- *     action surface focused.
- *   - Update Payment button always shown (you can re-mark a paid
- *     order as refunded, etc.).
- *   - Status modal restricts options to forward-only flow + the
- *     explicit Cancel/Return escape hatches, with notes for
- *     forensic context (P50 logs cancelled/returned transitions).
- *   - P44 toast on delivered (invoice auto-generated).
- *   - P57: if the auto-invoice FAILED (caller lacks
- *     `invoices:create`, or the order has a NULL store_id, or
- *     any other DB error), the action returns the error message
- *     in `invoiceError` and we surface it as a warning toast.
- *     The status update itself still succeeds (per the original
- *     P44 design).
- *   - P57: when the order is delivered but has no invoice_id,
- *     a [Generate Invoice] button appears for callers with
- *     `invoices:create` — the manual retry path. For Staff
- *     (no invoices:create), only the warning toast is shown.
- *   - Both actions call router.refresh() so the surrounding
- *     page picks up the new state.
+ * P62a: "Manage Return" button opens a modal with a single
+ * state-machine dropdown instead of multiple action buttons.
+ * The modal auto-detects the latest pending return request for
+ * the order and shows only legal transitions for its current
+ * state.
  */
+
+const RETURN_TRANSITION_LABELS: Record<string, string> = {
+  received: "Acknowledge (Received)",
+  processing: "Mark Processing",
+  approved: "Approve",
+  rejected: "Reject",
+  fulfilled: "Mark Fulfilled",
+};
+
+const RETURN_TRANSITION_BTN_CLASS: Record<string, string> = {
+  received: "btn-info",
+  processing: "btn-primary",
+  approved: "btn-success",
+  rejected: "btn-danger",
+  fulfilled: "btn-success",
+};
+
 export default function OrderActionControls({
   orderId,
   currentStatus,
@@ -61,35 +60,40 @@ export default function OrderActionControls({
   const [statusNotes, setStatusNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [statusModalPayment, setStatusModalPayment] = useState<PaymentStatus>(currentPaymentStatus);
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [newPaymentStatus, setNewPaymentStatus] = useState<PaymentStatus>(currentPaymentStatus);
-  const [savingPayment, setSavingPayment] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnRequests, setReturnRequests] = useState<Array<{ id: string; state: string; reason: string }>>([]);
+  const [selectedReturnRequestId, setSelectedReturnRequestId] = useState<string>("");
+  const [selectedTransition, setSelectedTransition] = useState<string>("");
+  const [returnResolution, setReturnResolution] = useState<string>("full_refund");
+  const [returnPartialAmount, setReturnPartialAmount] = useState("");
+  const [returnManagerNotes, setReturnManagerNotes] = useState("");
+  const [returnPaymentStatus, setReturnPaymentStatus] = useState<PaymentStatus>(currentPaymentStatus);
+  const [savingReturn, setSavingReturn] = useState(false);
 
-  const STATUS_FLOW: OrderStatus[] = ["pending", "confirmed", "processing", "shipped", "delivered"];
+  const STATUS_FLOW: OrderStatus[] = ["pending", "confirmed", "processing", "out_for_delivery", "delivered"];
 
   const handleStatusUpdate = async () => {
-    if (newStatus === currentStatus) return;
+    if (newStatus === currentStatus && statusModalPayment === currentPaymentStatus) return;
     setSaving(true);
     try {
       const result = await updateOrderStatus(orderId, newStatus, statusNotes || undefined);
-      if (newStatus === "delivered" && result.invoiceId) {
-        toast.success("Status updated to delivered. Invoice generated.");
-      } else if (newStatus === "delivered" && result.invoiceError) {
-        // P57: surface the auto-invoice failure to the operator.
-        // The status update itself still succeeded (per the
-        // P44 design — a failed invoice must not block the
-        // status change). The operator can now see WHY the
-        // invoice is missing and use the [Generate Invoice]
-        // button (when they have the right permission) to retry.
+      if (newStatus === "processing" && result.invoiceId) {
+        toast.success("Status updated to processing. Invoice generated.");
+      } else if (newStatus === "processing" && result.invoiceError) {
         toast.warning(
-          `Status updated to delivered. Invoice was not generated: ${result.invoiceError}`,
+          `Status updated to processing. Invoice was not generated: ${result.invoiceError}`,
           { autoClose: 8000 },
         );
       } else if (newStatus === "delivered") {
         toast.success("Status updated to delivered");
       } else {
         toast.success(`Status updated to ${newStatus}`);
+      }
+      if (statusModalPayment !== currentPaymentStatus) {
+        await updatePaymentStatus(orderId, statusModalPayment);
+        toast.success(`Payment status updated to ${statusModalPayment}`);
       }
       setShowStatusModal(false);
       setStatusNotes("");
@@ -98,21 +102,6 @@ export default function OrderActionControls({
       toast.error("Failed to update status");
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handlePaymentUpdate = async () => {
-    if (newPaymentStatus === currentPaymentStatus) return;
-    setSavingPayment(true);
-    try {
-      await updatePaymentStatus(orderId, newPaymentStatus);
-      toast.success(`Payment status updated to ${newPaymentStatus}`);
-      setShowPaymentModal(false);
-      router.refresh();
-    } catch {
-      toast.error("Failed to update payment status");
-    } finally {
-      setSavingPayment(false);
     }
   };
 
@@ -136,34 +125,104 @@ export default function OrderActionControls({
     }
   };
 
+  const handleOpenReturnModal = async () => {
+    setReturnManagerNotes("");
+    setSelectedTransition("");
+    setReturnResolution("full_refund");
+    setReturnPartialAmount("");
+    setReturnPaymentStatus(currentPaymentStatus);
+    const result = await runServerAction(listReturnRequestsForOrder, orderId);
+    if (!result.ok) {
+      toast.error(result.error.message);
+      return;
+    }
+    const active = result.value.filter(
+      (r) => r.state !== "fulfilled" && r.state !== "rejected",
+    );
+    if (active.length === 0) {
+      toast.info("No active return requests for this order.");
+      return;
+    }
+    setReturnRequests(active.map((r) => ({ id: r.id, state: r.state, reason: r.reason })));
+    setSelectedReturnRequestId(active[0].id);
+    setShowReturnModal(true);
+  };
+
+  const handleReturnSubmit = async () => {
+    if (!selectedReturnRequestId || !selectedTransition) return;
+    setSavingReturn(true);
+    const returnResult = await runServerAction(updateReturnRequestState, {
+      requestId: selectedReturnRequestId,
+      toState: selectedTransition as ReturnRequestState,
+      ...(selectedTransition === "approved" ? { resolution: returnResolution as "full_refund" | "partial_refund" | "replacement" } : {}),
+      ...(selectedTransition === "approved" && returnResolution === "partial_refund" && returnPartialAmount ? { resolutionAmount: Number(returnPartialAmount) } : {}),
+      ...(returnManagerNotes.trim() ? { managerNotes: returnManagerNotes.trim() } : {}),
+    });
+    if (!returnResult.ok) {
+      setSavingReturn(false);
+      toast.error(returnResult.error.message);
+      return;
+    }
+    toast.success(`Return ${RETURN_TRANSITION_LABELS[selectedTransition] ?? selectedTransition}`);
+    // Also update payment status if changed.
+    if (returnPaymentStatus !== currentPaymentStatus) {
+      try {
+        await updatePaymentStatus(orderId, returnPaymentStatus);
+        toast.success(`Payment status updated to ${returnPaymentStatus}`);
+      } catch {
+        toast.error("Failed to update payment status");
+      }
+    }
+    setSavingReturn(false);
+    setShowReturnModal(false);
+    router.refresh();
+  };
+
   const isTerminal = currentStatus === "cancelled" || currentStatus === "returned" || currentStatus === "delivered";
-  // P57: a delivered order with no invoice_id is the trigger
-  // for the [Generate Invoice] button. We also surface a one-line
-  // note in the button so the operator knows why the button is
-  // there (vs. assuming it's a "Download" link).
-  const needsInvoice = isTerminal && currentStatus === "delivered" && !currentInvoiceId;
+  const isReturnWorkflow = currentStatus.startsWith("return_");
+  const needsInvoice = currentStatus === "delivered" && !currentInvoiceId;
+
+  const legalTransitions: Record<string, string[]> = {
+    pending: ["received", "processing", "approved", "rejected"],
+    received: ["processing", "approved", "rejected"],
+    processing: ["approved", "rejected"],
+    approved: ["fulfilled"],
+  };
 
   return (
     <>
       <div className="d-flex gap-2 flex-wrap" data-testid="order-action-controls">
-        {!isTerminal && (
+        {!isTerminal && (isReturnWorkflow ? (
           <button
-            className="btn btn-primary btn-sm"
-            onClick={() => setShowStatusModal(true)}
-            data-testid="open-status-modal"
+            className="btn btn-outline-warning btn-sm"
+            onClick={handleOpenReturnModal}
+            data-testid="open-return-modal"
           >
-            <Icon icon="ri:exchange-line" width={16} className="me-1" />
-            Update Status
+            <Icon icon="ri:arrow-go-back-line" width={16} className="me-1" />
+            Manage Return
           </button>
-        )}
-        <button
-          className="btn btn-outline-info btn-sm"
-          onClick={() => setShowPaymentModal(true)}
-          data-testid="open-payment-modal"
-        >
-          <Icon icon="ri:money-dollar-circle-line" width={16} className="me-1" />
-          Update Payment
-        </button>
+        ) : (
+          <>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setShowStatusModal(true)}
+              data-testid="open-status-modal"
+            >
+              <Icon icon="ri:exchange-line" width={16} className="me-1" />
+              Update Status
+            </button>
+            {(currentStatus as string) === "delivered" && (
+              <button
+                className="btn btn-outline-warning btn-sm"
+                onClick={handleOpenReturnModal}
+                data-testid="open-return-modal"
+              >
+                <Icon icon="ri:arrow-go-back-line" width={16} className="me-1" />
+                Manage Return
+              </button>
+            )}
+          </>
+        ))}
         {/* P57: manual invoice retry. Same call surface as the
             auto-invoice (generateInvoice from invoices/actions).
             Re-running the same call recomputes the per-store
@@ -221,7 +280,7 @@ export default function OrderActionControls({
                     if (newIdx < idx && s !== "cancelled") return null;
                     return (
                       <option key={s} value={s}>
-                        {s.charAt(0).toUpperCase() + s.slice(1)}
+                        {s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                       </option>
                     );
                   })}
@@ -242,45 +301,13 @@ export default function OrderActionControls({
                   data-testid="status-notes"
                 />
               </div>
-              <button
-                className="btn btn-primary w-100"
-                onClick={handleStatusUpdate}
-                disabled={saving || newStatus === currentStatus}
-                data-testid="confirm-status-update"
-              >
-                {saving ? "Updating..." : `Update to ${newStatus}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showPaymentModal && (
-        <div
-          style={{
-            position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1050,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-          onClick={() => setShowPaymentModal(false)}
-        >
-          <div
-            className="card"
-            style={{ width: 400, maxWidth: "90vw" }}
-            onClick={(e) => e.stopPropagation()}
-            data-testid="payment-modal"
-          >
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <strong>Update Payment Status</strong>
-              <button className="btn-close" onClick={() => setShowPaymentModal(false)} />
-            </div>
-            <div className="card-body">
               <div className="mb-3">
-                <label className="form-label">Payment Status</label>
+                <label className="form-label">Payment</label>
                 <select
                   className="form-select"
-                  value={newPaymentStatus}
-                  onChange={(e) => setNewPaymentStatus(e.target.value as PaymentStatus)}
-                  data-testid="payment-select"
+                  value={statusModalPayment}
+                  onChange={(e) => setStatusModalPayment(e.target.value as PaymentStatus)}
+                  data-testid="status-payment-select"
                 >
                   {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
                     <option key={s} value={s}>
@@ -291,16 +318,159 @@ export default function OrderActionControls({
               </div>
               <button
                 className="btn btn-primary w-100"
-                onClick={handlePaymentUpdate}
-                disabled={savingPayment || newPaymentStatus === currentPaymentStatus}
-                data-testid="confirm-payment-update"
+                onClick={handleStatusUpdate}
+                disabled={saving || (newStatus === currentStatus && statusModalPayment === currentPaymentStatus)}
+                data-testid="confirm-status-update"
               >
-                {savingPayment ? "Updating..." : "Update Payment"}
+                {saving ? "Updating..." : `Update to ${newStatus}`}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {showReturnModal && (
+        <div
+          style={{
+            position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1050,
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+          onClick={() => setShowReturnModal(false)}
+        >
+          <div
+            className="card"
+            style={{ width: 420, maxWidth: "90vw" }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="return-modal"
+          >
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <strong>Manage Return</strong>
+              <button className="btn-close" onClick={() => setShowReturnModal(false)} />
+            </div>
+            <div className="card-body">
+              {returnRequests.length > 1 && (
+                <div className="mb-3">
+                  <label className="form-label">Return Request</label>
+                  <select
+                    className="form-select"
+                    value={selectedReturnRequestId}
+                    onChange={(e) => {
+                      const req = returnRequests.find((r) => r.id === e.target.value);
+                      setSelectedReturnRequestId(e.target.value);
+                      setSelectedTransition("");
+                      if (req) setSelectedTransition(req.state === "pending" ? "received" : "");
+                    }}
+                    data-testid="return-request-select"
+                  >
+                    {returnRequests.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.reason} ({r.state})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div className="mb-3">
+                <label className="form-label">Return State</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={returnRequests.find((r) => r.id === selectedReturnRequestId)?.state ?? ""}
+                  disabled
+                />
+              </div>
+              {selectedReturnRequestId && (
+                <div className="mb-3">
+                  <label className="form-label">Next Step</label>
+                  <select
+                    className="form-select"
+                    value={selectedTransition}
+                    onChange={(e) => setSelectedTransition(e.target.value)}
+                    data-testid="return-transition-select"
+                  >
+                    <option value="">— Select —</option>
+                    {(legalTransitions[returnRequests.find((r) => r.id === selectedReturnRequestId)?.state ?? ""] ?? [])
+                      .map((s) => (
+                        <option key={s} value={s}>
+                          {RETURN_TRANSITION_LABELS[s] ?? s}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+              {selectedTransition === "approved" && (
+                <div className="mb-3">
+                  <label className="form-label">Resolution</label>
+                  <select
+                    className="form-select"
+                    value={returnResolution}
+                    onChange={(e) => setReturnResolution(e.target.value)}
+                    data-testid="return-resolution-select"
+                  >
+                    <option value="full_refund">Full Refund</option>
+                    <option value="partial_refund">Partial Refund</option>
+                    <option value="replacement">Replacement</option>
+                  </select>
+                  {returnResolution === "partial_refund" && (
+                    <div className="mt-2">
+                      <label className="form-label">Override Amount (optional)</label>
+                      <input
+                        type="number"
+                        className="form-control"
+                        min={0.01}
+                        step={0.01}
+                        value={returnPartialAmount}
+                        onChange={(e) => setReturnPartialAmount(e.target.value)}
+                        placeholder="Auto-computed if empty"
+                        data-testid="return-partial-amount-input"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="mb-3">
+                <label className="form-label">Manager Notes (optional)</label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  value={returnManagerNotes}
+                  onChange={(e) => setReturnManagerNotes(e.target.value)}
+                  placeholder="Notes for this transition..."
+                  data-testid="return-notes"
+                />
+              </div>
+              <div className="mb-3">
+                <label className="form-label">Payment</label>
+                <select
+                  className="form-select"
+                  value={returnPaymentStatus}
+                  onChange={(e) => setReturnPaymentStatus(e.target.value as PaymentStatus)}
+                  data-testid="return-payment-select"
+                >
+                  {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
+                    <option key={s} value={s}>
+                      {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className={`btn w-100 ${RETURN_TRANSITION_BTN_CLASS[selectedTransition] ?? "btn-primary"}`}
+                onClick={handleReturnSubmit}
+                disabled={savingReturn || !selectedTransition}
+                data-testid="confirm-return-transition"
+              >
+                {savingReturn
+                  ? "Updating..."
+                  : selectedTransition
+                  ? RETURN_TRANSITION_LABELS[selectedTransition] ?? selectedTransition
+                  : "Select a step"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

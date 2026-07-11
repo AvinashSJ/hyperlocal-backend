@@ -106,7 +106,7 @@ export type Order = {
   tax_amount: number;
   delivery_charge: number;
   total_amount: number;
-  payment_status: "unpaid" | "paid" | "partial" | "refunded";
+  payment_status: "unpaid" | "paid" | "partially_refunded" | "refunded";
   payment_method: "cod" | "card" | "upi" | "netbanking" | "wallet" | null;
   delivery_address_id: string | null;
   delivery_slot_id: string | null;

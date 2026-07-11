@@ -432,13 +432,6 @@ export default function ReturnRequestsPanel({
                 request={req}
                 items={itemsByRequest[req.id] ?? []}
                 actionPerms={actionPerms}
-                onAcknowledge={() => handleTransition(req, "received")}
-                onProcess={() => handleTransition(req, "processing")}
-                onApprove={() => setApprovingFor(req)}
-                onReject={() => setRejectingFor(req)}
-                onFulfill={(gatewayRefundId) =>
-                  handleTransition(req, "fulfilled", { gatewayRefundId })
-                }
                 onDelete={() => handleDelete(req)}
                 transitioning={transitioning}
               />
@@ -501,22 +494,12 @@ function RequestCard({
   request: req,
   items,
   actionPerms,
-  onAcknowledge,
-  onProcess,
-  onApprove,
-  onReject,
-  onFulfill,
   onDelete,
   transitioning,
 }: {
   request: ReturnRequest;
   items: ReturnRequestItem[];
   actionPerms?: ActionPermissions;
-  onAcknowledge: () => void;
-  onProcess: () => void;
-  onReject: () => void;
-  onApprove: () => void;
-  onFulfill: (gatewayRefundId?: string) => void;
   onDelete: () => void;
   transitioning: boolean;
 }) {
@@ -573,75 +556,13 @@ function RequestCard({
         </div>
       )}
 
-      {canEdit && (
+      {canDelete && (
         <div className="d-flex flex-wrap gap-1 mt-2">
-          {req.state === "pending" && (
-            <>
-              <button type="button" className="btn btn-sm btn-outline-info"
-                onClick={onAcknowledge} disabled={transitioning}
-                data-testid={`return-request-ack-btn-${req.id}`}>
-                Acknowledge
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-primary"
-                onClick={onProcess} disabled={transitioning}
-                data-testid={`return-request-process-btn-${req.id}`}>
-                Mark processing
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-success"
-                onClick={onApprove} disabled={transitioning}
-                data-testid={`return-request-approve-btn-${req.id}`}>
-                Approve
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-danger"
-                onClick={onReject} disabled={transitioning}
-                data-testid={`return-request-reject-btn-${req.id}`}>
-                Reject
-              </button>
-            </>
-          )}
-          {req.state === "received" && (
-            <>
-              <button type="button" className="btn btn-sm btn-outline-primary"
-                onClick={onProcess} disabled={transitioning}>
-                Mark processing
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-success"
-                onClick={onApprove} disabled={transitioning}>
-                Approve
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-danger"
-                onClick={onReject} disabled={transitioning}>
-                Reject
-              </button>
-            </>
-          )}
-          {req.state === "processing" && (
-            <>
-              <button type="button" className="btn btn-sm btn-outline-success"
-                onClick={onApprove} disabled={transitioning}>
-                Approve
-              </button>
-              <button type="button" className="btn btn-sm btn-outline-danger"
-                onClick={onReject} disabled={transitioning}>
-                Reject
-              </button>
-            </>
-          )}
-          {req.state === "approved" && (
-            <button type="button" className="btn btn-sm btn-outline-success"
-              onClick={() => onFulfill(undefined)} disabled={transitioning}
-              data-testid={`return-request-fulfill-btn-${req.id}`}>
-              Mark fulfilled
-            </button>
-          )}
-          {/* Rejected / fulfilled are terminal — no further buttons. */}
-          {canDelete && (
-            <button type="button" className="btn btn-sm btn-outline-secondary ms-auto"
-              onClick={onDelete} disabled={transitioning}
-              data-testid={`return-request-delete-btn-${req.id}`}>
-              Hard delete (SA)
-            </button>
-          )}
+          <button type="button" className="btn btn-sm btn-outline-danger ms-auto"
+            onClick={onDelete} disabled={transitioning}
+            data-testid={`return-request-delete-btn-${req.id}`}>
+            Delete
+          </button>
         </div>
       )}
     </div>

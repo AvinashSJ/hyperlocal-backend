@@ -30,10 +30,14 @@ export type CartGroupOrder = {
     | "pending"
     | "confirmed"
     | "processing"
-    | "shipped"
+    | "out_for_delivery"
     | "delivered"
     | "cancelled"
-    | "returned";
+    | "returned"
+    | "return_requested"
+    | "return_processing"
+    | "return_approved"
+    | "return_rejected";
   payment_status: "unpaid" | "paid" | "refunded" | "partially_refunded";
   payment_method: string | null;
   subtotal: number;

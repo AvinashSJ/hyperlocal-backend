@@ -174,6 +174,7 @@ describe("updateOrderStatus", () => {
   it("updates status, inserts a track row, and revalidates the list + detail", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard: not in return workflow
     admin.enqueueResponse({ data: null, error: null }); // orders.update
     admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
     // "processing" triggers invoice-gen re-fetch (no invoices:create so it
@@ -182,7 +183,7 @@ describe("updateOrderStatus", () => {
 
     await updateOrderStatus("o-1", "processing");
 
-    const updateChain = admin.chainsForTable("orders")[0];
+    const updateChain = admin.chainsForTable("orders")[1];
     expect(updateChain[0]).toEqual({ method: "from", args: ["orders"] });
     expect(updateChain.find((c) => c.method === "update")).toBeDefined();
     expect(updateChain.find((c) => c.method === "eq")).toEqual({
@@ -208,12 +209,13 @@ describe("updateOrderStatus", () => {
   it("sets confirmed_at timestamp when status is 'confirmed'", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
     await updateOrderStatus("o-1", "confirmed");
 
-    const updateArg = admin.chainsForTable("orders")[0]
+    const updateArg = admin.chainsForTable("orders")[1]
       .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
     expect(updateArg.status).toBe("confirmed");
     expect(typeof updateArg.confirmed_at).toBe("string");
@@ -223,12 +225,13 @@ describe("updateOrderStatus", () => {
   it("sets delivered_at timestamp when status is 'delivered'", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
     await updateOrderStatus("o-1", "delivered");
 
-    const updateArg = admin.chainsForTable("orders")[0]
+    const updateArg = admin.chainsForTable("orders")[1]
       .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
     expect(updateArg.status).toBe("delivered");
     expect(typeof updateArg.delivered_at).toBe("string");
@@ -238,13 +241,15 @@ describe("updateOrderStatus", () => {
   it("does NOT set any timestamp for non-terminal statuses", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
-    const statuses: OrderStatus[] = ["pending", "shipped", "cancelled", "returned"];
+    const statuses: OrderStatus[] = ["pending", "out_for_delivery", "cancelled", "returned"];
 
     for (const status of statuses) {
+      // Guard: status select before every call.
       // P50: cancelled/returned also pre-select previous_status BEFORE
       // the orders.update, then log AFTER the track insert. Order:
-      //   [pre-select, orders.update, order_tracks.insert, activity_logs.insert]
-      // Routine statuses only do update + track insert (2 responses).
+      //   [guard, pre-select, orders.update, order_tracks.insert, activity_logs.insert]
+      // Routine statuses only do guard + update + track insert (3 responses).
+      admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
       const isHighSignal = status === "cancelled" || status === "returned";
       if (isHighSignal) {
         admin.enqueueResponse({ data: { status: "pending" }, error: null });
@@ -268,10 +273,11 @@ describe("updateOrderStatus", () => {
   it("passes notes through to the tracking row", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
-    await updateOrderStatus("o-1", "shipped", "Left the warehouse");
+    await updateOrderStatus("o-1", "out_for_delivery", "Left the warehouse");
 
     const trackInsert = admin.chainsForTable("order_tracks")[0]
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
@@ -281,6 +287,7 @@ describe("updateOrderStatus", () => {
   it("throws when the order update fails", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
     admin.enqueueResponse({ data: null, error: { message: "update failed" } });
 
     await expect(updateOrderStatus("o-1", "processing")).rejects.toThrow("update failed");
@@ -289,6 +296,7 @@ describe("updateOrderStatus", () => {
   it("throws when the tracking insert fails", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
     admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: null, error: { message: "track insert failed" } });
 
@@ -298,7 +306,8 @@ describe("updateOrderStatus", () => {
   it("auto-generates invoice on transition to 'processing' (fails gracefully without invoices:create)", async () => {
     asAdmin({ orders: ["edit"] }); // no invoices:create
     const admin = getAdminClient();
-    // Status update itself: orders.update + order_tracks.insert.
+    // Status update itself: guard + orders.update + order_tracks.insert.
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // 0) guard
     admin.enqueueResponse({ data: null, error: null }); // 1) orders.update
     admin.enqueueResponse({ data: null, error: null }); // 2) order_tracks.insert
     // The action re-fetches the order to read its current
@@ -569,12 +578,14 @@ describe("P50: activity logging — audit trail (updateOrderStatus)", () => {
   // delivered) intentionally do NOT write activity_log rows. Only
   // high-signal transitions (cancelled, returned) log.
 
-  it("does NOT log routine status transitions (pending, confirmed, shipped, delivered, processing)", async () => {
+  it("does NOT log routine status transitions (pending, confirmed, out_for_delivery, delivered, processing)", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
-    const routine: OrderStatus[] = ["pending", "confirmed", "shipped", "delivered", "processing"];
+    const routine: OrderStatus[] = ["pending", "confirmed", "out_for_delivery", "delivered", "processing"];
 
     for (const status of routine) {
+      // Guard: status select before every call.
+      admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
       // P50: confirmed and delivered also need the pre-update select
       // for their own timestamps; we don't need to enqueue extra
       // responses because the action doesn't add a select for
@@ -595,6 +606,8 @@ describe("P50: activity logging — audit trail (updateOrderStatus)", () => {
     asAdmin({ orders: ["edit"] });
     setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
+    // 0. guard: not in return workflow
+    admin.enqueueResponse({ data: { status: "pending" }, error: null });
     // 1. pre-update select to capture previous_status
     admin.enqueueResponse({ data: { status: "pending" }, error: null });
     // 2. orders.update
@@ -628,10 +641,11 @@ describe("P50: activity logging — audit trail (updateOrderStatus)", () => {
     asAdmin({ orders: ["edit"] });
     setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: { status: "delivered" }, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { status: "delivered" }, error: null }); // guard
+    admin.enqueueResponse({ data: { status: "delivered" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
 
     await updateOrderStatus("o-1", "returned");
 

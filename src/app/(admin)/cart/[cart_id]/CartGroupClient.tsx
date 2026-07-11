@@ -12,10 +12,14 @@ const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
   confirmed: "bg-info text-white",
   processing: "bg-primary text-white",
-  shipped: "bg-secondary text-white",
+  out_for_delivery: "bg-secondary text-white",
   delivered: "bg-success text-white",
   cancelled: "bg-danger text-white",
   returned: "bg-dark text-white",
+  return_requested: "bg-warning text-dark",
+  return_processing: "bg-info text-white",
+  return_approved: "bg-info text-white",
+  return_rejected: "bg-dark text-white",
 };
 
 const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;

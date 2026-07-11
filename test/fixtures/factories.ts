@@ -251,13 +251,13 @@ export function makeOrder(overrides: Partial<{
   order_number: string;
   user_id: string;
   store_id: string | null;
-  status: "pending" | "confirmed" | "processing" | "out_for_delivery" | "delivered" | "cancelled" | "returned";
+  status: "pending" | "confirmed" | "processing" | "out_for_delivery" | "delivered" | "cancelled" | "returned" | "return_requested" | "return_processing" | "return_approved" | "return_rejected";
   subtotal: number;
   discount_amount: number;
   tax_amount: number;
   delivery_charge: number;
   total_amount: number;
-  payment_status: "unpaid" | "paid" | "partial" | "refunded";
+  payment_status: "unpaid" | "paid" | "partially_refunded" | "refunded";
   payment_method: "cod" | "card" | "upi" | "netbanking" | "wallet" | null;
   delivery_address_id: string | null;
   delivery_slot_id: string | null;

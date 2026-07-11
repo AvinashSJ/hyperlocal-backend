@@ -13,7 +13,7 @@ export { generateInvoice as generateInvoiceForOrder };
 // "operator manually set status to returned" path AND the new
 // return_requests.fulfilled transition).
 export type OrderStatus =
-  | "pending" | "confirmed" | "processing" | "shipped"
+  | "pending" | "confirmed" | "processing" | "out_for_delivery"
   | "delivered" | "cancelled" | "returned"
   | "return_requested" | "return_processing"
   | "return_approved" | "return_rejected";
@@ -111,6 +111,22 @@ export async function updateOrderStatus(
 ): Promise<{ invoiceId: string | null; invoiceError?: string }> {
   await assertPermission("orders", "edit");
   const supabase = createAdminClient();
+
+  // Guard: prevent manual status updates when the order is in the
+  // return workflow. The Returns panel manages these transitions
+  // and would be orphaned by a manual override.
+  const { data: currentOrder } = await supabase
+    .from("orders")
+    .select("status")
+    .eq("id", id)
+    .single();
+  if (currentOrder && (currentOrder.status as string).startsWith("return_")) {
+    throw new Error(
+      `Cannot update status manually: order ${id} is in the return workflow ` +
+      `(current status: ${currentOrder.status}). Use the Returns panel to manage this order.`,
+    );
+  }
+
   const updateFields: Record<string, string | null> = { status };
 
   if (status === "confirmed") updateFields.confirmed_at = new Date().toISOString();
