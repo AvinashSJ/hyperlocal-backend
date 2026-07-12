@@ -13,7 +13,7 @@ export default async function DeliveryZonesPage() {
       <h4 className="fw-bold mb-4">Delivery Zones</h4>
       <div className="card">
         <div className="card-body">
-          <ZonesClient zones={zones} actionPerms={actionPerms} />
+          <ZonesClient zones={zones} actionPerms={actionPerms} storeId={storeId} />
         </div>
       </div>
     </div>

@@ -425,6 +425,7 @@ export function makeDeliveryZone(overrides: Partial<{
   free_delivery_min_order: number | null;
   is_active: boolean;
   is_express: boolean;
+  boundary: number[][] | null;
   created_at: string;
 }> = {}) {
   return {
@@ -437,6 +438,7 @@ export function makeDeliveryZone(overrides: Partial<{
     free_delivery_min_order: overrides.free_delivery_min_order ?? 200,
     is_active: overrides.is_active ?? true,
     is_express: overrides.is_express ?? false,
+    boundary: overrides.boundary ?? null,
     created_at: overrides.created_at ?? nowISO(),
   };
 }

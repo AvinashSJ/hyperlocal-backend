@@ -2,10 +2,13 @@
 
 import { useState, useCallback, useEffect, useMemo, useActionState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
+
+const MapLocationPicker = dynamic(() => import("./MapLocationPicker"), { ssr: false });
 import { updateStore, updateStoreSetting } from "./actions";
 import type { StoreSettingsData } from "./actions";
 import {
@@ -706,6 +709,31 @@ function CategoryEditor({
   );
 }
 
+function StoreLocationPicker({ lat: initialLat, lng: initialLng }: { lat: number | null; lng: number | null }) {
+  const [lat, setLat] = useState<number | null>(initialLat);
+  const [lng, setLng] = useState<number | null>(initialLng);
+
+  return (
+    <div className="mb-2">
+      <label className="form-label">Store Location <span className="text-muted fw-normal">(drag the pin or click the map)</span></label>
+      {lat != null && lng != null && (
+        <input type="hidden" name="lat" value={lat} />
+      )}
+      {lat != null && lng != null && (
+        <input type="hidden" name="lng" value={lng} />
+      )}
+      <MapLocationPicker
+        lat={lat}
+        lng={lng}
+        onChange={(newLat, newLng) => {
+          setLat(newLat);
+          setLng(newLng);
+        }}
+      />
+    </div>
+  );
+}
+
 /* ──────────── ORIGINAL FORM SECTIONS ──────────── */
 
 function StoreInfoSection({
@@ -874,6 +902,10 @@ function StoreInfoSection({
             <div className="col-md-6">
               <label className="form-label">State</label>
               <input name="state" className="form-control" defaultValue={store?.state ?? ""} />
+            </div>
+
+            <div className="col-12">
+              <StoreLocationPicker lat={store?.lat ?? null} lng={store?.lng ?? null} />
             </div>
 
             {isSuperAdmin && (

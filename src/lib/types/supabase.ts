@@ -194,6 +194,7 @@ export type DeliveryZone = {
   free_delivery_min_order: number | null;
   is_active: boolean;
   is_express: boolean;
+  boundary: number[][] | null;
   created_at: string;
 };
 

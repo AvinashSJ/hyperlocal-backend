@@ -15,11 +15,35 @@ type ZoneInput = {
   is_express: boolean;
 };
 
+function parseBoundary(raw: string | null): number[][] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed) || parsed.length < 3) return null;
+    for (const pt of parsed) {
+      if (!Array.isArray(pt) || pt.length < 2 || typeof pt[0] !== "number" || typeof pt[1] !== "number") return null;
+    }
+    return parsed as number[][];
+  } catch {
+    return null;
+  }
+}
+
+function makeGeoJsonPolygon(boundary: number[][]): string {
+  const coords = boundary.map(([lat, lng]) => [lng, lat]);
+  return JSON.stringify({
+    type: "Polygon",
+    coordinates: [[...coords, coords[0]]],
+  });
+}
+
+const LIST_COLUMNS = "id, store_id, name, pincodes, radius_km, delivery_charge, free_delivery_min_order, is_active, is_express, created_at";
+
 export async function getDeliveryZones(storeId?: string | null) {
   const supabase = createAdminClient();
   let query = supabase
     .from("delivery_zones")
-    .select("*")
+    .select(LIST_COLUMNS)
     .order("name", { ascending: true });
   if (storeId) query = query.eq("store_id", storeId);
   const { data, error } = await query;
@@ -32,6 +56,7 @@ export async function createDeliveryZone(formData: FormData) {
   const supabase = createAdminClient();
   const pincodesRaw = String(formData.get("pincodes") ?? "");
   const pincodes = pincodesRaw ? pincodesRaw.split(",").map((p) => p.trim()).filter(Boolean) : [];
+  const boundary = parseBoundary(String(formData.get("boundary") ?? ""));
   const data: ZoneInput = {
     name: String(formData.get("name") ?? ""),
     store_id: String(formData.get("store_id") ?? ""),
@@ -45,8 +70,22 @@ export async function createDeliveryZone(formData: FormData) {
   if (!data.name) throw new Error("Zone name is required");
   if (!data.store_id) throw new Error("Store ID is required");
 
-  const { error } = await supabase.from("delivery_zones").insert(data);
+  const { data: inserted, error } = await supabase
+    .from("delivery_zones")
+    .insert(data)
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+
+  if (boundary && inserted?.id) {
+    const geojson = makeGeoJsonPolygon(boundary);
+    const { error: rpcError } = await supabase.rpc("set_zone_boundary", {
+      p_zone_id: inserted.id,
+      p_geojson: JSON.parse(geojson),
+    });
+    if (rpcError) throw new Error(rpcError.message);
+  }
+
   revalidatePath("/delivery-zones");
 }
 
@@ -55,6 +94,7 @@ export async function updateDeliveryZone(id: string, formData: FormData) {
   const supabase = createAdminClient();
   const pincodesRaw = String(formData.get("pincodes") ?? "");
   const pincodes = pincodesRaw ? pincodesRaw.split(",").map((p) => p.trim()).filter(Boolean) : [];
+  const boundary = parseBoundary(String(formData.get("boundary") ?? ""));
   const data: ZoneInput = {
     name: String(formData.get("name") ?? ""),
     store_id: String(formData.get("store_id") ?? ""),
@@ -67,9 +107,45 @@ export async function updateDeliveryZone(id: string, formData: FormData) {
   };
   if (!data.name) throw new Error("Zone name is required");
 
-  const { error } = await supabase.from("delivery_zones").update(data).eq("id", id);
-  if (error) throw new Error(error.message);
+  const { error: updateError } = await supabase.from("delivery_zones").update(data).eq("id", id);
+  if (updateError) throw new Error(updateError.message);
+
+  if (boundary) {
+    const geojson = makeGeoJsonPolygon(boundary);
+    const { error: rpcError } = await supabase.rpc("set_zone_boundary", {
+      p_zone_id: id,
+      p_geojson: JSON.parse(geojson),
+    });
+    if (rpcError) throw new Error(rpcError.message);
+  }
+
   revalidatePath("/delivery-zones");
+}
+
+export async function getZoneWithBoundary(id: string) {
+  const supabase = createAdminClient();
+  const { data: zone, error } = await supabase
+    .from("delivery_zones")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+
+  const { data: boundaryGeoJson, error: rpcError } = await supabase.rpc("get_zone_boundary", {
+    p_zone_id: id,
+  });
+  if (rpcError) throw new Error(rpcError.message);
+
+  let boundary: number[][] | null = null;
+  if (boundaryGeoJson) {
+    const coords = (boundaryGeoJson as { coordinates: number[][][] })?.coordinates?.[0];
+    if (coords) {
+      boundary = coords.map(([lng, lat]: number[]) => [lat, lng]);
+      boundary.pop();
+    }
+  }
+
+  return { ...zone, boundary };
 }
 
 export async function deleteDeliveryZone(id: string) {

@@ -19,6 +19,8 @@ export type StoreData = {
   address: string | null;
   city: string | null;
   state: string | null;
+  lat: number | null;
+  lng: number | null;
   delivery_radius_km: number | null;
   commission_rate: number | null;
   order_id_prefix: string | null;
@@ -103,7 +105,7 @@ export async function getStoreSettings(storeId?: string): Promise<StoreSettingsD
   function buildStoreQuery() {
     return supabase
       .from("stores")
-      .select("id, name, slug, code, logo_url, banner_url, phone, email, address, city, state, delivery_radius_km, commission_rate, order_id_prefix, is_open, is_active");
+      .select("id, name, slug, code, logo_url, banner_url, phone, email, address, city, state, lat, lng, delivery_radius_km, commission_rate, order_id_prefix, is_open, is_active");
   }
 
   const storeRes = storeId
@@ -164,7 +166,7 @@ export async function updateStore(formData: FormData) {
     updates[f] = v ? String(v) : null;
   }
 
-  const numFields = ["delivery_radius_km", "commission_rate"];
+  const numFields = ["delivery_radius_km", "commission_rate", "lat", "lng"];
   for (const f of numFields) {
     const v = formData.get(f);
     updates[f] = v ? Number(v) : null;
@@ -294,7 +296,7 @@ export async function createStore(formData: FormData) {
   }
   const prefixRaw = formData.get("order_id_prefix");
   if (prefixRaw) data.order_id_prefix = String(prefixRaw);
-  const numFields = ["delivery_radius_km", "commission_rate"];
+  const numFields = ["delivery_radius_km", "commission_rate", "lat", "lng"];
   for (const f of numFields) {
     const v = formData.get(f);
     data[f] = v ? Number(v) : null;

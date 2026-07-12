@@ -12,7 +12,7 @@ type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
 };
 
-export default function ZonesClient({ zones: initial, actionPerms }: { zones: Zone[]; actionPerms?: ActionPermissions }) {
+export default function ZonesClient({ zones: initial, actionPerms, storeId }: { zones: Zone[]; actionPerms?: ActionPermissions; storeId?: string | null }) {
   const [zones, setZones] = useState(initial);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Zone | null>(null);
@@ -111,7 +111,7 @@ export default function ZonesClient({ zones: initial, actionPerms }: { zones: Zo
         </table>
       </div>
 
-      {showForm && <ZoneForm zone={editing} onClose={handleFormClose} />}
+      {showForm && <ZoneForm zone={editing} onClose={handleFormClose} storeId={storeId} />}
     </>
   );
 }
