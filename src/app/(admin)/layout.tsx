@@ -75,7 +75,7 @@ export default async function AdminLayout({
     ? storeMaintenanceMap[storeId] ?? DEFAULT_MAINTENANCE
     : DEFAULT_MAINTENANCE;
 
-  const isStoreScoped = !!(storeId && !isSuperAdmin);
+  const isStoreScoped = !!(storeId && !isSuperAdmin && role !== "Staff");
 
   return (
     <MasterLayout

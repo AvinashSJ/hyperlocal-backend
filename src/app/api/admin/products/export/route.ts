@@ -8,6 +8,7 @@ import { getStoreScope } from "@/lib/store-scope";
 const COLUMNS = [
   "name",
   "category_name",
+  "subcategory_name",
   "brand",
   "description",
   "unit_of_measurement",
@@ -56,7 +57,7 @@ type ProductRow = {
   stock_quantity: number;
   low_stock_threshold: number | null;
   status: string;
-  categories: { name: string } | { name: string }[] | null;
+  categories: { name: string; parent_id: string | null } | { name: string; parent_id: string | null }[] | null;
 };
 
 export async function GET() {
@@ -66,7 +67,7 @@ export async function GET() {
   const supabase = createAdminClient();
   let query = supabase
     .from("products")
-    .select("name, description, sku, brand, unit_of_measurement, mrp, selling_price, discount_percent, gst_rate, hsn_code, stock_quantity, low_stock_threshold, status, categories(name)")
+    .select("name, description, sku, brand, unit_of_measurement, mrp, selling_price, discount_percent, gst_rate, hsn_code, stock_quantity, low_stock_threshold, status, categories(name, parent_id)")
     .order("name", { ascending: true })
     .limit(MAX_EXPORT_ROWS);
 
@@ -79,11 +80,31 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Collect parent IDs to fetch parent category names
+  const parentIds = [
+    ...new Set(
+      ((data ?? []) as unknown as ProductRow[]).map((p) => {
+        const cat = Array.isArray(p.categories) ? p.categories[0] : p.categories;
+        return cat?.parent_id;
+      }).filter((id): id is string => id != null),
+    ),
+  ];
+  const parentMap = new Map<string, string>();
+  if (parentIds.length > 0) {
+    const { data: parents } = await supabase
+      .from("categories")
+      .select("id, name")
+      .in("id", parentIds);
+    for (const p of parents ?? []) parentMap.set(p.id, p.name);
+  }
+
   const rows = ((data ?? []) as unknown as ProductRow[]).map((p) => {
     const cat = Array.isArray(p.categories) ? p.categories[0] : p.categories;
+    const parentName = cat?.parent_id ? parentMap.get(cat.parent_id) : null;
     return {
       name: p.name,
-      category_name: cat?.name ?? "",
+      category_name: parentName ?? cat?.name ?? "",
+      subcategory_name: parentName && cat ? cat.name : "",
       brand: p.brand,
       description: p.description,
       unit_of_measurement: p.unit_of_measurement,

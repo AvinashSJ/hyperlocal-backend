@@ -364,3 +364,253 @@ export async function getGSTByStore(
     }))
     .sort((a, b) => b.taxable_amount - a.taxable_amount);
 }
+
+// ============================================================================
+// P&L (Profit & Loss) Report
+// ============================================================================
+
+export type PnLSummary = {
+  grossRevenue: number;
+  discounts: number;
+  returnsRefunds: number;
+  netRevenue: number;
+  cogs: number;
+  deliveryCharges: number;
+  commissions: number;
+  grossProfit: number;
+  gstCollected: number;
+  netProfit: number;
+};
+
+export async function getPnLSummary(
+  start?: string | null,
+  end?: string | null,
+  storeId?: string | null,
+): Promise<PnLSummary> {
+  const supabase = createAdminClient();
+
+  // 1. Revenue from paid orders
+  let revQ = supabase
+    .from("orders")
+    .select("total_amount, discount_amount, delivery_charge, tax_amount")
+    .eq("payment_status", "paid");
+  revQ = dateFilter(revQ, start, end);
+  revQ = storeFilter(revQ, storeId);
+  const { data: paidOrders } = await revQ;
+
+  const grossRevenue = (paidOrders ?? []).reduce((s, o) => s + Number(o.total_amount), 0);
+  const discounts = (paidOrders ?? []).reduce((s, o) => s + Number(o.discount_amount), 0);
+  const deliveryCharges = (paidOrders ?? []).reduce((s, o) => s + Number(o.delivery_charge), 0);
+  const gstCollected = (paidOrders ?? []).reduce((s, o) => s + Number(o.tax_amount), 0);
+
+  // 2. Returns/refunds fulfilled in period
+  let retQ = supabase
+    .from("return_requests")
+    .select("resolution_amount, orders!inner(store_id)")
+    .in("state", ["fulfilled"])
+    .in("resolution", ["full_refund", "partial_refund"]);
+  retQ = dateFilter(retQ, start, end, "fulfilled_at");
+  retQ = storeFilter(retQ, storeId);
+  const { data: returns } = await retQ;
+  const returnsRefunds = (returns ?? []).reduce((s, r) => s + Number(r.resolution_amount ?? 0), 0);
+
+  // 3. COGS: order_items.quantity × products.purchase_rate for paid orders
+  let cogsQ = supabase
+    .from("order_items")
+    .select("quantity, product_id, orders!inner(store_id, payment_status, placed_at)");
+  cogsQ = cogsQ.eq("orders.payment_status", "paid");
+  cogsQ = dateFilter(cogsQ, start, end, "orders.placed_at");
+  cogsQ = storeFilter(cogsQ, storeId);
+  const { data: orderItems } = await cogsQ;
+
+  // Fetch purchase_rates for all referenced products
+  const productIds = [...new Set((orderItems ?? []).map((i) => i.product_id).filter(Boolean))] as string[];
+  const purchaseRateMap = new Map<string, number>();
+  if (productIds.length > 0) {
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, purchase_rate")
+      .in("id", productIds);
+    for (const p of products ?? []) {
+      if (p.purchase_rate != null) purchaseRateMap.set(p.id, Number(p.purchase_rate));
+    }
+  }
+  const cogs = (orderItems ?? []).reduce(
+    (s, i) => s + Number(i.quantity) * (purchaseRateMap.get(i.product_id as string) ?? 0),
+    0,
+  );
+
+  // 4. Commissions for period
+  let commQ = supabase
+    .from("store_commissions")
+    .select("commission_amount, store_id");
+  if (start) commQ = commQ.gte("period_start", start);
+  if (end) commQ = commQ.lte("period_end", end);
+  commQ = storeFilter(commQ, storeId);
+  const { data: commissions } = await commQ;
+  const totalCommissions = (commissions ?? []).reduce((s, c) => s + Number(c.commission_amount), 0);
+
+  const netRevenue = grossRevenue - discounts - returnsRefunds;
+  const grossProfit = netRevenue - cogs - deliveryCharges - totalCommissions;
+  const netProfit = grossProfit - gstCollected;
+
+  return {
+    grossRevenue,
+    discounts,
+    returnsRefunds,
+    netRevenue,
+    cogs,
+    deliveryCharges,
+    commissions: totalCommissions,
+    grossProfit,
+    gstCollected,
+    netProfit,
+  };
+}
+
+// ============================================================================
+// Product Wise Sales Report
+// ============================================================================
+
+export type ProductSaleRow = {
+  product_name: string;
+  variant_name: string | null;
+  hsn_code: string | null;
+  units_sold: number;
+  total_revenue: number;
+  avg_unit_price: number;
+  gst_collected: number;
+};
+
+export async function getProductSales(
+  start?: string | null,
+  end?: string | null,
+  storeId?: string | null,
+): Promise<ProductSaleRow[]> {
+  const supabase = createAdminClient();
+
+  let q = supabase
+    .from("order_items")
+    .select(
+      "quantity, unit_price, total_price, gst_amount, product_name, variant_name, product_hsn_code, orders!inner(store_id, payment_status, placed_at)",
+    )
+    .eq("orders.payment_status", "paid");
+  q = dateFilter(q, start, end, "orders.placed_at");
+  q = storeFilter(q, storeId);
+  const { data } = await q;
+
+  const map = new Map<
+    string,
+    { product: string; variant: string | null; hsn: string | null; units: number; revenue: number; gst: number }
+  >();
+
+  for (const item of data ?? []) {
+    const key = `${item.product_name ?? "Unknown"}_${item.variant_name ?? ""}`;
+    const entry = map.get(key) ?? {
+      product: item.product_name ?? "Unknown",
+      variant: item.variant_name as string | null,
+      hsn: item.product_hsn_code as string | null,
+      units: 0,
+      revenue: 0,
+      gst: 0,
+    };
+    entry.units += Number(item.quantity);
+    entry.revenue += Number(item.total_price);
+    entry.gst += Number(item.gst_amount);
+    map.set(key, entry);
+  }
+
+  return Array.from(map.values())
+    .map((v) => ({
+      product_name: v.product,
+      variant_name: v.variant,
+      hsn_code: v.hsn,
+      units_sold: v.units,
+      total_revenue: v.revenue,
+      avg_unit_price: v.units > 0 ? v.revenue / v.units : 0,
+      gst_collected: v.gst,
+    }))
+    .sort((a, b) => b.total_revenue - a.total_revenue);
+}
+
+// ============================================================================
+// GST Filing Report (CGST + SGST breakdown by HSN)
+// ============================================================================
+
+export type GSTFilingRow = {
+  hsn_code: string;
+  gst_rate: number;
+  items_count: number;
+  taxable_value: number;
+  cgst: number;
+  sgst: number;
+  igst: number;
+  total_gst: number;
+};
+
+export type GSTFilingSummary = {
+  totalTaxable: number;
+  totalCGST: number;
+  totalSGST: number;
+  totalIGST: number;
+  totalGST: number;
+};
+
+export async function getGSTFiling(
+  start?: string | null,
+  end?: string | null,
+  storeId?: string | null,
+): Promise<{ rows: GSTFilingRow[]; summary: GSTFilingSummary }> {
+  const supabase = createAdminClient();
+
+  let q = supabase
+    .from("order_items")
+    .select(
+      "total_price, gst_rate, gst_amount, product_hsn_code, orders!inner(store_id, placed_at)",
+    );
+  q = dateFilter(q, start, end, "orders.placed_at");
+  q = storeFilter(q, storeId);
+  const { data } = await q;
+
+  const map = new Map<
+    string,
+    { hsn: string; rate: number; count: number; taxable: number; gst: number }
+  >();
+
+  for (const item of data ?? []) {
+    const hsn = (item.product_hsn_code as string) || "NA";
+    const rate = Number(item.gst_rate);
+    const key = `${hsn}_${rate}`;
+    const entry = map.get(key) ?? { hsn, rate, count: 0, taxable: 0, gst: 0 };
+    entry.count += 1;
+    entry.taxable += Number(item.total_price) - Number(item.gst_amount);
+    entry.gst += Number(item.gst_amount);
+    map.set(key, entry);
+  }
+
+  const rows = Array.from(map.values())
+    .map((v) => {
+      const halfGst = v.gst / 2;
+      return {
+        hsn_code: v.hsn,
+        gst_rate: v.rate,
+        items_count: v.count,
+        taxable_value: v.taxable,
+        cgst: halfGst,
+        sgst: halfGst,
+        igst: 0,
+        total_gst: v.gst,
+      };
+    })
+    .sort((a, b) => b.taxable_value - a.taxable_value);
+
+  const summary: GSTFilingSummary = {
+    totalTaxable: rows.reduce((s, r) => s + r.taxable_value, 0),
+    totalCGST: rows.reduce((s, r) => s + r.cgst, 0),
+    totalSGST: rows.reduce((s, r) => s + r.sgst, 0),
+    totalIGST: rows.reduce((s, r) => s + r.igst, 0),
+    totalGST: rows.reduce((s, r) => s + r.total_gst, 0),
+  };
+
+  return { rows, summary };
+}

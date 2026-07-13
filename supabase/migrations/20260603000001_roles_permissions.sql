@@ -65,24 +65,9 @@ INSERT INTO public.roles (name, description, permissions, is_system) VALUES
     "settings": ["view"],
     "staff": ["view", "create", "edit", "delete"]
   }'::jsonb, true),
-  ('Staff', 'View-only access with limited content management', '{
-    "dashboard": ["view"],
-    "products": ["view", "edit"],
-    "categories": ["view"],
+  ('Staff', 'Order processing — can view and update orders, and view invoices', '{
     "orders": ["view", "edit"],
-    "invoices": ["view"],
-    "customers": ["view"],
-    "delivery_zones": ["view"],
-    "delivery_slots": ["view"],
-    "gst_numbers": ["view"],
-    "inventory_log": ["view"],
-    "banners": [],
-    "media": ["view", "upload"],
-    "notifications": ["view"],
-    "users": [],
-    "roles": [],
-    "stores": ["view"],
-    "settings": []
+    "invoices": ["view"]
   }'::jsonb, true)
 ON CONFLICT (name) DO NOTHING;
 

@@ -38,33 +38,33 @@ export async function getStoreScope(): Promise<StoreScope> {
     .eq("id", user.id)
     .single();
 
-  if (!profile?.store_id) {
-    // P47: surface the silent data leak via a console.warn. The
-    // hard guard for pages is `assertStoreScope` (called separately
-    // by /orders, /customers, /invoices). This warning is dev/CI
-    // noise by design — it makes the leak visible without forcing
-    // every caller to add the guard.
-    console.warn(
-      "[store-scope] non-Super-Admin user has profile.store_id = NULL; downstream queries will skip the store_id filter and return all data",
-    );
-    return { storeId: null, isStoreScoped: false, roleName: null };
+  const adminSupabase = createAdminClient();
+  const { data: roleData } = profile?.role_id
+    ? await adminSupabase
+        .from("roles")
+        .select("name")
+        .eq("id", profile.role_id)
+        .single()
+    : { data: null };
+
+  const roleName = roleData?.name ?? null;
+
+  if (roleName === "Super Admin") {
+    return { storeId: null, isStoreScoped: false, roleName };
   }
 
-  const adminSupabase = createAdminClient();
-  const { data: roleData } = await adminSupabase
-    .from("roles")
-    .select("name")
-    .eq("id", profile.role_id)
-    .single();
-
-  if (roleData?.name === "Super Admin") {
-    return { storeId: null, isStoreScoped: false, roleName: roleData.name };
+  if (!profile?.store_id) {
+    console.warn(
+      "[store-scope] non-Super-Admin user (role=%s) has profile.store_id = NULL; downstream queries will skip the store_id filter and return all data",
+      roleName,
+    );
+    return { storeId: null, isStoreScoped: false, roleName };
   }
 
   return {
     storeId: profile.store_id,
     isStoreScoped: true,
-    roleName: roleData?.name ?? null,
+    roleName,
   };
 }
 
@@ -90,6 +90,11 @@ export function assertStoreScope(scope: StoreScope): void {
   // roleName is "Manager" / "Staff" / custom with no store_id → throw.
   // roleName is "customer" (no permissions anyway) → throw (defensive).
   throw new UnassignedStoreError();
+}
+
+export function getPostLoginRedirect(roleName: string | null): string {
+  if (roleName === "Staff") return "/orders";
+  return "/dashboard";
 }
 
 export function withStoreScope<T>(

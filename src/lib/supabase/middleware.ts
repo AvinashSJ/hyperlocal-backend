@@ -52,7 +52,21 @@ export async function updateSession(request: NextRequest) {
 
   if (request.nextUrl.pathname === "/auth/login" && user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role_id")
+      .eq("id", user.id)
+      .single();
+    let roleName: string | null = null;
+    if (profile?.role_id) {
+      const { data: role } = await supabase
+        .from("roles")
+        .select("name")
+        .eq("id", profile.role_id)
+        .single();
+      roleName = role?.name ?? null;
+    }
+    url.pathname = roleName === "Staff" ? "/orders" : "/dashboard";
     return NextResponse.redirect(url);
   }
 

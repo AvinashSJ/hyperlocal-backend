@@ -336,7 +336,22 @@ export async function getReturnRequestItems(
     .select("*")
     .eq("return_request_id", requestId);
   if (error) throw new Error(error.message);
-  return (data ?? []) as ReturnRequestItem[];
+  if (!data || data.length === 0) return [];
+
+  const orderItemIds = data.map(i => i.order_item_id);
+  const { data: orderItems, error: oiError } = await supabase
+    .from("order_items")
+    .select("id, product_name, variant_name, unit_price")
+    .in("id", orderItemIds);
+  if (oiError) throw new Error(oiError.message);
+
+  const orderItemsById = new Map(
+    (orderItems ?? []).map(oi => [oi.id, oi]),
+  );
+  return data.map(i => ({
+    ...i,
+    order_items: orderItemsById.get(i.order_item_id) ?? null,
+  }));
 }
 
 /**
@@ -461,20 +476,31 @@ export async function updateReturnRequestState({
         // price-at-purchase (pre-tax). The Manager can override
         // by passing an explicit resolutionAmount (e.g., if they
         // want to include GST or a goodwill discount).
+        // Note: no FK from return_request_items to order_items, so
+        // we do a manual two-query merge.
         const { data: items, error: itemsError } = await supabase
           .from("return_request_items")
-          .select("quantity, order_items(unit_price)")
+          .select("quantity, order_item_id")
           .eq("return_request_id", requestId);
         if (itemsError) throw new Error(itemsError.message);
-        // P62: Supabase JS types embedded single-row joins as arrays,
-        // but PostgREST returns a single object. Cast through unknown
-        // to reconcile.
-        const itemRows = (items ?? []) as unknown as Array<{
-          quantity: number;
-          order_items: { unit_price: number } | null;
-        }>;
-        const computed = itemRows.reduce((sum, r) => {
-          const up = r.order_items?.unit_price ?? 0;
+        if (!items || items.length === 0) {
+          throw new Error(
+            "Cannot auto-compute resolution_amount: no items found " +
+            `on return_request ${requestId}. Pass resolutionAmount ` +
+            "explicitly.",
+          );
+        }
+        const itemIds = items.map(i => i.order_item_id);
+        const { data: orderItems, error: oiErr } = await supabase
+          .from("order_items")
+          .select("id, unit_price")
+          .in("id", itemIds);
+        if (oiErr) throw new Error(oiErr.message);
+        const priceMap = new Map(
+          (orderItems ?? []).map(oi => [oi.id, oi.unit_price]),
+        );
+        const computed = items.reduce((sum, r) => {
+          const up = priceMap.get(r.order_item_id) ?? 0;
           return sum + up * Number(r.quantity);
         }, 0);
         if (computed <= 0) {

@@ -9,9 +9,9 @@ type ImportResult = {
   errors: { row: number; field: string; message: string }[];
 };
 
-const SAMPLE_CSV = `name,category_name,brand,description,unit_of_measurement,mrp,selling_price,discount_percent,gst_rate,hsn_code,stock_quantity,low_stock_threshold,status,sku
-Fresh Apples,Fruits,Organic Farms,Fresh red apples,kg,120,100,16.67,5,0801,50,10,active,APL-001
-Whole Wheat Bread,Bakery,FreshBake,500g whole wheat loaf,piece,45,35,22.22,5,1905,20,5,active,BRD-001`;
+const SAMPLE_CSV = `name,category_name,subcategory_name,brand,description,unit_of_measurement,mrp,selling_price,discount_percent,gst_rate,hsn_code,stock_quantity,low_stock_threshold,status,sku
+Fresh Apples,Fruits,,Organic Farms,Fresh red apples,kg,120,100,16.67,5,0801,50,10,active,APL-001
+Whole Wheat Bread,Bakery,,FreshBake,500g whole wheat loaf,piece,45,35,22.22,5,1905,20,5,active,BRD-001`;
 
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.trim().split("\n");
@@ -132,7 +132,7 @@ export default function BulkImportModal({
 
               <div className="alert alert-info small py-2 mb-0">
                 CSV must include a header row. Required columns: <strong>name</strong>, <strong>category_name</strong>, <strong>selling_price</strong>.
-                Optional: description, brand, unit_of_measurement, mrp, discount_percent, gst_rate, hsn_code, stock_quantity, low_stock_threshold, status, sku.
+                Optional: subcategory_name, description, brand, unit_of_measurement, mrp, discount_percent, gst_rate, hsn_code, stock_quantity, low_stock_threshold, status, sku.
               </div>
 
               <div className="d-flex justify-content-end gap-2 mt-3 pt-3 border-top">

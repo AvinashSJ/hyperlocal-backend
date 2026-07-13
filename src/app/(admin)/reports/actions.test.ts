@@ -18,6 +18,9 @@ import {
   getGSTMonthly,
   getGSTByHSN,
   getGSTByStore,
+  getPnLSummary,
+  getProductSales,
+  getGSTFiling,
 } from "./actions";
 
 beforeEach(() => {
@@ -562,5 +565,130 @@ describe("getGSTByStore", () => {
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: null });
     expect(await getGSTByStore()).toEqual([]);
+  });
+});
+
+// ============================================================================
+// P&L
+// ============================================================================
+
+describe("getPnLSummary", () => {
+  it("computes P&L from paid orders, returns, COGS, and commissions", async () => {
+    const admin = getAdminClient();
+    // 5 sequential queries: orders, return_requests, order_items, products, store_commissions
+    admin.setResponses(
+      { data: [{ total_amount: 1000, discount_amount: 50, delivery_charge: 30, tax_amount: 90 }], error: null },
+      { data: [{ resolution_amount: 100, orders: { store_id: null } }], error: null },
+      { data: [{ quantity: 5, product_id: "p-1", orders: { store_id: null, payment_status: "paid", placed_at: "2026-07-01T00:00:00Z" } }], error: null },
+      { data: [{ id: "p-1", purchase_rate: 40 }], error: null },
+      { data: [{ commission_amount: 50, store_id: null }], error: null },
+    );
+
+    const result = await getPnLSummary();
+    expect(result.grossRevenue).toBe(1000);
+    expect(result.discounts).toBe(50);
+    expect(result.returnsRefunds).toBe(100);
+    expect(result.netRevenue).toBe(850);
+    expect(result.cogs).toBe(200);
+    expect(result.deliveryCharges).toBe(30);
+    expect(result.commissions).toBe(50);
+    expect(result.grossProfit).toBe(570);
+    expect(result.gstCollected).toBe(90);
+    expect(result.netProfit).toBe(480);
+  });
+
+  it("returns zeros when no data exists", async () => {
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [], error: null },  // paid orders
+      { data: [], error: null },  // returns
+      { data: [], error: null },  // order_items
+      null,                        // products query skipped (productIds empty)
+      { data: [], error: null },  // commissions
+    );
+
+    const result = await getPnLSummary();
+    expect(result.grossRevenue).toBe(0);
+    expect(result.netProfit).toBe(0);
+  });
+});
+
+// ============================================================================
+// Product Sales
+// ============================================================================
+
+describe("getProductSales", () => {
+  it("groups order_items by product name", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: [
+        { quantity: 2, unit_price: 100, total_price: 200, gst_amount: 18, product_name: "Widget", variant_name: null, product_hsn_code: "1234", orders: { store_id: null, payment_status: "paid", placed_at: "2026-07-01T00:00:00Z" } },
+        { quantity: 1, unit_price: 100, total_price: 100, gst_amount: 9, product_name: "Widget", variant_name: null, product_hsn_code: "1234", orders: { store_id: null, payment_status: "paid", placed_at: "2026-07-01T00:00:00Z" } },
+        { quantity: 3, unit_price: 50, total_price: 150, gst_amount: 7.5, product_name: "Gadget", variant_name: "Pro", product_hsn_code: "5678", orders: { store_id: null, payment_status: "paid", placed_at: "2026-07-01T00:00:00Z" } },
+      ],
+      error: null,
+    });
+
+    const result = await getProductSales();
+    expect(result).toHaveLength(2);
+
+    const widget = result.find((r) => r.product_name === "Widget")!;
+    expect(widget.units_sold).toBe(3);
+    expect(widget.total_revenue).toBe(300);
+    expect(widget.avg_unit_price).toBe(100);
+
+    const gadget = result.find((r) => r.product_name === "Gadget")!;
+    expect(gadget.units_sold).toBe(3);
+    expect(gadget.total_revenue).toBe(150);
+  });
+
+  it("returns [] when no data", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: [], error: null });
+    expect(await getProductSales()).toEqual([]);
+  });
+});
+
+// ============================================================================
+// GST Filing
+// ============================================================================
+
+describe("getGSTFiling", () => {
+  it("groups by HSN code and computes CGST/SGST split", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({
+      data: [
+        { total_price: 118, gst_rate: 18, gst_amount: 18, product_hsn_code: "1234", orders: { store_id: null, placed_at: "2026-07-01T00:00:00Z" } },
+        { total_price: 59, gst_rate: 18, gst_amount: 9, product_hsn_code: "1234", orders: { store_id: null, placed_at: "2026-07-01T00:00:00Z" } },
+        { total_price: 105, gst_rate: 5, gst_amount: 5, product_hsn_code: "5678", orders: { store_id: null, placed_at: "2026-07-01T00:00:00Z" } },
+      ],
+      error: null,
+    });
+
+    const { rows, summary } = await getGSTFiling();
+    expect(rows).toHaveLength(2);
+
+    const hsn1234 = rows.find((r) => r.hsn_code === "1234")!;
+    expect(hsn1234.taxable_value).toBe(150);
+    expect(hsn1234.total_gst).toBe(27);
+    expect(hsn1234.cgst).toBe(13.5);
+    expect(hsn1234.sgst).toBe(13.5);
+
+    const hsn5678 = rows.find((r) => r.hsn_code === "5678")!;
+    expect(hsn5678.taxable_value).toBe(100);
+    expect(hsn5678.total_gst).toBe(5);
+
+    expect(summary.totalTaxable).toBe(250);
+    expect(summary.totalGST).toBe(32);
+    expect(summary.totalCGST).toBe(16);
+    expect(summary.totalSGST).toBe(16);
+  });
+
+  it("returns empty summary when no data", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: [], error: null });
+    const { rows, summary } = await getGSTFiling();
+    expect(rows).toEqual([]);
+    expect(summary.totalGST).toBe(0);
   });
 });

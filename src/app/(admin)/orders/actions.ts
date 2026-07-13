@@ -132,19 +132,12 @@ export async function updateOrderStatus(
   if (status === "confirmed") updateFields.confirmed_at = new Date().toISOString();
   if (status === "delivered") updateFields.delivered_at = new Date().toISOString();
 
-  // P50: capture the previous status BEFORE the update so the
-  // activity_log can show "pending → cancelled" etc. for forensic
-  // review. Only fetched for the high-signal status changes
-  // (cancelled/returned) — routine transitions are noise.
-  let previousStatus: string | null = null;
-  if (status === "cancelled" || status === "returned") {
-    const { data: prev } = await supabase
-      .from("orders")
-      .select("status")
-      .eq("id", id)
-      .maybeSingle();
-    previousStatus = prev?.status ?? null;
-  }
+  const { data: prev } = await supabase
+    .from("orders")
+    .select("status")
+    .eq("id", id)
+    .maybeSingle();
+  const previousStatus = prev?.status ?? null;
 
   const { error: updateError } = await supabase.from("orders").update(updateFields).eq("id", id);
   if (updateError) throw new Error(updateError.message);
@@ -156,25 +149,17 @@ export async function updateOrderStatus(
   });
   if (trackError) throw new Error(trackError.message);
 
-  // P50: log high-signal status transitions (cancellation / return).
-  // These are the money-affecting events that ops / customer support
-  // will need to investigate later. Routine status changes
-  // (pending → confirmed → shipped → delivered) are intentionally NOT
-  // logged here — the order_tracks table already records the full
-  // history for those.
-  if (status === "cancelled" || status === "returned") {
-    await logActivity({
-      action: "update",
-      entityType: "order",
-      entityId: id,
-      details: {
-        action_type: `status_${status}`,
-        previous_status: previousStatus,
-        new_status: status,
-        notes: notes ?? null,
-      },
-    });
-  }
+  await logActivity({
+    action: "update",
+    entityType: "order",
+    entityId: id,
+    details: {
+      action_type: `status_${status}`,
+      previous_status: previousStatus,
+      new_status: status,
+      notes: notes ?? null,
+    },
+  });
 
   // Auto-generate the invoice when the order transitions to
   // "processing". Idempotent — if the order already has an

@@ -9,6 +9,9 @@ import {
   getGSTMonthly,
   getGSTByHSN,
   getGSTByStore,
+  getPnLSummary,
+  getProductSales,
+  getGSTFiling,
 } from "./actions";
 import ReportsClient from "./ReportsClient";
 
@@ -26,6 +29,10 @@ export default async function ReportsPage() {
   const gstByHSN = await getGSTByHSN(null, null, scope.storeId);
   const gstByStore = perm.isSuperAdmin ? await getGSTByStore(null, null) : [];
 
+  const pnl = await getPnLSummary(null, null, scope.storeId);
+  const productSales = await getProductSales(null, null, scope.storeId);
+  const gstFiling = await getGSTFiling(null, null, scope.storeId);
+
   return (
     <ReportsClient
       storeId={scope.storeId}
@@ -38,6 +45,9 @@ export default async function ReportsPage() {
         gstMonthly,
         gstByHSN,
         gstByStore,
+        pnl,
+        productSales,
+        gstFiling,
       }}
     />
   );

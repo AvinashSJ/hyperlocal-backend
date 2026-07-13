@@ -80,14 +80,13 @@ beforeEach(() => {
 });
 
 describe("MasterLayout — branding and chrome", () => {
-  it("renders the 'Hyperlocal' brand and 'Admin Panel' subtitle", () => {
+  it("renders the 'Aruun Doorstep' brand", () => {
     const html = renderToString(
       <MasterLayout user={testUser} permissions={fullPerms} onSignOut={() => {}}>
         <div>content</div>
       </MasterLayout>,
     );
-    expect(html).toContain("Hyperlocal");
-    expect(html).toContain("Admin Panel");
+    expect(html).toContain("Aruun Doorstep");
   });
 
   it("renders the user full_name in the topbar when provided", () => {

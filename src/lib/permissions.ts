@@ -24,6 +24,10 @@ export const PERMISSION_MODULES = {
   // list and the panel on the order detail page. The role grant
   // migration is 20260625000002_grant_returns_permission.sql.
   returns: ["view", "create", "edit", "delete"],
+  // Support tickets from customer Flutter app. Super Admin + Manager
+  // get full CRUD; Staff has no access. Grant migration is
+  // 20260713000002_grant_support_tickets_permission.sql.
+  support_tickets: ["view", "create", "edit", "delete"],
 } as const;
 
 export type PermissionModule = keyof typeof PERMISSION_MODULES;

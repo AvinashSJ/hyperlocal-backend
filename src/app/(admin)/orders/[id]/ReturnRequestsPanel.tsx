@@ -525,8 +525,9 @@ function RequestCard({
         <ul className="small mb-2 ms-3" data-testid={`return-request-items-${req.id}`}>
           {items.map((it) => (
             <li key={it.id}>
-              order_item <code>{it.order_item_id.slice(0, 8)}</code>: {it.quantity} unit
-              {it.quantity === 1 ? "" : "s"}
+              {it.order_items?.product_name ?? "Unknown product"}
+              {it.order_items?.variant_name ? ` (${it.order_items.variant_name})` : ""}
+              {" "}× {it.quantity}
             </li>
           ))}
         </ul>

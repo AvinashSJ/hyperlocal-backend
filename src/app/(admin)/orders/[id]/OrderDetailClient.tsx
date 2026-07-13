@@ -13,6 +13,7 @@ import ReturnRequestsPanel from "./ReturnRequestsPanel";
 // P63: client-side date renderer. Avoids hydration mismatches caused
 // by server/client timezone divergence in toLocaleDateString.
 import ClientDate from "@/components/ClientDate";
+import type { ActivityLogWithUser } from "@/lib/activity-log";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -36,10 +37,12 @@ export default function OrderDetailClient({
   order,
   canCreateInvoice,
   returnsActionPerms,
+  activityLog,
 }: {
   order: OrderDetail;
-  canCreateInvoice?: boolean;
-  returnsActionPerms?: ActionPermissions;
+  canCreateInvoice: boolean;
+  returnsActionPerms: ActionPermissions;
+  activityLog?: ActivityLogWithUser[];
 }) {
   const addr = order.addresses;
   const profile = order.profiles;
@@ -293,6 +296,41 @@ export default function OrderDetailClient({
                     View Invoice Details
                   </Link>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activityLog && activityLog.length > 0 && (
+            <div className="card mt-2">
+              <div className="card-header"><strong>Order Activity Log</strong></div>
+              <div className="card-body" style={{ maxHeight: 320, overflowY: "auto" }}>
+                {activityLog.map((e) => {
+                  const details = (e.details ?? {}) as Record<string, unknown>;
+                  const actionLabel = details.action_type
+                    ? String(details.action_type).replace("status_", "")
+                    : e.action;
+                  return (
+                    <div key={e.id} className="d-flex gap-2 align-items-start py-2 border-bottom" style={{ fontSize: "0.875rem" }}>
+                      <div style={{ width: 16, height: 16, borderRadius: "50%", flexShrink: 0, marginTop: 3,
+                        backgroundColor: actionLabel === "cancelled" ? "#dc3545" :
+                          actionLabel === "returned" ? "#212529" : "#0d6efd",
+                      }} />
+                      <div className="flex-grow-1">
+                        <div>
+                          <strong>{e.profiles?.full_name ?? "—"}</strong>{" "}
+                          <span className="text-primary">changed status to</span>{" "}
+                          <span className={`badge ${STATUS_BADGES[actionLabel] ?? "bg-secondary"} text-capitalize`}>
+                            {actionLabel}
+                          </span>
+                        </div>
+                        {String(details.notes ?? "") && <div className="text-muted small mt-1">{String(details.notes)}</div>}
+                        <div className="text-muted" style={{ fontSize: "0.75rem" }}>
+                          <ClientDate value={e.created_at} format="datetime" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -10,11 +10,23 @@ type GetUserResult =
 type GetUserBehaviour = {
   result?: GetUserResult;
   error?: AuthError;
+  profile?: { role_id: number | null } | null;
+  role?: { name: string } | null;
 };
 
 let currentBehaviour: GetUserBehaviour = {
   result: { data: { user: null }, error: null as never },
 };
+
+function chainableQuery(result: unknown) {
+  return {
+    select: () => ({
+      eq: () => ({
+        single: async () => ({ data: result, error: null }),
+      }),
+    }),
+  };
+}
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: () => ({
@@ -24,6 +36,11 @@ vi.mock("@supabase/ssr", () => ({
         return currentBehaviour.result;
       },
     },
+    from: (table: string) => {
+      if (table === "profiles") return chainableQuery(currentBehaviour.profile ?? null);
+      if (table === "roles") return chainableQuery(currentBehaviour.role ?? null);
+      return chainableQuery(null);
+    },
   }),
 }));
 
@@ -32,6 +49,8 @@ import { updateSession } from "./middleware";
 beforeEach(() => {
   currentBehaviour = {
     result: { data: { user: null }, error: null as never },
+    profile: null,
+    role: null,
   };
 });
 

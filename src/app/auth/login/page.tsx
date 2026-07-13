@@ -13,8 +13,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <div className="row g-0 shadow rounded-4 overflow-hidden bg-white">
           <div className="col-lg-6 p-5">
             <div className="text-center mb-4">
-              <h1 className="h3 fw-bold">Hyperlocal Admin</h1>
-              <p className="text-muted">Sign in to manage your store</p>
+              <h1 className="h3 fw-bold">Aruun Doorstep</h1>
+              <p className="text-muted">Your Trusted Wholesale Partner - Since 2005</p>
             </div>
 
             {params.message ? (
@@ -35,12 +35,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <div className="col-lg-6 d-none d-lg-flex align-items-center justify-content-center bg-primary bg-opacity-10">
             <div className="text-center p-5">
               <div className="mb-3">
-                <div className="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style={{ width: 80, height: 80 }}>
-                  <span className="fs-1 fw-bold">H</span>
+                <div className="d-inline-flex align-items-center justify-content-center" style={{ width: 80, height: 80 }}>
+                  <img src="/assets/images/logo.png" alt="Aruun Doorstep" style={{ maxWidth: "100%", maxHeight: "100%" }} />
                 </div>
               </div>
-              <h2 className="h4 fw-bold">Hyperlocal</h2>
-              <p className="text-muted">FreshCart General Store</p>
+              <h2 className="h4 fw-bold">Aruun Doorstep</h2>
+              <p className="text-muted">Your Trusted Wholesale Partner - Since 2005</p>
             </div>
           </div>
         </div>

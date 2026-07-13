@@ -173,17 +173,20 @@ describe("updateOrderStatus", () => {
 
   it("updates status, inserts a track row, and revalidates the list + detail", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard: not in return workflow
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select previous_status
     admin.enqueueResponse({ data: null, error: null }); // orders.update
     admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
     // "processing" triggers invoice-gen re-fetch (no invoices:create so it
     // will throw PermissionError, but the try/catch handles it).
     admin.enqueueResponse({ data: { invoice_id: null }, error: null });
 
     await updateOrderStatus("o-1", "processing");
 
-    const updateChain = admin.chainsForTable("orders")[1];
+    const updateChain = admin.chainsForTable("orders")[2];
     expect(updateChain[0]).toEqual({ method: "from", args: ["orders"] });
     expect(updateChain.find((c) => c.method === "update")).toBeDefined();
     expect(updateChain.find((c) => c.method === "eq")).toEqual({
@@ -208,14 +211,17 @@ describe("updateOrderStatus", () => {
 
   it("sets confirmed_at timestamp when status is 'confirmed'", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
 
     await updateOrderStatus("o-1", "confirmed");
 
-    const updateArg = admin.chainsForTable("orders")[1]
+    const updateArg = admin.chainsForTable("orders")[2]
       .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
     expect(updateArg.status).toBe("confirmed");
     expect(typeof updateArg.confirmed_at).toBe("string");
@@ -224,14 +230,17 @@ describe("updateOrderStatus", () => {
 
   it("sets delivered_at timestamp when status is 'delivered'", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
 
     await updateOrderStatus("o-1", "delivered");
 
-    const updateArg = admin.chainsForTable("orders")[1]
+    const updateArg = admin.chainsForTable("orders")[2]
       .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
     expect(updateArg.status).toBe("delivered");
     expect(typeof updateArg.delivered_at).toBe("string");
@@ -240,42 +249,47 @@ describe("updateOrderStatus", () => {
 
   it("does NOT set any timestamp for non-terminal statuses", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
     const statuses: OrderStatus[] = ["pending", "out_for_delivery", "cancelled", "returned"];
 
     for (const status of statuses) {
-      // Guard: status select before every call.
-      // P50: cancelled/returned also pre-select previous_status BEFORE
-      // the orders.update, then log AFTER the track insert. Order:
-      //   [guard, pre-select, orders.update, order_tracks.insert, activity_logs.insert]
-      // Routine statuses only do guard + update + track insert (3 responses).
       admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
-      const isHighSignal = status === "cancelled" || status === "returned";
-      if (isHighSignal) {
-        admin.enqueueResponse({ data: { status: "pending" }, error: null });
-      }
+      admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select
       admin.enqueueResponse({ data: null, error: null }); // orders.update
       admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
-      if (isHighSignal) {
-        admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
-      }
+      admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
 
       await updateOrderStatus("o-1", status);
 
       const orderChains = admin.chainsForTable("orders");
-      const lastOrderChain = orderChains[orderChains.length - 1];
-      const updateArg = lastOrderChain.find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
-      expect(updateArg.confirmed_at).toBeUndefined();
-      expect(updateArg.delivered_at).toBeUndefined();
+      // The last orders chain is the pre-update select for the current iteration.
+      // Walk back to find the update chain for this iteration.
+      // For each iteration, the orders chains are: [guard, pre-select, update].
+      // Since they accumulate across iterations, we use the last one as index.
+      // The update call is the chain at index (iteration * 3 + 2) where iteration
+      // is 0-based. But it's simpler to just search backward for "update".
+      const allChainGroups = orderChains;
+      for (let i = allChainGroups.length - 1; i >= 0; i--) {
+        const u = allChainGroups[i].find((c) => c.method === "update");
+        if (u) {
+          expect((u.args[0] as Record<string, unknown>).confirmed_at).toBeUndefined();
+          expect((u.args[0] as Record<string, unknown>).delivered_at).toBeUndefined();
+          break;
+        }
+      }
     }
   });
 
   it("passes notes through to the tracking row", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
-    admin.enqueueResponse({ data: null, error: null });
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
 
     await updateOrderStatus("o-1", "out_for_delivery", "Left the warehouse");
 
@@ -288,6 +302,7 @@ describe("updateOrderStatus", () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select
     admin.enqueueResponse({ data: null, error: { message: "update failed" } });
 
     await expect(updateOrderStatus("o-1", "processing")).rejects.toThrow("update failed");
@@ -297,7 +312,8 @@ describe("updateOrderStatus", () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
     admin.enqueueResponse({ data: null, error: { message: "track insert failed" } });
 
     await expect(updateOrderStatus("o-1", "processing")).rejects.toThrow("track insert failed");
@@ -305,11 +321,14 @@ describe("updateOrderStatus", () => {
 
   it("auto-generates invoice on transition to 'processing' (fails gracefully without invoices:create)", async () => {
     asAdmin({ orders: ["edit"] }); // no invoices:create
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
-    // Status update itself: guard + orders.update + order_tracks.insert.
+    // Status update itself: guard + pre-select + orders.update + order_tracks.insert + activity_logs.insert.
     admin.enqueueResponse({ data: { status: "pending" }, error: null }); // 0) guard
-    admin.enqueueResponse({ data: null, error: null }); // 1) orders.update
-    admin.enqueueResponse({ data: null, error: null }); // 2) order_tracks.insert
+    admin.enqueueResponse({ data: { status: "pending" }, error: null }); // 1) pre-select
+    admin.enqueueResponse({ data: null, error: null }); // 2) orders.update
+    admin.enqueueResponse({ data: null, error: null }); // 3) order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // 4) activity_logs.insert
     // The action re-fetches the order to read its current
     // invoice_id (was null, so auto-invoice is triggered). The re-fetch
     // succeeds. The subsequent generateInvoice call asserts
@@ -574,32 +593,31 @@ describe("P50: activity logging — audit trail (deleteOrder)", () => {
 });
 
 describe("P50: activity logging — audit trail (updateOrderStatus)", () => {
-  // Routine status changes (pending → confirmed → shipped →
-  // delivered) intentionally do NOT write activity_log rows. Only
-  // high-signal transitions (cancelled, returned) log.
+  // All status transitions are logged to activity_logs so every staff
+  // action is captured with the acting user's identity for audit trail.
 
-  it("does NOT log routine status transitions (pending, confirmed, out_for_delivery, delivered, processing)", async () => {
+  it("logs ALL status transitions (pending, confirmed, out_for_delivery, delivered, processing)", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
-    const routine: OrderStatus[] = ["pending", "confirmed", "out_for_delivery", "delivered", "processing"];
+    const allStatuses: OrderStatus[] = ["pending", "confirmed", "out_for_delivery", "delivered", "processing"];
 
-    for (const status of routine) {
+    for (const status of allStatuses) {
       // Guard: status select before every call.
-      admin.enqueueResponse({ data: { status: "pending" }, error: null }); // guard
-      // P50: confirmed and delivered also need the pre-update select
-      // for their own timestamps; we don't need to enqueue extra
-      // responses because the action doesn't add a select for
-      // routine statuses. Just queue the two writes.
-      admin.enqueueResponse({ data: null, error: null });
-      admin.enqueueResponse({ data: null, error: null });
-
-      await updateOrderStatus("o-1", status);
-
-      // No activity_logs chain should have been built for this iteration.
-      // (We check at the end by counting total chains.)
+      admin.enqueueResponse({ data: { status: "pending" }, error: null });
+      // Pre-update select for previous_status (now always fetched)
+      admin.enqueueResponse({ data: { status: "pending" }, error: null });
+      admin.enqueueResponse({ data: null, error: null }); // orders.update
+      admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+      admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
     }
 
-    expect(admin.chainsForTable("activity_logs")).toHaveLength(0);
+    for (const status of allStatuses) {
+      await updateOrderStatus("o-1", status);
+    }
+
+    const logChains = admin.chainsForTable("activity_logs");
+    expect(logChains).toHaveLength(allStatuses.length);
   });
 
   it("writes a 'status_cancelled' log when status transitions to 'cancelled' (with previous_status)", async () => {

@@ -362,4 +362,24 @@ export type ReturnRequestItem = {
   order_item_id: string;
   quantity: number;
   created_at: string;
+  order_items: {
+    product_name: string | null;
+    variant_name: string | null;
+    unit_price: number | null;
+  } | null;
+};
+
+export type SupportTicket = {
+  id: string;
+  user_id: string;
+  store_id: string | null;
+  subject: string;
+  message: string;
+  status: "open" | "in_progress" | "resolved" | "closed";
+  priority: "low" | "medium" | "high" | "urgent";
+  assigned_to: string | null;
+  admin_response: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
 };

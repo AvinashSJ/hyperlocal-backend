@@ -964,6 +964,101 @@ describe("bulkImportProducts", () => {
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
     expect(insertArg.category_id).toBe("c-snacks");
   });
+
+  it("resolves subcategory_name to the child category_id when category_name + subcategory_name are provided", async () => {
+    asAdmin({ products: ["create"] });
+    const admin = getAdminClient();
+    // store_categories returns the parent
+    admin.enqueueResponse({
+      data: [{ category_id: "c-snacks" }],
+      error: null,
+    });
+    // BFS Level 1: parent + child
+    admin.enqueueResponse({
+      data: [
+        { id: "c-snacks", name: "Snacks", parent_id: null, sort_order: 0 },
+        { id: "c-chips", name: "Chips", parent_id: "c-snacks", sort_order: 1 },
+      ],
+      error: null,
+    });
+    // BFS Level 2: no more children
+    admin.enqueueResponse({ data: [], error: null });
+    // products insert
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await bulkImportProducts([
+      { name: "Classic Chips", category_name: "Snacks", subcategory_name: "Chips", mrp: "20", selling_price: "18" },
+    ]);
+    expect(result.imported).toBe(1);
+    expect(result.errors).toEqual([]);
+
+    const insertArg = admin.chainsForTable("products")[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.category_id).toBe("c-chips");
+  });
+
+  it("falls through to null when subcategory_name does not match any child of the given parent", async () => {
+    asAdmin({ products: ["create"] });
+    const admin = getAdminClient();
+    // store_categories returns the parent
+    admin.enqueueResponse({
+      data: [{ category_id: "c-snacks" }],
+      error: null,
+    });
+    // BFS Level 1: parent only (no children)
+    admin.enqueueResponse({
+      data: [
+        { id: "c-snacks", name: "Snacks", parent_id: null, sort_order: 0 },
+      ],
+      error: null,
+    });
+    // BFS Level 2: no more children
+    admin.enqueueResponse({ data: [], error: null });
+    // products insert
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await bulkImportProducts([
+      { name: "Classic Chips", category_name: "Snacks", subcategory_name: "NonExistent", mrp: "20", selling_price: "18" },
+    ]);
+    expect(result.imported).toBe(1);
+    expect(result.errors).toEqual([]);
+
+    const insertArg = admin.chainsForTable("products")[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.category_id).toBeNull();
+  });
+
+  it("backward compatible: category_name alone still resolves to child category via flat map", async () => {
+    asAdmin({ products: ["create"] });
+    const admin = getAdminClient();
+    // store_categories returns the parent (which brings in the child via BFS)
+    admin.enqueueResponse({
+      data: [{ category_id: "c-snacks" }],
+      error: null,
+    });
+    // BFS Level 1: parent + child
+    admin.enqueueResponse({
+      data: [
+        { id: "c-snacks", name: "Snacks", parent_id: null, sort_order: 0 },
+        { id: "c-chips", name: "Chips", parent_id: "c-snacks", sort_order: 1 },
+      ],
+      error: null,
+    });
+    // BFS Level 2: no more children
+    admin.enqueueResponse({ data: [], error: null });
+    // products insert
+    admin.enqueueResponse({ data: null, error: null });
+
+    const result = await bulkImportProducts([
+      { name: "Classic Chips", category_name: "Chips", mrp: "20", selling_price: "18" },
+    ]);
+    expect(result.imported).toBe(1);
+    expect(result.errors).toEqual([]);
+
+    const insertArg = admin.chainsForTable("products")[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.category_id).toBe("c-chips");
+  });
 });
 
 describe("bulkImportProducts — discount handling", () => {

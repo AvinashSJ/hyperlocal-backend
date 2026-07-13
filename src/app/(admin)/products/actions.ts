@@ -515,6 +515,18 @@ export async function bulkImportProducts(rows: ImportRow[]) {
     visibleCategories.map((c) => [c.name.toLowerCase(), c.id]),
   );
 
+  // Build parent→children maps for subcategory_name resolution
+  const parentCategories = visibleCategories.filter((c) => !c.parent_id);
+  const parentByName = new Map(parentCategories.map((c) => [c.name.toLowerCase(), c.id]));
+  const childrenByParent = new Map<string, { id: string; name: string }[]>();
+  for (const c of visibleCategories) {
+    if (c.parent_id) {
+      const list = childrenByParent.get(c.parent_id) ?? [];
+      list.push(c);
+      childrenByParent.set(c.parent_id, list);
+    }
+  }
+
   let imported = 0;
   const errors: { row: number; field: string; message: string }[] = [];
 
@@ -530,7 +542,18 @@ export async function bulkImportProducts(rows: ImportRow[]) {
       }
 
       const categoryName = r.category_name?.trim();
-      const categoryId = categoryName ? categoryMap.get(categoryName.toLowerCase()) ?? null : null;
+      const subcategoryName = r.subcategory_name?.trim();
+      let categoryId: string | null = null;
+      if (subcategoryName && categoryName) {
+        const parentId = parentByName.get(categoryName.toLowerCase());
+        if (parentId) {
+          const children = childrenByParent.get(parentId) ?? [];
+          const child = children.find((c) => c.name.toLowerCase() === subcategoryName.toLowerCase());
+          if (child) categoryId = child.id;
+        }
+      } else if (categoryName) {
+        categoryId = categoryMap.get(categoryName.toLowerCase()) ?? null;
+      }
 
       const sellingPrice = Number(r.selling_price ?? 0);
       if (!sellingPrice && sellingPrice !== 0) {

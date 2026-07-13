@@ -5,7 +5,7 @@ import type { ActivityLog } from "@/lib/types/supabase";
 export type ActivityAction = "create" | "update" | "delete" | "bulk_import";
 
 export type ActivityLogWithUser = ActivityLog & {
-  profiles: { full_name: string | null }[] | null;
+  profiles: { full_name: string | null } | null;
 };
 
 /**

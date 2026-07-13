@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getPostLoginRedirect } from "@/lib/store-scope";
 
 function sanitizeError(msg: string): string {
   if (msg.toLowerCase().includes("invalid login credentials")) return "Invalid email or password.";
@@ -35,13 +37,24 @@ export async function signIn(formData: FormData) {
   if (data?.user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("must_reset_password")
+      .select("must_reset_password, role_id")
       .eq("id", data.user.id)
       .single();
 
     if (profile?.must_reset_password) {
       revalidatePath("/", "layout");
       redirect("/auth/reset-password");
+    }
+
+    if (profile?.role_id) {
+      const adminSupabase = createAdminClient();
+      const { data: role } = await adminSupabase
+        .from("roles")
+        .select("name")
+        .eq("id", profile.role_id)
+        .single();
+      revalidatePath("/", "layout");
+      redirect(getPostLoginRedirect(role?.name ?? null));
     }
   }
 
@@ -89,13 +102,26 @@ export async function updateOwnPassword(formData: FormData) {
   if (authError) throw new Error(authError.message);
 
   // Clear the must_reset_password flag so the next login proceeds
-  // straight to /dashboard.
-  const { error: profileError } = await supabase
+  // straight to the appropriate landing page.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .update({ must_reset_password: false })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("role_id")
+    .single();
   if (profileError) throw new Error(profileError.message);
 
+  let roleName: string | null = null;
+  if (profile?.role_id) {
+    const adminSupabase = createAdminClient();
+    const { data: role } = await adminSupabase
+      .from("roles")
+      .select("name")
+      .eq("id", profile.role_id)
+      .single();
+    roleName = role?.name ?? null;
+  }
+
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(getPostLoginRedirect(roleName));
 }

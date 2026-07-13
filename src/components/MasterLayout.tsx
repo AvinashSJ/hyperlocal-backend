@@ -73,6 +73,7 @@ const navItems: NavItem[] = [
   },
   { label: "Inventory Log", icon: "ri:file-chart-line", href: "/inventory-log", module: "inventory_log" },
   { label: "Reports", icon: "ri:bar-chart-2-line", href: "/reports", module: "reports" },
+  { label: "Support", icon: "ri:customer-service-2-line", href: "/support", module: "support_tickets" },
 ];
 
 
@@ -172,12 +173,11 @@ export default function MasterLayout({
         style={{ width: 260, flexShrink: 0, overflowY: "auto", zIndex: 1040 }}
       >
         <div className="d-flex align-items-center px-3 py-3 border-bottom" style={{ height: 60 }}>
-          <div className="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style={{ width: 36, height: 36 }}>
-            <span className="fw-bold">H</span>
+          <div className="d-flex align-items-center justify-content-center me-2" style={{ width: 36, height: 36 }}>
+            <img src="/assets/images/logo.png" alt="Aruun Doorstep" style={{ maxWidth: "100%", maxHeight: "100%" }} />
           </div>
           <div>
-            <h6 className="mb-0 fw-bold" style={{ fontSize: "0.95rem" }}>Hyperlocal</h6>
-            <small className="text-muted">Admin Panel</small>
+            <h6 className="mb-0 fw-bold" style={{ fontSize: "0.95rem" }}>Aruun Doorstep</h6>
           </div>
         </div>
 

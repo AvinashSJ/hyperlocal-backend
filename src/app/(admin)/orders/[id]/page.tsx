@@ -1,4 +1,5 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
+import { getEntityActivityLog } from "@/lib/activity-log";
 import { getOrder } from "../actions";
 import OrderDetailClient from "./OrderDetailClient";
 
@@ -15,13 +16,17 @@ export default async function OrderDetailPage(props: { params: Promise<{ id: str
   // and the raise-button gated by `returns:create`.
   const invoicesActionPerms = getActionPermissions(permissions, "invoices");
   const returnsActionPerms = getActionPermissions(permissions, "returns");
-  const order = await getOrder(id);
+  const [order, activityLog] = await Promise.all([
+    getOrder(id),
+    getEntityActivityLog("order", id),
+  ]);
   return (
     <div>
       <OrderDetailClient
         order={order}
         canCreateInvoice={invoicesActionPerms.canCreate}
         returnsActionPerms={returnsActionPerms}
+        activityLog={activityLog}
       />
     </div>
   );

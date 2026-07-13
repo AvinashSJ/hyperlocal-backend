@@ -55,7 +55,7 @@ describe("GET /api/admin/products/export", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const text = await res.text();
-    expect(text).toContain("name,category_name,brand"); // header
+    expect(text).toContain("name,category_name,subcategory_name"); // header
     expect(text).toContain("Whole Wheat Bread");
   });
 
@@ -124,7 +124,7 @@ describe("GET /api/admin/products/export", () => {
     const text = await res.text();
     const header = text.split("\n")[0];
     expect(header).toBe(
-      "name,category_name,brand,description,unit_of_measurement,mrp,selling_price,discount_percent,gst_rate,hsn_code,stock_quantity,low_stock_threshold,status,sku",
+      "name,category_name,subcategory_name,brand,description,unit_of_measurement,mrp,selling_price,discount_percent,gst_rate,hsn_code,stock_quantity,low_stock_threshold,status,sku",
     );
   });
 
@@ -135,7 +135,7 @@ describe("GET /api/admin/products/export", () => {
       data: [
         {
           ...makeProduct({ name: "Chips" }),
-          categories: { name: "Snacks" },
+          categories: { name: "Snacks", parent_id: null },
         },
       ],
       error: null,
@@ -146,6 +146,34 @@ describe("GET /api/admin/products/export", () => {
     // header + row; the category_name field is the 2nd column
     const dataRow = text.split("\n")[1];
     expect(dataRow).toContain("Snacks");
+  });
+
+  it("exports subcategory_name and parent category_name when product belongs to a child category", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [
+        {
+          ...makeProduct({ name: "Chips" }),
+          categories: { name: "Chips", parent_id: "cat-snacks-id" },
+        },
+      ],
+      error: null,
+    });
+    // Second query: parent category lookup
+    admin.enqueueResponse({
+      data: [{ id: "cat-snacks-id", name: "Snacks" }],
+      error: null,
+    });
+
+    const res = await GET();
+    const text = await res.text();
+    const dataRow = text.split("\n")[1];
+    const cols = dataRow.split(",");
+    // cols[0]=name, cols[1]=category_name, cols[2]=subcategory_name
+    expect(cols[0]).toBe("Chips");
+    expect(cols[1]).toBe("Snacks");
+    expect(cols[2]).toBe("Chips");
   });
 
   it("emits an empty category_name when the product has no category", async () => {
@@ -159,10 +187,11 @@ describe("GET /api/admin/products/export", () => {
     const res = await GET();
     const text = await res.text();
     const dataRow = text.split("\n")[1];
-    // name is column 0, category_name is column 1 (empty)
+    // name is column 0, category_name is column 1 (empty), subcategory_name is column 2 (empty)
     const cols = dataRow.split(",");
     expect(cols[0]).toBe("Orphan Product");
     expect(cols[1]).toBe("");
+    expect(cols[2]).toBe("");
   });
 
   it("applies a safety limit (MAX_EXPORT_ROWS) on the products query", async () => {
@@ -220,7 +249,7 @@ describe("GET /api/admin/products/export", () => {
       data: [
         {
           ...makeProduct({ name: "X" }),
-          categories: { name: "TestCat" },
+          categories: { name: "TestCat", parent_id: null },
         },
       ],
       error: null,

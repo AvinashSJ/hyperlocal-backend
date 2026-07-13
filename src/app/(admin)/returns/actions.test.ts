@@ -94,6 +94,7 @@ const baseReturnItem = (
   order_item_id: "oi-1",
   quantity: 2,
   created_at: new Date().toISOString(),
+  order_items: { product_name: "Apple", variant_name: "Red", unit_price: 50 },
   ...overrides,
 });
 
@@ -317,16 +318,50 @@ describe("listReturnRequestsForOrder", () => {
 // -------------------------------------------------------------------------
 
 describe("getReturnRequestItems", () => {
-  it("returns the items for a request", async () => {
+  it("returns the items for a request with joined order_items data", async () => {
     asAdmin({ returns: ["view"] });
     const admin = getAdminClient();
     admin.enqueueResponse({
       data: [baseReturnItem({ id: "rri-1" }), baseReturnItem({ id: "rri-2", order_item_id: "oi-2", quantity: 1 })],
       error: null,
     });
+    admin.enqueueResponse({
+      data: [
+        { id: "oi-1", product_name: "Apple", variant_name: "Red", unit_price: 50 },
+        { id: "oi-2", product_name: "Bread", variant_name: "Whole Wheat", unit_price: 30 },
+      ],
+      error: null,
+    });
 
     const result = await getReturnRequestItems("rr-1");
     expect(result).toHaveLength(2);
+    expect(result[0].order_items?.product_name).toBe("Apple");
+    expect(result[0].order_items?.variant_name).toBe("Red");
+    expect(result[0].order_items?.unit_price).toBe(50);
+    expect(result[1].order_items?.product_name).toBe("Bread");
+  });
+
+  it("returns empty array when no items exist", async () => {
+    asAdmin({ returns: ["view"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: [], error: null });
+
+    const result = await getReturnRequestItems("rr-1");
+    expect(result).toEqual([]);
+  });
+
+  it("returns items with null order_items when order_items not found", async () => {
+    asAdmin({ returns: ["view"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [baseReturnItem({ id: "rri-99", order_item_id: "oi-missing" })],
+      error: null,
+    });
+    admin.enqueueResponse({ data: [], error: null });
+
+    const result = await getReturnRequestItems("rr-1");
+    expect(result).toHaveLength(1);
+    expect(result[0].order_items).toBeNull();
   });
 });
 
@@ -461,22 +496,30 @@ describe("updateReturnRequestState", () => {
     const admin = getAdminClient();
     // 1) Read current
     admin.enqueueResponse({ data: baseReturnRequest(), error: null });
-    // 2) Auto-calc query: 2 items at 100 and 50, qty 2 each -> 200 + 100 = 300
+    // 2) Auto-calc: fetch return_request_items (qty 2 each, two items)
     admin.enqueueResponse({
       data: [
-        { quantity: 2, order_items: { unit_price: 100 } },
-        { quantity: 2, order_items: { unit_price: 50 } },
+        { quantity: 2, order_item_id: "oi-100" },
+        { quantity: 2, order_item_id: "oi-50" },
       ],
       error: null,
     });
-    // 3) Update return_requests
+    // 3) Auto-calc: fetch order_items snapshots (100 + 50 = 300)
+    admin.enqueueResponse({
+      data: [
+        { id: "oi-100", unit_price: 100 },
+        { id: "oi-50", unit_price: 50 },
+      ],
+      error: null,
+    });
+    // 4) Update return_requests
     admin.enqueueResponse({
       data: { ...baseReturnRequest(), state: "approved", resolution: "partial_refund", resolution_amount: 300 },
       error: null,
     });
-    // 4) Update orders
+    // 5) Update orders
     admin.enqueueResponse({ data: null, error: null });
-    // 5) Insert order_tracks
+    // 6) Insert order_tracks
     admin.enqueueResponse({ data: null, error: null });
 
     await updateReturnRequestState({
@@ -498,11 +541,8 @@ describe("updateReturnRequestState", () => {
     const admin = getAdminClient();
     // 1) Read current
     admin.enqueueResponse({ data: baseReturnRequest(), error: null });
-    // 2) Auto-calc query is STILL issued (to validate against missing items)
-    admin.enqueueResponse({
-      data: [{ quantity: 1, order_items: { unit_price: 500 } }],
-      error: null,
-    });
+    // 2) No auto-calc queries — explicit resolutionAmount skips them.
+    //    The next 5 responses are for update + side-effects.
     // 3) Update return_requests
     admin.enqueueResponse({
       data: { ...baseReturnRequest(), resolution_amount: 100, resolution: "partial_refund", state: "approved" },

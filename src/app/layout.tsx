@@ -4,8 +4,8 @@ import StoreProvider from "./StoreProvider";
 import BootstrapClient from "@/components/BootstrapClient";
 
 export const metadata: Metadata = {
-  title: "Hyperlocal Admin",
-  description: "Hyperlocal FreshCart Admin Panel",
+  title: "Aruun Doorstep",
+  description: "Aruun Doorstep - Your Trusted Wholesale Partner - Since 2005",
 };
 
 export default function RootLayout({

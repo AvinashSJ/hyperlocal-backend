@@ -102,9 +102,10 @@ describe("getStoreScope", () => {
 
     const scope = await getStoreScope();
     expect(scope).toEqual({ storeId: null, isStoreScoped: false, roleName: null });
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("non-Super-Admin user has profile.store_id = NULL"),
+    expect(warnSpy.mock.calls[0][0]).toBe(
+      "[store-scope] non-Super-Admin user (role=%s) has profile.store_id = NULL; downstream queries will skip the store_id filter and return all data",
     );
+    expect(warnSpy.mock.calls[0][1]).toBeNull();
   });
 });
 
