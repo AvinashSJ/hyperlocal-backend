@@ -17,7 +17,7 @@ export type RecentOrder = {
   total_amount: number;
   payment_status: string;
   placed_at: string;
-  profiles: { full_name: string | null }[] | null;
+  profiles: { full_name: string | null } | null;
 };
 
 export type DashboardStats = {
@@ -138,7 +138,7 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
     lowStock: lowStock ?? [],
     todayOrders: todayOrders ?? 0,
     todayRevenue,
-    recentOrders: recentOrders ?? [],
+    recentOrders: (recentOrders ?? []) as unknown as RecentOrder[],
     statusBreakdown: statusCounts,
   };
 }

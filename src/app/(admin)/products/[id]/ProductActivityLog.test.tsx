@@ -35,7 +35,7 @@ describe("ProductActivityLog", () => {
         entity_id: "p-1",
         details: { name: "Widget" },
         created_at: "2026-06-19T10:00:00Z",
-        profiles: [{ full_name: "Admin User" }],
+        profiles: { full_name: "Admin User" },
       },
       {
         id: 2,
@@ -45,7 +45,7 @@ describe("ProductActivityLog", () => {
         entity_id: "p-1",
         details: { fields_received: ["mrp", "stock_quantity"] },
         created_at: "2026-06-19T11:00:00Z",
-        profiles: [{ full_name: "Manager Mike" }],
+        profiles: { full_name: "Manager Mike" },
       },
     ];
 
@@ -89,7 +89,7 @@ describe("ProductActivityLog", () => {
         entity_id: "p-1",
         details: { fields_received: ["a", "b", "c", "d", "e", "f", "g"] },
         created_at: "2026-06-19T10:00:00Z",
-        profiles: [{ full_name: "Admin" }],
+        profiles: { full_name: "Admin" },
       },
     ];
 

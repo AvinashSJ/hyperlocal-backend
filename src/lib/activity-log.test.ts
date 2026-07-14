@@ -113,7 +113,7 @@ describe("getEntityActivityLog", () => {
           entity_id: "p-1",
           details: { fields_received: ["mrp"] },
           created_at: "2026-06-19T10:00:00Z",
-          profiles: [{ full_name: "Admin User" }],
+          profiles: { full_name: "Admin User" },
         },
       ],
       error: null,
@@ -123,7 +123,7 @@ describe("getEntityActivityLog", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].action).toBe("update");
-    expect(result[0].profiles?.[0]?.full_name).toBe("Admin User");
+    expect(result[0].profiles?.full_name).toBe("Admin User");
 
     // Verify the query shape
     const chain = admin.chainsForTable("activity_logs")[0];

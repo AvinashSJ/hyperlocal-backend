@@ -19,7 +19,7 @@ type RecentOrder = {
   id: string; order_number: string; status: string;
   total_amount: number; payment_status: string;
   placed_at: string;
-  profiles: { full_name: string | null }[] | null;
+  profiles: { full_name: string | null } | null;
 };
 
 type Stats = {
@@ -150,7 +150,7 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
                       {stats.recentOrders.map((o) => (
                         <tr key={o.id} onClick={() => window.location.href = `/orders/${o.id}`} style={{ cursor: "pointer" }}>
                           <td className="fw-semibold">{o.order_number}</td>
-                          <td>{o.profiles?.[0]?.full_name ?? "—"}</td>
+                          <td>{o.profiles?.full_name ?? "—"}</td>
                           <td><span className={`badge ${STATUS_BADGES[o.status] ?? "bg-secondary"}`}>{o.status}</span></td>
                           <td><span className={`badge ${o.payment_status === "paid" ? "bg-success" : "bg-warning text-dark"}`}>{o.payment_status}</span></td>
                           <td className="text-end fw-medium"><Sensitive visible={visible}>₹{Number(o.total_amount).toLocaleString()}</Sensitive></td>

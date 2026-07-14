@@ -82,7 +82,7 @@ describe("getDashboardStats (no storeId — all stores)", () => {
       todayOrders: 5,
       todayRevenueData: [{ total_amount: 200 }],
       recentOrders: [
-        { id: "o-1", order_number: "ORD-001", status: "delivered", total_amount: 118, payment_status: "paid", placed_at: "2025-01-15T10:00:00Z", profiles: [{ full_name: "Alice" }] },
+        { id: "o-1", order_number: "ORD-001", status: "delivered", total_amount: 118, payment_status: "paid", placed_at: "2025-01-15T10:00:00Z", profiles: { full_name: "Alice" } },
       ],
       statusData: [{ status: "delivered" }, { status: "delivered" }, { status: "pending" }],
       monthly: { useRpc: true, data: [{ month: "Jan 2025", total: 5000 }] },

@@ -16,8 +16,8 @@ const INDIAN_DATETIME = new Intl.DateTimeFormat("en-IN", {
   minute: "2-digit",
 });
 
-function actorName(profiles: { full_name: string | null }[] | null | undefined): string {
-  return profiles?.[0]?.full_name ?? "—";
+function actorName(profiles: { full_name: string | null } | null | undefined): string {
+  return profiles?.full_name ?? "—";
 }
 
 function summaryFor(entry: ActivityLogWithUser): string {

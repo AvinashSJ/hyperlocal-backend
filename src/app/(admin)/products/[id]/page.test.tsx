@@ -185,8 +185,8 @@ describe("EditProductPage — P25: activity log fetch", () => {
       { data: [{ id: "c-1", name: "Fruits", parent_id: null, sort_order: 0 }], error: null },
       // activity log (P25) — return 2 entries to prove the render
       { data: [
-        { id: 1, user_id: "u-1", action: "create", entity_type: "product", entity_id: "p-99", details: { name: "Widget" }, created_at: "2026-06-19T10:00:00Z", profiles: [{ full_name: "Admin" }] },
-        { id: 2, user_id: "u-1", action: "update", entity_type: "product", entity_id: "p-99", details: { fields_received: ["mrp"] }, created_at: "2026-06-19T11:00:00Z", profiles: [{ full_name: "Admin" }] },
+        { id: 1, user_id: "u-1", action: "create", entity_type: "product", entity_id: "p-99", details: { name: "Widget" }, created_at: "2026-06-19T10:00:00Z", profiles: { full_name: "Admin" } },
+        { id: 2, user_id: "u-1", action: "update", entity_type: "product", entity_id: "p-99", details: { fields_received: ["mrp"] }, created_at: "2026-06-19T11:00:00Z", profiles: { full_name: "Admin" } },
       ], error: null },
     );
 
