@@ -569,6 +569,7 @@ export async function bulkImportProducts(rows: ImportRow[]) {
         ? Number(r.discount_percent) || 0
         : computeDiscountPercent(mrp, sellingPrice);
       const gstRate = Number(r.gst_rate ?? 0) || 0;
+      const purchaseRate = r.purchase_rate ? Number(r.purchase_rate) || 0 : null;
       const stockQty = Number(r.stock_quantity ?? 0) || 0;
       const lowStockThreshold = r.low_stock_threshold ? Number(r.low_stock_threshold) || 0 : null;
       const status = r.status?.trim() || "active";
@@ -581,6 +582,7 @@ export async function bulkImportProducts(rows: ImportRow[]) {
         unit_of_measurement: r.unit_of_measurement?.trim() || "pcs",
         mrp,
         selling_price: sellingPrice,
+        purchase_rate: purchaseRate,
         discount_percent: discountPercent,
         gst_rate: gstRate,
         hsn_code: r.hsn_code?.trim() || null,

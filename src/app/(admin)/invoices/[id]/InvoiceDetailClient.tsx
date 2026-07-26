@@ -121,7 +121,7 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                     <tr><td className="text-muted" style={{ width: 130 }}>Order #</td><td className="fw-semibold">{order?.order_number ?? "—"}</td></tr>
                     <tr><td className="text-muted">Customer</td><td>{order?.profiles?.full_name ?? "—"}</td></tr>
                     <tr><td className="text-muted">Phone</td><td>{order?.profiles?.phone ?? "—"}</td></tr>
-                    <tr><td className="text-muted">GSTIN</td><td>{order?.gstin ?? "—"}</td></tr>
+                    <tr><td className="text-muted">Seller GSTIN</td><td>{invoice.store?.gstin ?? "—"}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -137,7 +137,7 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                   <p className="mb-1">
                     {[invoice.store.city, invoice.store.state, invoice.store.pincode].filter(Boolean).join(", ")}
                   </p>
-                  {invoice.store.gstin && <p className="mb-0 small text-muted">GSTIN: {invoice.store.gstin}</p>}
+                  <p className="mb-0 small text-muted">GSTIN: {invoice.store.gstin ?? "—"}</p>
                 </div>
               </div>
             </div>
@@ -194,8 +194,8 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                             <td className="text-center">{item.quantity}</td>
                             <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
                             <td className="text-end">₹{taxable.toLocaleString()}</td>
-                            <td className="text-end">₹{cgst.toLocaleString()}</td>
-                            <td className="text-end">₹{sgst.toLocaleString()}</td>
+                            <td className="text-end">{item.gst_rate > 0 ? `${item.gst_rate / 2}%  ₹${cgst.toLocaleString()}` : "—"}</td>
+                            <td className="text-end">{item.gst_rate > 0 ? `${item.gst_rate / 2}%  ₹${sgst.toLocaleString()}` : "—"}</td>
                             <td className="text-end">₹{Number(item.total_price).toLocaleString()}</td>
                           </tr>
                         );

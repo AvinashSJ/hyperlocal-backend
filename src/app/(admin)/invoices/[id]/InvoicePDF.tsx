@@ -88,8 +88,8 @@ function computeGstSlabs(items: { gst_rate: number; gst_amount: number; total_pr
   return Array.from(map.values()).sort((a, b) => b.rate - a.rate);
 }
 
-function resolveGstin(order: InvoiceDetail["orders"], store: InvoiceStore | null): string | null {
-  return order?.gstin ?? store?.gstin ?? null;
+function resolveGstin(store: InvoiceStore | null): string | null {
+  return store?.gstin ?? null;
 }
 
 function buildStoreAddressLines(store: InvoiceStore | null): string[] {
@@ -109,7 +109,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
   const items = order?.order_items ?? [];
   const store = invoice.store;
   const orderStore = order?.stores ?? null;
-  const gstin = resolveGstin(order, store);
+  const gstin = resolveGstin(store);
   const storeAddressLines = buildStoreAddressLines(store);
   const storeName = store?.name ?? orderStore?.name ?? "—";
   const legalName = store?.legal_name ?? storeName;
@@ -181,7 +181,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
                 <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
                 <Text style={styles.cellQty}>{item.quantity}</Text>
                 <Text style={styles.cellTaxable}>Rs. {taxable.toFixed(2)}</Text>
-                <Text style={styles.cellGst}>Rs. {gstAmount.toFixed(2)}</Text>
+                <Text style={styles.cellGst}>{item.gst_rate > 0 ? `${item.gst_rate / 2}%  Rs. ${gstAmount.toFixed(2)}` : "—"}</Text>
                 <Text style={styles.cellTotal}>Rs. {Number(item.total_price).toFixed(2)}</Text>
               </View>
             );

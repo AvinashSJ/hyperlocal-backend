@@ -124,7 +124,7 @@ describe("GET /api/admin/products/export", () => {
     const text = await res.text();
     const header = text.split("\n")[0];
     expect(header).toBe(
-      "name,category_name,subcategory_name,brand,description,unit_of_measurement,mrp,selling_price,discount_percent,gst_rate,hsn_code,stock_quantity,low_stock_threshold,status,sku",
+      "name,category_name,subcategory_name,brand,description,unit_of_measurement,purchase_rate,mrp,selling_price,discount_percent,gst_rate,hsn_code,stock_quantity,low_stock_threshold,status,sku",
     );
   });
 

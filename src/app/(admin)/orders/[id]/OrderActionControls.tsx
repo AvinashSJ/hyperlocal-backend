@@ -71,6 +71,7 @@ export default function OrderActionControls({
   const [returnManagerNotes, setReturnManagerNotes] = useState("");
   const [returnPaymentStatus, setReturnPaymentStatus] = useState<PaymentStatus>(currentPaymentStatus);
   const [savingReturn, setSavingReturn] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
 
   const STATUS_FLOW: OrderStatus[] = ["pending", "confirmed", "processing", "out_for_delivery", "delivered"];
 
@@ -178,7 +179,21 @@ export default function OrderActionControls({
     router.refresh();
   };
 
-  const isTerminal = currentStatus === "cancelled" || currentStatus === "returned" || currentStatus === "delivered";
+  const handleMarkAsPaid = async () => {
+    setSavingPayment(true);
+    try {
+      await updatePaymentStatus(orderId, "paid");
+      toast.success("Payment status updated to paid");
+      router.refresh();
+    } catch {
+      toast.error("Failed to update payment status");
+    } finally {
+      setSavingPayment(false);
+    }
+  };
+
+  const isTerminal = currentStatus === "cancelled" || currentStatus === "returned";
+  const isDelivered = currentStatus === "delivered";
   const isReturnWorkflow = currentStatus.startsWith("return_");
   const needsInvoice = currentStatus === "delivered" && !currentInvoiceId;
 
@@ -206,12 +221,13 @@ export default function OrderActionControls({
             <button
               className="btn btn-primary btn-sm"
               onClick={() => setShowStatusModal(true)}
+              disabled={isDelivered}
               data-testid="open-status-modal"
             >
               <Icon icon="ri:exchange-line" width={16} className="me-1" />
               Update Status
             </button>
-            {(currentStatus as string) === "delivered" && (
+            {isDelivered && (
               <button
                 className="btn btn-outline-warning btn-sm"
                 onClick={handleOpenReturnModal}
@@ -223,6 +239,17 @@ export default function OrderActionControls({
             )}
           </>
         ))}
+        {isDelivered && currentPaymentStatus !== "paid" && (
+          <button
+            className="btn btn-success btn-sm"
+            onClick={handleMarkAsPaid}
+            disabled={savingPayment}
+            data-testid="mark-as-paid"
+          >
+            <Icon icon="ri:money-dollar-circle-line" width={16} className="me-1" />
+            {savingPayment ? "Updating..." : "Mark as Paid"}
+          </button>
+        )}
         {/* P57: manual invoice retry. Same call surface as the
             auto-invoice (generateInvoice from invoices/actions).
             Re-running the same call recomputes the per-store

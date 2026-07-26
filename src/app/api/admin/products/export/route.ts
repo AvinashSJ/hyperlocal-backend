@@ -12,6 +12,7 @@ const COLUMNS = [
   "brand",
   "description",
   "unit_of_measurement",
+  "purchase_rate",
   "mrp",
   "selling_price",
   "discount_percent",
@@ -51,6 +52,7 @@ type ProductRow = {
   unit_of_measurement: string;
   mrp: number;
   selling_price: number;
+  purchase_rate: number | null;
   discount_percent: number;
   gst_rate: number;
   hsn_code: string | null;
@@ -67,7 +69,7 @@ export async function GET() {
   const supabase = createAdminClient();
   let query = supabase
     .from("products")
-    .select("name, description, sku, brand, unit_of_measurement, mrp, selling_price, discount_percent, gst_rate, hsn_code, stock_quantity, low_stock_threshold, status, categories(name, parent_id)")
+    .select("name, description, sku, brand, unit_of_measurement, mrp, selling_price, purchase_rate, discount_percent, gst_rate, hsn_code, stock_quantity, low_stock_threshold, status, categories(name, parent_id)")
     .order("name", { ascending: true })
     .limit(MAX_EXPORT_ROWS);
 
@@ -110,6 +112,7 @@ export async function GET() {
       unit_of_measurement: p.unit_of_measurement,
       mrp: p.mrp,
       selling_price: p.selling_price,
+      purchase_rate: p.purchase_rate,
       discount_percent: p.discount_percent,
       gst_rate: p.gst_rate,
       hsn_code: p.hsn_code,

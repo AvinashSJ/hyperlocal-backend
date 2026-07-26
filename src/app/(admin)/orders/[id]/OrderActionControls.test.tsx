@@ -107,18 +107,81 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     cleanup();
   });
 
-  it("hides action buttons when the status is terminal (cancelled/returned/delivered)", () => {
-    for (const status of ["cancelled", "returned", "delivered"] as const) {
+  it("hides action buttons when the status is terminal (cancelled/returned)", () => {
+    for (const status of ["cancelled", "returned"] as const) {
       const { container, cleanup } = render({
         orderId: "o-1",
         currentStatus: status,
         currentPaymentStatus: "paid",
       });
       expect(container.querySelector('[data-testid="open-status-modal"]')).toBeNull();
-      // Manage Return is hidden for terminal states (no return workflow)
       expect(container.querySelector('[data-testid="open-return-modal"]')).toBeNull();
       cleanup();
     }
+  });
+
+  it("delivered + unpaid: shows disabled Update Status, Mark as Paid, and Manage Return", () => {
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "delivered",
+      currentPaymentStatus: "unpaid",
+    });
+    const statusBtn = container.querySelector('[data-testid="open-status-modal"]') as HTMLButtonElement;
+    expect(statusBtn).not.toBeNull();
+    expect(statusBtn.disabled).toBe(true);
+    expect(container.querySelector('[data-testid="mark-as-paid"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="open-return-modal"]')).not.toBeNull();
+    cleanup();
+  });
+
+  it("delivered + paid: shows disabled Update Status and Manage Return, no Mark as Paid", () => {
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "delivered",
+      currentPaymentStatus: "paid",
+    });
+    const statusBtn = container.querySelector('[data-testid="open-status-modal"]') as HTMLButtonElement;
+    expect(statusBtn).not.toBeNull();
+    expect(statusBtn.disabled).toBe(true);
+    expect(container.querySelector('[data-testid="mark-as-paid"]')).toBeNull();
+    expect(container.querySelector('[data-testid="open-return-modal"]')).not.toBeNull();
+    cleanup();
+  });
+
+  it("Mark as Paid calls updatePaymentStatus and refreshes", async () => {
+    updatePaymentStatusMock.mockResolvedValue(undefined);
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "delivered",
+      currentPaymentStatus: "unpaid",
+    });
+    refreshMock.mockClear();
+
+    const btn = container.querySelector('[data-testid="mark-as-paid"]') as HTMLButtonElement;
+    await act(async () => { btn.click(); });
+
+    expect(updatePaymentStatusMock).toHaveBeenCalledWith("o-1", "paid");
+    expect(successMock).toHaveBeenCalledWith("Payment status updated to paid");
+    expect(refreshMock).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("Mark as Paid shows error toast when server action throws", async () => {
+    updatePaymentStatusMock.mockRejectedValue(new Error("db down"));
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "delivered",
+      currentPaymentStatus: "unpaid",
+    });
+    refreshMock.mockClear();
+
+    const btn = container.querySelector('[data-testid="mark-as-paid"]') as HTMLButtonElement;
+    await act(async () => { btn.click(); });
+
+    expect(updatePaymentStatusMock).toHaveBeenCalled();
+    expect(errorMock).toHaveBeenCalledWith("Failed to update payment status");
+    expect(refreshMock).not.toHaveBeenCalled();
+    cleanup();
   });
 
   it("opens the status modal and calls updateOrderStatus with the chosen status + notes", async () => {

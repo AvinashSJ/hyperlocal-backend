@@ -131,13 +131,40 @@ async function fetchInvoiceStore(storeId: string | null): Promise<InvoiceStore |
     .single();
   if (!store) return null;
 
-  const { data: gstinRow } = await supabase
+  // Try primary+active first, then any active, then any GSTIN at all.
+  let gstinRow: { gstin: string; legal_name: string } | null = null;
+
+  const { data: primary } = await supabase
     .from("gst_numbers")
     .select("gstin, legal_name")
     .eq("store_id", storeId)
     .eq("is_primary", true)
     .eq("is_active", true)
     .maybeSingle();
+  if (primary) {
+    gstinRow = primary;
+  } else {
+    const { data: anyActive } = await supabase
+      .from("gst_numbers")
+      .select("gstin, legal_name")
+      .eq("store_id", storeId)
+      .eq("is_active", true)
+      .order("is_primary", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (anyActive) {
+      gstinRow = anyActive;
+    } else {
+      const { data: anyGstin } = await supabase
+        .from("gst_numbers")
+        .select("gstin, legal_name")
+        .eq("store_id", storeId)
+        .order("is_primary", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      gstinRow = anyGstin;
+    }
+  }
 
   return {
     name: store.name,
