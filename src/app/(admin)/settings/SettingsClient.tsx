@@ -9,8 +9,8 @@ import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
 
 const MapLocationPicker = dynamic(() => import("./MapLocationPicker"), { ssr: false });
-import { updateStore, updateStoreSetting } from "./actions";
-import type { StoreSettingsData } from "./actions";
+import { updateStore, updateStoreSetting, updateReturnsConfig } from "./actions";
+import type { StoreSettingsData, ReturnsConfig } from "./actions";
 import {
   createDeliveryZone,
   updateDeliveryZone,
@@ -1212,6 +1212,66 @@ function GstSettingsSection({ gst, disabled }: { gst: StoreSettingsData["gst"]; 
   );
 }
 
+function ReturnsSection({ config }: { config: ReturnsConfig }) {
+  const [localEnabled, setLocalEnabled] = useState(config.enabled);
+  const [localMessage, setLocalMessage] = useState(config.message);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    const fd = new FormData();
+    fd.set("enabled", localEnabled ? "true" : "false");
+    fd.set("message", localMessage);
+    try {
+      await updateReturnsConfig(fd);
+      toast.success("Returns config saved");
+    } catch {
+      toast.error("Failed to save returns config");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card mb-4">
+      <div className="card-header"><strong>Returns</strong></div>
+      <div className="card-body">
+        <div className="mb-3">
+          <div className="form-check form-switch mb-2">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              role="switch"
+              id="returnsEnabled"
+              checked={localEnabled}
+              onChange={(e) => setLocalEnabled(e.target.checked)}
+            />
+            <label className="form-check-label" htmlFor="returnsEnabled">
+              Enable Returns
+            </label>
+          </div>
+          <small className="text-muted d-block">
+            When disabled, customers and admins cannot raise new return requests.
+          </small>
+        </div>
+        <div className="mb-3">
+          <label className="form-label">Message (optional)</label>
+          <textarea
+            className="form-control"
+            rows={2}
+            value={localMessage}
+            onChange={(e) => setLocalMessage(e.target.value)}
+            placeholder="e.g. Returns are temporarily disabled for maintenance"
+          />
+        </div>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? "Saving..." : "Save Returns Config"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type CategoryOption = {
   id: string;
   name: string;
@@ -1234,6 +1294,7 @@ export default function SettingsClient({
   managers,
   actionPerms,
   primaryGstin,
+  returnsConfig,
 }: {
   data: StoreSettingsData | null;
   roleName: string;
@@ -1244,6 +1305,7 @@ export default function SettingsClient({
   managers: ManagerOption[];
   actionPerms?: ActionPermissions;
   primaryGstin?: string | null;
+  returnsConfig: ReturnsConfig;
 }) {
   const isSuperAdmin = roleName === "Super Admin";
 
@@ -1290,6 +1352,8 @@ export default function SettingsClient({
       <SectionCard title="GST Numbers" count={(displayData.gstNumbers as GstRow[]).length}>
         <GstSection initial={displayData.gstNumbers as GstRow[]} storeId={displayData.store?.id} disabled={isCreate || !actionPerms?.canEdit} />
       </SectionCard>
+
+      {isSuperAdmin && <ReturnsSection config={returnsConfig} />}
     </>
   );
 }

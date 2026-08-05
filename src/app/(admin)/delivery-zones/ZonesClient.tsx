@@ -79,8 +79,8 @@ export default function ZonesClient({ zones: initial, actionPerms, storeId }: { 
                   {zone.pincodes?.length ? zone.pincodes.join(", ") : "\u2014"}
                 </td>
                 <td>{zone.radius_km}</td>
-                <td>${Number(zone.delivery_charge).toFixed(2)}</td>
-                <td>${Number(zone.free_delivery_min_order).toFixed(2)}</td>
+                <td>₹{Number(zone.delivery_charge).toFixed(2)}</td>
+                <td>₹{Number(zone.free_delivery_min_order).toFixed(2)}</td>
                 <td>
                   <div className="d-flex gap-1">
                     <span className={`badge ${zone.is_active ? "bg-success" : "bg-secondary"}`}>

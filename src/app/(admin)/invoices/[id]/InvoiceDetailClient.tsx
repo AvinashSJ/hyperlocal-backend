@@ -122,6 +122,9 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                     <tr><td className="text-muted">Customer</td><td>{order?.profiles?.full_name ?? "—"}</td></tr>
                     <tr><td className="text-muted">Phone</td><td>{order?.profiles?.phone ?? "—"}</td></tr>
                     <tr><td className="text-muted">Seller GSTIN</td><td>{invoice.store?.gstin ?? "—"}</td></tr>
+                    {Number(order?.delivery_charge ?? 0) > 0 && (
+                      <tr><td className="text-muted">Delivery Charges</td><td>₹{Number(order?.delivery_charge ?? 0).toLocaleString()}</td></tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -235,6 +238,9 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                         {totalCgst > 0 && <tr><td className="text-muted">Total CGST</td><td className="text-end">₹{totalCgst.toLocaleString()}</td></tr>}
                         {totalSgst > 0 && <tr><td className="text-muted">Total SGST</td><td className="text-end">₹{totalSgst.toLocaleString()}</td></tr>}
                       </>
+                    )}
+                    {Number(order?.delivery_charge ?? 0) > 0 && (
+                      <tr><td className="text-muted">Delivery Charges</td><td className="text-end">₹{Number(order?.delivery_charge ?? 0).toLocaleString()}</td></tr>
                     )}
                     <tr><td className="fw-bold">Total</td><td className="text-end fw-bold fs-5">₹{Number(invoice.total_amount).toLocaleString()}</td></tr>
                   </tbody>

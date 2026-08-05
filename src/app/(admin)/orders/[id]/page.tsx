@@ -1,6 +1,7 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
 import { getEntityActivityLog } from "@/lib/activity-log";
 import { getOrder } from "../actions";
+import { getReturnsConfig } from "@/app/(admin)/settings/actions";
 import OrderDetailClient from "./OrderDetailClient";
 
 export default async function OrderDetailPage(props: { params: Promise<{ id: string }> }) {
@@ -20,12 +21,14 @@ export default async function OrderDetailPage(props: { params: Promise<{ id: str
     getOrder(id),
     getEntityActivityLog("order", id),
   ]);
+  const returnsConfig = await getReturnsConfig();
   return (
     <div>
       <OrderDetailClient
         order={order}
         canCreateInvoice={invoicesActionPerms.canCreate}
         returnsActionPerms={returnsActionPerms}
+        returnsEnabled={returnsConfig.enabled}
         activityLog={activityLog}
       />
     </div>

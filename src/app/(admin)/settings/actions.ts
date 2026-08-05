@@ -556,6 +556,63 @@ export async function getStoreMaintenanceMap(): Promise<StoreMaintenanceMap> {
   return out;
 }
 
+export type ReturnsConfig = {
+  enabled: boolean;
+  message: string;
+};
+
+const DEFAULT_RETURNS_CONFIG: ReturnsConfig = {
+  enabled: true,
+  message: "",
+};
+
+export async function getReturnsConfig(): Promise<ReturnsConfig> {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", "returns_config")
+    .maybeSingle();
+  if (!data?.value || typeof data.value !== "object") return DEFAULT_RETURNS_CONFIG;
+  const raw = data.value as Record<string, unknown>;
+  return {
+    enabled: raw.enabled !== false,
+    message: typeof raw.message === "string" ? raw.message : "",
+  };
+}
+
+export async function updateReturnsConfig(formData: FormData) {
+  const { isSuperAdmin } = await assertPermission("settings", "edit");
+  if (!isSuperAdmin) {
+    throw new Error("Only Super Admin can change returns configuration");
+  }
+  const supabase = createAdminClient();
+  const enabled = formData.get("enabled") === "true";
+  const message = ((formData.get("message") as string) ?? "").trim();
+
+  const value: ReturnsConfig = { enabled, message };
+
+  const { data: existing } = await supabase
+    .from("settings")
+    .select("id")
+    .eq("key", "returns_config")
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase
+      .from("settings")
+      .update({ value, group_name: "general", updated_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase
+      .from("settings")
+      .insert({ key: "returns_config", value, group_name: "general" });
+    if (error) throw new Error(error.message);
+  }
+
+  revalidatePath("/settings");
+}
+
 export async function getCategoryDeletionGraceDays(): Promise<number> {
   const supabase = createAdminClient();
   const { data } = await supabase

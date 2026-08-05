@@ -142,6 +142,7 @@ describe("createReturnRequest", () => {
   it("rejects when the order is not delivered (customer-raised, within window)", async () => {
     asAdmin({ returns: ["create"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     admin.enqueueResponse({ data: baseOrder({ status: "pending" }), error: null });
     await expect(
       createReturnRequest({
@@ -156,6 +157,7 @@ describe("createReturnRequest", () => {
   it("rejects customer-raised request when delivered_at is NULL (legacy orders)", async () => {
     asAdmin({ returns: ["create"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     admin.enqueueResponse({ data: baseOrder({ delivered_at: null }), error: null });
     await expect(
       createReturnRequest({
@@ -170,6 +172,7 @@ describe("createReturnRequest", () => {
   it("rejects customer-raised request when SLA window has closed (24h+)", async () => {
     asAdmin({ returns: ["create"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     const longAgo = new Date(Date.now() - 30 * 3_600_000).toISOString();
     admin.enqueueResponse({ data: baseOrder({ delivered_at: longAgo }), error: null });
     await expect(
@@ -186,6 +189,8 @@ describe("createReturnRequest", () => {
     asAdmin({ returns: ["create"] });
     const admin = getAdminClient();
     const longAgo = new Date(Date.now() - 30 * 3_600_000).toISOString();
+    // Settings fetch (assertReturnsEnabled)
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     // Order fetch
     admin.enqueueResponse({ data: baseOrder({ delivered_at: longAgo }), error: null });
     // Order items fetch (for validation)
@@ -211,6 +216,7 @@ describe("createReturnRequest", () => {
   it("rejects when an item's order_item_id does not belong to the order", async () => {
     asAdmin({ returns: ["create"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     admin.enqueueResponse({ data: baseOrder(), error: null });
     admin.enqueueResponse({
       data: [baseOrderItem({ order_id: "o-OTHER" })],
@@ -229,6 +235,7 @@ describe("createReturnRequest", () => {
   it("rejects when return quantity exceeds the original order quantity", async () => {
     asAdmin({ returns: ["create"] });
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     admin.enqueueResponse({ data: baseOrder(), error: null });
     admin.enqueueResponse({ data: [baseOrderItem({ quantity: 3 })], error: null });
     await expect(
@@ -245,6 +252,8 @@ describe("createReturnRequest", () => {
     asAdmin({ returns: ["create"] });
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const admin = getAdminClient();
+    // 0) Settings fetch (assertReturnsEnabled)
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     // 1) Order fetch
     admin.enqueueResponse({ data: baseOrder(), error: null });
     // 2) Order items fetch (validation)
@@ -274,6 +283,7 @@ describe("createReturnRequest", () => {
     asAdmin({ returns: ["create"] });
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const admin = getAdminClient();
+    admin.enqueueResponse({ data: { value: { enabled: true } }, error: null });
     admin.enqueueResponse({ data: baseOrder(), error: null });
     admin.enqueueResponse({ data: [baseOrderItem()], error: null });
     admin.enqueueResponse({ data: baseReturnRequest(), error: null });

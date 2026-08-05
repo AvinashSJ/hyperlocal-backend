@@ -7,6 +7,8 @@ import {
   getEligibleManagers,
   getLockedStoreCategories,
 } from "@/app/(admin)/stores/actions";
+import { getReturnsConfig } from "./actions";
+import type { ReturnsConfig } from "./actions";
 import SettingsClient from "./SettingsClient";
 
 export default async function SettingsPage({
@@ -84,6 +86,7 @@ export default async function SettingsPage({
   }
 
   const managers = createMode ? await getEligibleManagers() : [];
+  const returnsConfig = await getReturnsConfig();
 
   return (
     <div>
@@ -98,6 +101,7 @@ export default async function SettingsPage({
         managers={managers}
         actionPerms={actionPerms}
         primaryGstin={primaryGstin}
+        returnsConfig={returnsConfig}
       />
     </div>
   );

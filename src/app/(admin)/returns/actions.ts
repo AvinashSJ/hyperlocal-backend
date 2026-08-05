@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission, PermissionError } from "@/lib/require-permission";
 import { logActivity } from "@/lib/activity-log";
+import { getReturnsConfig } from "@/app/(admin)/settings/actions";
 import type {
   ReturnRequest,
   ReturnRequestItem,
@@ -59,6 +60,13 @@ const LEGAL_TRANSITIONS: Record<ReturnRequestState, ReturnRequestState[]> = {
   fulfilled:  [],   // terminal
 };
 
+async function assertReturnsEnabled() {
+  const config = await getReturnsConfig();
+  if (!config.enabled) {
+    throw new Error(config.message || "Returns are currently disabled");
+  }
+}
+
 /** P62: input shape for one item in a return request. The
     order_item_id must belong to the order. quantity is the
     number of units to return (must be > 0 and ≤ the original
@@ -96,6 +104,7 @@ export async function createReturnRequest({
   items: ReturnRequestItemInput[];
 }): Promise<ReturnRequest> {
   await assertPermission("returns", "create");
+  await assertReturnsEnabled();
   const supabase = createAdminClient();
 
   // 0. Item validation: at least 1 item.

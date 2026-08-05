@@ -37,11 +37,13 @@ export default function OrderDetailClient({
   order,
   canCreateInvoice,
   returnsActionPerms,
+  returnsEnabled = true,
   activityLog,
 }: {
   order: OrderDetail;
   canCreateInvoice: boolean;
   returnsActionPerms: ActionPermissions;
+  returnsEnabled?: boolean;
   activityLog?: ActivityLogWithUser[];
 }) {
   const addr = order.addresses;
@@ -256,7 +258,7 @@ export default function OrderDetailClient({
               Manager actions (Approve / Reject / Mark fulfilled)
               are gated by `returns:edit` and the Hard Delete button
               by `returns:delete`. */}
-          <ReturnRequestsPanel order={order} actionPerms={returnsActionPerms} />
+          <ReturnRequestsPanel order={order} actionPerms={returnsActionPerms} returnsEnabled={returnsEnabled} />
 
           {/* P44: prominent Invoice card. Replaces the small inline
               buttons that used to live here. Visible whenever the

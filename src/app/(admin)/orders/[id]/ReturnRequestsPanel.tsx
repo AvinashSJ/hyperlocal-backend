@@ -87,9 +87,11 @@ const RESOLUTIONS: { value: ReturnRequestResolution; label: string }[] = [
 export default function ReturnRequestsPanel({
   order,
   actionPerms,
+  returnsEnabled = true,
 }: {
   order: OrderDetail;
   actionPerms?: ActionPermissions;
+  returnsEnabled?: boolean;
 }) {
   const [requests, setRequests] = useState<ReturnRequest[]>([]);
   const [itemsByRequest, setItemsByRequest] = useState<Record<string, ReturnRequestItem[]>>({});
@@ -279,7 +281,7 @@ export default function ReturnRequestsPanel({
             {requests.length}
           </span>
         )}
-        {actionPerms?.canCreate && order.status === "delivered" && !showRaiseForm && (
+        {actionPerms?.canCreate && order.status === "delivered" && !showRaiseForm && returnsEnabled && (
           <button
             type="button"
             className="btn btn-sm btn-outline-primary ms-auto"
@@ -294,6 +296,12 @@ export default function ReturnRequestsPanel({
       <div className="card-body">
         {error && (
           <div className="alert alert-danger py-2 mb-2">{error}</div>
+        )}
+
+        {!returnsEnabled && (
+          <div className="alert alert-warning py-2 mb-2">
+            Returns are currently disabled.
+          </div>
         )}
 
         {/* Manager-raise form */}

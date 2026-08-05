@@ -57,7 +57,7 @@ export async function GET() {
   const { data } = await supabase
     .from("settings")
     .select("key, value")
-    .in("key", ["app_maintenance", "store_maintenance"]);
+    .in("key", ["app_maintenance", "store_maintenance", "returns_config"]);
 
   const map: Record<string, unknown> = {};
   for (const row of data ?? []) {
@@ -72,5 +72,8 @@ export async function GET() {
     stores[storeId] = normalize(value, DEFAULT);
   }
 
-  return NextResponse.json({ app, stores });
+  const rawReturnsConfig = (map.returns_config as { enabled?: boolean } | null) ?? {};
+  const returnsEnabled = rawReturnsConfig.enabled ?? true;
+
+  return NextResponse.json({ app, stores, returns_enabled: returnsEnabled });
 }
