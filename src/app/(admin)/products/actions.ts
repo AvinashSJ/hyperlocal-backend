@@ -10,7 +10,7 @@ import { logActivity } from "@/lib/activity-log";
 import type { Product } from "@/lib/types/supabase";
 
 const VALID_UNITS = ["kg", "gram", "ml", "ltr", "pcs", "pack", "dozen", "box", "bundle", "pouch", "unit", "tin"] as const;
-const VALID_GST = [0, 5, 12, 18, 28] as const;
+const VALID_GST = [0, 5, 12, 18, 28, 40] as const;
 const VALID_STATUS = ["active", "inactive", "out_of_stock"] as const;
 
 type VariantInput = {
@@ -635,11 +635,13 @@ export async function getProducts(
   storeId?: string | null,
 ): Promise<ProductWithCategory[]> {
   const supabase = createAdminClient();
+  // NOTE: no `.limit(...)` — the products listing page renders the full
+  // result set (client-side search/filter). A hard limit silently dropped
+  // products beyond the first 100 (e.g. 184 in the DB → 84 missing).
   let productQuery = supabase
     .from("products")
     .select("*, categories(name)")
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .order("created_at", { ascending: false });
   if (storeId) productQuery = productQuery.eq("store_id", storeId);
   const { data } = await productQuery;
   return (data ?? []) as unknown as ProductWithCategory[];

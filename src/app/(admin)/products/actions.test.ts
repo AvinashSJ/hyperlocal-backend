@@ -1603,6 +1603,10 @@ describe("P49: getProducts (exported for use by other modules)", () => {
     const result = await getProducts();
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe("p-1");
+    // Regression (P80): the query must NOT apply a hard `.limit()` that
+    // silently drops products past the first 100 from the listing page.
+    const chain = admin.chainsForTable("products")[0];
+    expect(chain.some((c) => c.method === "limit")).toBe(false);
   });
 
   it("applies eq('store_id', X) when storeId is provided", async () => {

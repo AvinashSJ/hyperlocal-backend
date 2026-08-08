@@ -57,7 +57,7 @@ type ProductImage = {
 type Category = { id: string; name: string; parent_id: string | null; sort_order: number };
 
 const UNITS = ["kg", "gram", "ml", "ltr", "pcs", "pack", "dozen", "box", "bundle", "pouch", "unit", "tin"];
-const GST_RATES = [0, 5, 12, 18, 28];
+const GST_RATES = [0, 5, 12, 18, 28, 40];
 const STATUSES = ["active", "inactive", "out_of_stock"];
 
 export default function ProductForm({

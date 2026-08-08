@@ -126,7 +126,7 @@ export function makeProduct(overrides: Partial<{
   mrp: number;
   selling_price: number;
   discount_percent: number;
-  gst_rate: 0 | 5 | 12 | 18 | 28;
+  gst_rate: 0 | 5 | 12 | 18 | 28 | 40;
   hsn_code: string | null;
   is_gst_exempted: boolean;
   min_order_qty: number;

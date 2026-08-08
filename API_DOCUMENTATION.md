@@ -863,7 +863,7 @@ kg | gram | ml | ltr | pcs | pack | dozen | box | bundle | pouch | unit | tin
 
 ### GST Rates
 ```
-0 | 5 | 12 | 18 | 28
+0 | 5 | 12 | 18 | 28 | 40
 ```
 
 ### Return Request Reasons
