@@ -1601,12 +1601,13 @@ describe("P49: getProducts (exported for use by other modules)", () => {
     });
 
     const result = await getProducts();
-    expect(result).toHaveLength(2);
-    expect(result[0].id).toBe("p-1");
+    expect(result.products).toHaveLength(2);
+    expect(result.products[0].id).toBe("p-1");
     // Regression (P80): the query must NOT apply a hard `.limit()` that
     // silently drops products past the first 100 from the listing page.
     const chain = admin.chainsForTable("products")[0];
     expect(chain.some((c) => c.method === "limit")).toBe(false);
+    expect(chain.some((c) => c.method === "range")).toBe(false);
   });
 
   it("applies eq('store_id', X) when storeId is provided", async () => {
@@ -1617,8 +1618,8 @@ describe("P49: getProducts (exported for use by other modules)", () => {
       error: null,
     });
 
-    const result = await getProducts("s-1");
-    expect(result).toHaveLength(1);
+    const result = await getProducts({ storeId: "s-1" });
+    expect(result.products).toHaveLength(1);
     const chain = admin.chainsForTable("products")[0];
     expect(chain.some((c) => c.method === "eq" && c.args[0] === "store_id" && c.args[1] === "s-1")).toBe(true);
   });
@@ -1629,6 +1630,70 @@ describe("P49: getProducts (exported for use by other modules)", () => {
     admin.enqueueResponse({ data: null, error: null });
 
     const result = await getProducts();
-    expect(result).toEqual([]);
+    expect(result.products).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it("paginates with range() and surfaces the exact count", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: [makeProduct({ id: "p-21" }), makeProduct({ id: "p-22" })],
+      count: 42,
+      error: null,
+    });
+
+    const result = await getProducts({ page: 2, pageSize: 20 });
+    expect(result.products).toHaveLength(2);
+    expect(result.total).toBe(42);
+
+    const chain = admin.chainsForTable("products")[0];
+    // count request
+    expect(chain.some((c) => c.method === "select" && (c.args[1] as { count?: string })?.count === "exact")).toBe(true);
+    // range for page 2 of 20 → rows 20..39
+    expect(chain.some((c) => c.method === "range" && c.args[0] === 20 && c.args[1] === 39)).toBe(true);
+  });
+
+  it("computes the low-stock set in JS, then paginates those ids", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    // Chain 1: narrow projection of id/stock/threshold for the filtered set.
+    admin.enqueueResponse({
+      data: [
+        { id: "p-1", stock_quantity: 4, low_stock_threshold: 10 },
+        { id: "p-2", stock_quantity: 20, low_stock_threshold: 10 },
+      ],
+      error: null,
+    });
+    // Chain 2: full rows for the low-stock page slice.
+    admin.enqueueResponse({
+      data: [makeProduct({ id: "p-1" })],
+      error: null,
+    });
+
+    const result = await getProducts({
+      search: "rice",
+      categoryIds: ["cat-1", "cat-1-child"],
+      status: "active",
+      lowStockOnly: true,
+      page: 1,
+      pageSize: 20,
+    });
+
+    expect(result.products).toHaveLength(1);
+    expect(result.products[0].id).toBe("p-1");
+    expect(result.total).toBe(1);
+
+    const chains = admin.chainsForTable("products");
+    // Base filters + not-null threshold live on the projection query.
+    const projection = chains[0];
+    expect(projection.some((c) => c.method === "select" && c.args[0] === "id, stock_quantity, low_stock_threshold")).toBe(true);
+    expect(projection.some((c) => c.method === "not" && c.args[0] === "low_stock_threshold" && c.args[1] === "is" && c.args[2] === null)).toBe(true);
+    expect(projection.some((c) => c.method === "ilike" && c.args[0] === "name" && c.args[1] === "%rice%")).toBe(true);
+    expect(projection.some((c) => c.method === "in" && c.args[0] === "category_id" && JSON.stringify(c.args[1]) === JSON.stringify(["cat-1", "cat-1-child"]))).toBe(true);
+    expect(projection.some((c) => c.method === "eq" && c.args[0] === "status" && c.args[1] === "active")).toBe(true);
+    // Only low-stock ids are re-fetched, in order.
+    const fetch = chains[1];
+    expect(fetch.some((c) => c.method === "in" && c.args[0] === "id" && JSON.stringify(c.args[1]) === JSON.stringify(["p-1"]))).toBe(true);
   });
 });

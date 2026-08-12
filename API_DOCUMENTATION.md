@@ -795,7 +795,7 @@ Server actions are `"use server"` functions called from the Next.js admin panel.
 
 | Function | Params | Description |
 |----------|--------|-------------|
-| `getProducts(storeId?)` | `storeId?: string` | List products with category/subcategory names |
+| `getProducts(options)` | `{ storeId?, page?, pageSize?, search?, categoryIds?, status?, lowStockOnly? }` | List products with category names; server-side filters + pagination. Returns `{ products, total }` |
 | `createProduct(formData)` | FormData | Create product (admin panel) |
 | `updateProduct(id, formData)` | `id, FormData` | Update product |
 | `deleteProduct(id)` | `id: string` | Delete product (cascades to variants, images) |

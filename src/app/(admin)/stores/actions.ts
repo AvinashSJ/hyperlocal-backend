@@ -168,7 +168,7 @@ export async function getStoreRelations(id: string): Promise<StoreRelations> {
     // Products.
     supabase.from("products").select("id", { count: "exact", head: true }).eq("store_id", id),
     // The full product list for this store.
-    getProducts(id),
+    getProducts({ storeId: id }).then((r) => r.products),
     // Orders-for-customers: we need the user_ids at this store to
     // dedup + count. We fetch the user_id column only (small payload)
     // and cap at 1000 to prevent runaway on a busy store.

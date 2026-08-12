@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OlaMaps } from "@/lib/ola-maps";
+import { CORS_HEADERS, OPTIONS_RESPONSE } from "@/lib/cors";
 
 type ChargeBody = {
   latitude: number;
@@ -23,7 +24,10 @@ export async function POST(request: NextRequest) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400, headers: CORS_HEADERS },
+    );
   }
 
   const { latitude, longitude, storeId } = body;
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (typeof latitude !== "number" || typeof longitude !== "number" || !storeId) {
     return NextResponse.json(
       { error: "latitude, longitude (numbers) and storeId (string) are required" },
-      { status: 400 },
+      { status: 400, headers: CORS_HEADERS },
     );
   }
 
@@ -43,11 +47,17 @@ export async function POST(request: NextRequest) {
   );
 
   if (zoneError) {
-    return NextResponse.json({ error: zoneError.message }, { status: 500 });
+    return NextResponse.json(
+      { error: zoneError.message },
+      { status: 500, headers: CORS_HEADERS },
+    );
   }
 
   if (!zone || zone.length === 0) {
-    return NextResponse.json({ isEligible: false } satisfies ChargeResponse);
+    return NextResponse.json(
+      { isEligible: false } satisfies ChargeResponse,
+      { headers: CORS_HEADERS },
+    );
   }
 
   const z = zone[0] as {
@@ -83,11 +93,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({
-    isEligible: true,
-    deliveryCharge: z.delivery_charge,
-    freeDeliveryMinOrder: z.free_delivery_min_order,
-    zoneName: z.name,
-    roadDistanceKm,
-  } satisfies ChargeResponse);
+  return NextResponse.json(
+    {
+      isEligible: true,
+      deliveryCharge: z.delivery_charge,
+      freeDeliveryMinOrder: z.free_delivery_min_order,
+      zoneName: z.name,
+      roadDistanceKm,
+    } satisfies ChargeResponse,
+    { headers: CORS_HEADERS },
+  );
+}
+
+export async function OPTIONS() {
+  return OPTIONS_RESPONSE;
 }

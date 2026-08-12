@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { updateTicketStatus, respondToTicket } from "../actions";
 import type { TicketDetail } from "../actions";
@@ -65,9 +66,9 @@ export default function SupportTicketDetailClient({
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div>
-          <a href="/support" className="text-decoration-none text-muted small">
+          <Link href="/support" className="text-decoration-none text-muted small">
             &larr; Back to Support Tickets
-          </a>
+          </Link>
           <h4 className="fw-bold mt-1 mb-0">{localTicket.subject}</h4>
         </div>
         <span className={`badge bg-${STATUS_FLOW[idx]?.color ?? "secondary"} fs-6`}>

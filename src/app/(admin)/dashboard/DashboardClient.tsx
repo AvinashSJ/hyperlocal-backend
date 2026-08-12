@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useSyncExternalStore, useMemo, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
@@ -33,6 +33,22 @@ type Stats = {
 
 
 
+const SENSITIVE_KEY = "dash_sensitive_visible";
+const SENSITIVE_EVENT = "dash-sensitive-visible";
+
+function subscribeSensitive(callback: () => void) {
+  window.addEventListener(SENSITIVE_EVENT, callback);
+  return () => window.removeEventListener(SENSITIVE_EVENT, callback);
+}
+
+function getSensitiveSnapshot(): boolean {
+  return window.localStorage.getItem(SENSITIVE_KEY) !== "false";
+}
+
+function getSensitiveServerSnapshot(): boolean {
+  return true;
+}
+
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark", confirmed: "bg-info text-white",
   processing: "bg-primary text-white", out_for_delivery: "bg-secondary text-white",
@@ -45,19 +61,15 @@ const STATUS_BADGES: Record<string, string> = {
 };
 
 export default function DashboardClient({ stats }: { stats: Stats }) {
-  const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("dash_sensitive_visible");
-    if (stored !== null) setVisible(stored === "true");
-  }, []);
+  const visible = useSyncExternalStore(
+    subscribeSensitive,
+    getSensitiveSnapshot,
+    getSensitiveServerSnapshot,
+  );
 
   const toggle = () => {
-    setVisible((v) => {
-      const next = !v;
-      localStorage.setItem("dash_sensitive_visible", String(next));
-      return next;
-    });
+    window.localStorage.setItem(SENSITIVE_KEY, String(!visible));
+    window.dispatchEvent(new Event(SENSITIVE_EVENT));
   };
 
   const chartOptions = useMemo(() => ({

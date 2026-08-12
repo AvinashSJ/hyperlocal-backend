@@ -33,6 +33,16 @@ vi.mock("react-toastify", () => ({
   },
 }));
 
+const navMocks = vi.hoisted(() => ({
+  replace: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: navMocks.replace, push: vi.fn() }),
+  usePathname: () => "/products",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 const mocks = vi.hoisted(() => ({
   getProductActivityTrail: vi.fn(),
   deleteProduct: vi.fn(),
@@ -140,6 +150,7 @@ beforeEach(() => {
   mocks.getProductActivityTrail.mockReset();
   mocks.deleteProduct.mockReset();
   mocks.deleteProduct.mockResolvedValue(undefined);
+  navMocks.replace.mockClear();
   mockUuidCounter = 0;
 });
 
@@ -361,6 +372,156 @@ describe("ProductsClient — Download CSV button (P22 Feature)", () => {
     // Import button is also gated by canCreate, so it should be missing too
     expect(container.querySelector('[data-testid="import-csv"]')).toBeFalsy();
 
+    unmount();
+  });
+});
+
+describe("ProductsClient — server-side pagination + URL-driven filters (P80)", () => {
+  it("renders the pagination footer when there is more than one page", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient
+          products={[productA]}
+          categories={[]}
+          actionPerms={noopActionPerms}
+          total={45}
+          page={1}
+          totalPages={3}
+          pageSize={20}
+        />,
+      );
+    });
+
+    const pagination = container.querySelector('[data-testid="product-pagination"]');
+    expect(pagination).toBeTruthy();
+    expect(pagination!.textContent).toContain("Showing 1–20 of 45");
+
+    const links = Array.from(pagination!.querySelectorAll("a.page-link")).map(
+      (a) => ({ href: a.getAttribute("href"), text: a.textContent }),
+    );
+    // Prev is disabled on page 1
+    expect(pagination!.querySelector(".page-item.disabled")?.textContent).toContain("Prev");
+    // Page links point at the right URLs and preserve no filters
+    expect(links).toContainEqual({ href: "/products", text: "1" });
+    expect(links).toContainEqual({ href: "/products?page=2", text: "2" });
+    expect(links).toContainEqual({ href: "/products?page=3", text: "3" });
+
+    unmount();
+  });
+
+  it("hides the pagination footer when there is only one page", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient
+          products={[productA]}
+          categories={[]}
+          actionPerms={noopActionPerms}
+        />,
+      );
+    });
+
+    expect(container.querySelector('[data-testid="product-pagination"]')).toBeFalsy();
+    unmount();
+  });
+
+  it("shows 'No products found' when the page result set is empty", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient products={[]} categories={[]} actionPerms={noopActionPerms} />,
+      );
+    });
+
+    expect(container.textContent).toContain("No products found");
+    unmount();
+  });
+
+  it("search form submits and navigates with q while resetting to page 1", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient
+          products={[]}
+          categories={[]}
+          actionPerms={noopActionPerms}
+          query="old"
+          page={3}
+          totalPages={5}
+          total={100}
+          pageSize={20}
+        />,
+      );
+    });
+
+    const input = container.querySelector(
+      '[data-testid="product-search-input"]',
+    ) as HTMLInputElement;
+    input.value = "rice";
+    act(() => {
+      input.closest("form")!.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    expect(navMocks.replace).toHaveBeenCalledWith("/products?q=rice", { scroll: false });
+    unmount();
+  });
+
+  it("status filter change navigates and resets to page 1", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient
+          products={[productA]}
+          categories={[]}
+          actionPerms={noopActionPerms}
+          page={2}
+          totalPages={4}
+          total={80}
+          pageSize={20}
+        />,
+      );
+    });
+
+    const statusSelect = container.querySelector(
+      '[data-testid="product-status-filter"]',
+    ) as HTMLSelectElement;
+    act(() => {
+      statusSelect.value = "inactive";
+      statusSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(navMocks.replace).toHaveBeenCalledWith("/products?status=inactive", {
+      scroll: false,
+    });
+    unmount();
+  });
+
+  it("pagination links preserve active filters", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient
+          products={[productA]}
+          categories={[]}
+          actionPerms={noopActionPerms}
+          total={45}
+          page={2}
+          totalPages={3}
+          pageSize={20}
+          query="santoor"
+          statusFilter="active"
+        />,
+      );
+    });
+
+    const pagination = container.querySelector('[data-testid="product-pagination"]');
+    const next = pagination!.querySelector('a[aria-label="Next"]');
+    expect(next!.getAttribute("href")).toBe(
+      "/products?q=santoor&status=active&page=3",
+    );
     unmount();
   });
 });

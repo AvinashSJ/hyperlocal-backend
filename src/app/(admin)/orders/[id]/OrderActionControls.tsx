@@ -87,6 +87,13 @@ export default function OrderActionControls({
           `Status updated to processing. Invoice was not generated: ${result.invoiceError}`,
           { autoClose: 8000 },
         );
+      } else if (newStatus === "delivered" && result.invoiceId) {
+        toast.success("Status updated to delivered. Invoice generated.");
+      } else if (newStatus === "delivered" && result.invoiceError) {
+        toast.warning(
+          `Status updated to delivered. Invoice was not generated: ${result.invoiceError}`,
+          { autoClose: 8000 },
+        );
       } else if (newStatus === "delivered") {
         toast.success("Status updated to delivered");
       } else {

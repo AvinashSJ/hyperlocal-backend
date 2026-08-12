@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { runServerAction } from "@/lib/run-server-action";
@@ -56,15 +57,31 @@ export default function ProductsClient({
   products,
   categories,
   actionPerms,
+  // P80: server-side pagination + filters (URL-driven). Optional so the
+  // component degrades gracefully when rendered without a page context.
+  page = 1,
+  pageSize = 20,
+  totalPages = 1,
+  total = 0,
+  query = "",
+  categoryFilter = "",
+  statusFilter = "",
+  lowStockOnly = false,
 }: {
   products: Product[];
   categories: Category[];
   actionPerms?: ActionPermissions;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
+  total?: number;
+  query?: string;
+  categoryFilter?: string;
+  statusFilter?: string;
+  lowStockOnly?: boolean;
 }) {
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [lowStockOnly, setLowStockOnly] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
   const [showImport, setShowImport] = useState(false);
   const [deleting, setDeleting] = useState<Product | null>(null);
   const [trail, setTrail] = useState<ProductActivityTrail | null>(null);
@@ -74,22 +91,55 @@ export default function ProductsClient({
   const isLowStock = (p: Product) =>
     p.low_stock_threshold != null && p.stock_quantity <= p.low_stock_threshold;
 
-  const filtered = useMemo(() => {
-    const childIds = new Set(
-      categories.filter((c) => c.parent_id === categoryFilter).map((c) => c.id),
-    );
-    return products.filter((p) => {
-      if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
-      if (categoryFilter) {
-        if (p.category_id !== categoryFilter && !childIds.has(p.category_id ?? "")) {
-          return false;
-        }
-      }
-      if (statusFilter && p.status !== statusFilter) return false;
-      if (lowStockOnly && !isLowStock(p)) return false;
-      return true;
-    });
-  }, [products, search, categoryFilter, statusFilter, lowStockOnly, categories]);
+  // Build a URL for the given filter/page overrides. Any value passed in
+  // `overrides` wins; everything else is carried over from the current URL.
+  const buildHref = (overrides: Record<string, string | undefined>) => {
+    const params = new URLSearchParams();
+    const q = overrides.q ?? query;
+    if (q) params.set("q", q);
+    const cat = overrides.category ?? categoryFilter;
+    if (cat) params.set("category", cat);
+    const st = overrides.status ?? statusFilter;
+    if (st) params.set("status", st);
+    const low = overrides.lowStock ?? (lowStockOnly ? "1" : "");
+    if (low === "1") params.set("lowStock", "1");
+    const p = overrides.page ?? "1";
+    if (p !== "1") params.set("page", p);
+    const qs = params.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+
+  const navigate = (overrides: Record<string, string | undefined>) => {
+    router.replace(buildHref(overrides), { scroll: false });
+  };
+
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const value = new FormData(e.currentTarget).get("search") as string;
+    navigate({ q: value.trim(), page: "1" });
+  };
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const start = Math.max(1, page - 2);
+    const end = Math.min(totalPages, page + 2);
+    const pages: number[] = [];
+    if (start > 1) {
+      pages.push(1);
+      if (start > 2) pages.push(-1); // ellipsis
+    }
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (end < totalPages) {
+      if (end < totalPages - 1) pages.push(-2); // ellipsis
+      pages.push(totalPages);
+    }
+    return pages;
+  }, [totalPages, page]);
+
+  const shownFrom = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const shownTo = Math.min(total, page * pageSize);
 
   const handleDeleteClick = async (p: Product) => {
     setDeleting(p);
@@ -138,20 +188,27 @@ export default function ProductsClient({
     <div className="card">
       <div className="card-body">
         <div className="row g-2 mb-3">
-          <div className="col-md-4">
+          <form
+            className="col-md-4"
+            onSubmit={handleSearchSubmit}
+            role="search"
+          >
             <input
               type="text"
+              name="search"
+              key={query}
+              defaultValue={query}
               className="form-control"
-              placeholder="Search products..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search products... (Enter to search)"
+              data-testid="product-search-input"
             />
-          </div>
+          </form>
           <div className="col-md-3">
             <select
               className="form-select"
               value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              onChange={(e) => navigate({ category: e.target.value, page: "1" })}
+              data-testid="product-category-filter"
             >
               <option value="">All Categories</option>
               {(() => {
@@ -195,7 +252,8 @@ export default function ProductsClient({
             <select
               className="form-select"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => navigate({ status: e.target.value, page: "1" })}
+              data-testid="product-status-filter"
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
@@ -210,7 +268,12 @@ export default function ProductsClient({
                 className="form-check-input"
                 id="lowStock"
                 checked={lowStockOnly}
-                onChange={(e) => setLowStockOnly(e.target.checked)}
+                onChange={(e) =>
+                  navigate({
+                    lowStock: e.target.checked ? "1" : "0",
+                    page: "1",
+                  })
+                }
               />
               <label className="form-check-label small" htmlFor="lowStock">
                 Low Stock Only
@@ -254,14 +317,14 @@ export default function ProductsClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {products.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center text-muted py-4">
                     No products found
                   </td>
                 </tr>
               ) : (
-                filtered.map((p) => (
+                products.map((p) => (
                   <tr key={p.id}>
                     <td>
                       <div className="fw-medium">{p.name}</div>
@@ -327,6 +390,53 @@ export default function ProductsClient({
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <nav
+            className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3"
+            data-testid="product-pagination"
+          >
+            <span className="small text-muted">
+              Showing {shownFrom}–{shownTo} of {total}
+            </span>
+            <ul className="pagination pagination-sm mb-0">
+              <li className={`page-item ${page <= 1 ? "disabled" : ""}`}>
+                <Link
+                  className="page-link"
+                  href={buildHref({ page: String(page - 1) })}
+                  aria-label="Previous"
+                >
+                  Prev
+                </Link>
+              </li>
+              {pageNumbers.map((n) =>
+                n < 0 ? (
+                  <li key={n} className="page-item disabled">
+                    <span className="page-link">…</span>
+                  </li>
+                ) : (
+                  <li key={n} className={`page-item ${n === page ? "active" : ""}`}>
+                    <Link
+                      className="page-link"
+                      href={buildHref({ page: String(n) })}
+                    >
+                      {n}
+                    </Link>
+                  </li>
+                ),
+              )}
+              <li className={`page-item ${page >= totalPages ? "disabled" : ""}`}>
+                <Link
+                  className="page-link"
+                  href={buildHref({ page: String(page + 1) })}
+                  aria-label="Next"
+                >
+                  Next
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        )}
       </div>
 
       {showImport && (

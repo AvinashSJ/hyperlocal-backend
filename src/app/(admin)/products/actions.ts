@@ -617,32 +617,120 @@ export async function bulkImportProducts(rows: ImportRow[]) {
 }
 
 /**
- * P49: Public query for the most recent N products in a store (or all
- * products when `storeId` is null/undefined). Reuses the same query
- * shape the /products list page uses internally.
+ * P49/P80: Query products with optional server-side filtering and
+ * pagination. Reuses the same query shape the /products list page uses
+ * internally (the `categories(name)` join for the listing table).
  *
- * Currently used by `getStoreRelations` in the stores module to populate
- * the per-store drill-down in the store view modal.
+ * Used by:
+ *  - the /products list page (passes `page`/`pageSize` + filters);
+ *  - `getStoreRelations` in the stores module for the per-store drill-down
+ *    (passes only `storeId` → no `range()`, returns the full list).
  *
- * Return type: the `categories` field is included via the
- * `select("*, categories(name)")` join. We expose it as the base
- * `Product` type (which doesn't have `categories`) plus an optional
- * `categories` field. Callers that don't need the joined name can
- * just ignore it; callers that do can use the `categories` field.
+ * Filters are applied in the DB (not client-side) so pagination stays
+ * correct regardless of how many products exist in the store.
  */
 export type ProductWithCategory = Product & { categories: { name: string } | null };
+
+export type GetProductsOptions = {
+  storeId?: string | null;
+  /** 1-based page number. Requires `pageSize` to paginate. */
+  page?: number;
+  /** Rows per page. When omitted, the full list is returned (no `range()`). */
+  pageSize?: number;
+  /** Case-insensitive substring match on the product name. */
+  search?: string;
+  /** Resolved category ids to include (parent + its direct children). */
+  categoryIds?: string[];
+  /** Filter by the `status` column. */
+  status?: string;
+  /** Only products whose stock is at/below their low-stock threshold. */
+  lowStockOnly?: boolean;
+};
+
 export async function getProducts(
-  storeId?: string | null,
-): Promise<ProductWithCategory[]> {
+  options: GetProductsOptions = {},
+): Promise<{ products: ProductWithCategory[]; total: number }> {
+  const {
+    storeId,
+    page,
+    pageSize,
+    search,
+    categoryIds,
+    status,
+    lowStockOnly,
+  } = options;
   const supabase = createAdminClient();
-  // NOTE: no `.limit(...)` — the products listing page renders the full
-  // result set (client-side search/filter). A hard limit silently dropped
-  // products beyond the first 100 (e.g. 184 in the DB → 84 missing).
+
+  if (lowStockOnly) {
+    // PostgREST on this instance does NOT resolve column-reference filter
+    // values (e.g. `stock_quantity=lte.low_stock_threshold` → 22P02), so the
+    // low-stock set can't be computed in a single DB query. Fetch a narrow
+    // projection (id/stock/threshold) for the filtered products, compute the
+    // low-stock ids in JS, then paginate those ids.
+    let lowStockQuery = supabase
+      .from("products")
+      .select("id, stock_quantity, low_stock_threshold")
+      .not("low_stock_threshold", "is", null)
+      .order("created_at", { ascending: false });
+    if (storeId) lowStockQuery = lowStockQuery.eq("store_id", storeId);
+    if (search) lowStockQuery = lowStockQuery.ilike("name", `%${search}%`);
+    if (categoryIds && categoryIds.length > 0) {
+      lowStockQuery = lowStockQuery.in("category_id", categoryIds);
+    }
+    if (status) lowStockQuery = lowStockQuery.eq("status", status);
+
+    const { data: rows } = await lowStockQuery;
+    const lowStockIds = ((rows ?? []) as {
+      id: string;
+      stock_quantity: number;
+      low_stock_threshold: number;
+    }[])
+      .filter((r) => r.stock_quantity <= r.low_stock_threshold)
+      .map((r) => r.id);
+    const total = lowStockIds.length;
+
+    if (page && pageSize) {
+      const slice = lowStockIds.slice((page - 1) * pageSize, page * pageSize);
+      if (slice.length === 0) return { products: [], total };
+      const { data } = await supabase
+        .from("products")
+        .select("*, categories(name)")
+        .in("id", slice);
+      const byId = new Map((data ?? []).map((p) => [p.id, p]));
+      const products = slice
+        .map((id) => byId.get(id))
+        .filter((p): p is NonNullable<typeof p> => p != null);
+      return { products: products as unknown as ProductWithCategory[], total };
+    }
+
+    const { data } = await supabase
+      .from("products")
+      .select("*, categories(name)")
+      .in("id", lowStockIds);
+    return {
+      products: (data ?? []) as unknown as ProductWithCategory[],
+      total,
+    };
+  }
+
   let productQuery = supabase
     .from("products")
-    .select("*, categories(name)")
+    .select("*, categories(name)", { count: "exact" })
     .order("created_at", { ascending: false });
+
   if (storeId) productQuery = productQuery.eq("store_id", storeId);
-  const { data } = await productQuery;
-  return (data ?? []) as unknown as ProductWithCategory[];
+  if (search) productQuery = productQuery.ilike("name", `%${search}%`);
+  if (categoryIds && categoryIds.length > 0) {
+    productQuery = productQuery.in("category_id", categoryIds);
+  }
+  if (status) productQuery = productQuery.eq("status", status);
+  if (page && pageSize) {
+    productQuery = productQuery.range((page - 1) * pageSize, page * pageSize - 1);
+  }
+
+  const { data, count } = await productQuery;
+  return {
+    products: (data ?? []) as unknown as ProductWithCategory[],
+    total: count ?? 0,
+  };
 }

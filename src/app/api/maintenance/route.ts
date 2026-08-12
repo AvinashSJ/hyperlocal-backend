@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CORS_HEADERS, OPTIONS_RESPONSE } from "@/lib/cors";
 
 // P34: public, no-auth endpoint consumed by the Flutter customer
 // app on launch + on resume from background. Returns the combined
@@ -75,5 +76,12 @@ export async function GET() {
   const rawReturnsConfig = (map.returns_config as { enabled?: boolean } | null) ?? {};
   const returnsEnabled = rawReturnsConfig.enabled ?? true;
 
-  return NextResponse.json({ app, stores, returns_enabled: returnsEnabled });
+  return NextResponse.json(
+    { app, stores, returns_enabled: returnsEnabled },
+    { headers: CORS_HEADERS },
+  );
+}
+
+export async function OPTIONS() {
+  return OPTIONS_RESPONSE;
 }
