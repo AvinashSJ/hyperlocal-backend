@@ -68,4 +68,11 @@ echo ">> Scrubbing credentials on test..."
 psql "$TEST_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -q -c \
   "UPDATE auth.users SET encrypted_password='', confirmation_token='', recovery_token='', email_change_token_new='', email_change_token_current=''; DELETE FROM auth.identities; DELETE FROM auth.sessions; DELETE FROM auth.refresh_tokens;"
 
+echo ">> Setting known test password for admin accounts..."
+# The scrub blanks all passwords, so no one could log in. Set a known bcrypt
+# password (via pgcrypto, the same hash family GoTrue verifies) for the test
+# admin accounts so the test env stays loggable after every refresh.
+psql "$TEST_DB_URL" -v ON_ERROR_STOP=1 --single-transaction -q -c \
+  "UPDATE auth.users SET encrypted_password = crypt('TestAdmin@123', gen_salt('bf', 10)) WHERE email IN ('superadmin@test.com','aruundoorstep@gmail.com','skyywaytravels@gmail.com');"
+
 echo ">> Done. Test DB synced from prod."
