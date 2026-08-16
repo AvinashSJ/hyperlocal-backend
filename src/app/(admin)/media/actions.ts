@@ -74,9 +74,11 @@ export async function uploadMedia(formData: FormData) {
     };
     const mime = mimeMap[ext.toLowerCase()] || file.type || "image/jpeg";
 
+    const bytes = Buffer.from(new Uint8Array(await file.arrayBuffer()));
+
     const { error } = await supabase.storage
       .from(BUCKET)
-      .upload(fileName, file, {
+      .upload(fileName, bytes, {
         contentType: mime,
         cacheControl: "3600",
         upsert: false,
