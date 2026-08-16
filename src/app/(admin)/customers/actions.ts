@@ -11,6 +11,7 @@ export type CustomerUser = {
   profile: {
     full_name: string | null;
     avatar_url: string | null;
+    phone: string | null;
   } | null;
   addressCount: number;
   orderCount: number;
@@ -38,12 +39,15 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
 
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, full_name, avatar_url, role")
+    .select("id, full_name, avatar_url, phone, role")
     .in("id", userIds)
     .eq("role", "customer");
 
   const profileMap = new Map(
-    (profiles ?? []).map((p) => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]),
+    (profiles ?? []).map((p) => [
+      p.id,
+      { full_name: p.full_name, avatar_url: p.avatar_url, phone: p.phone },
+    ]),
   );
 
   const { data: addressCounts } = await supabase
@@ -88,7 +92,7 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
     .map((u) => ({
       id: u.id,
       email: u.email ?? null,
-      phone: u.phone ?? null,
+      phone: profileMap.get(u.id)?.phone ?? u.phone ?? null,
       created_at: u.created_at,
       last_sign_in_at: u.last_sign_in_at ?? null,
       profile: profileMap.get(u.id) ?? null,
