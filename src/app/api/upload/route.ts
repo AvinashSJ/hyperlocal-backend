@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BUCKET = "product-images";
+const MAX_DIM = 1600;
+const IMAGE_QUALITY = 70;
+const CACHE_CONTROL = "31536000";
 
 async function ensureBucket(supabase: ReturnType<typeof createAdminClient>) {
   const { data: buckets } = await supabase.storage.listBuckets();
@@ -27,21 +31,23 @@ export async function POST(request: NextRequest) {
   const uploaded: string[] = [];
 
   for (const file of files) {
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
-    const mimeMap: Record<string, string> = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-    };
-    const mime = mimeMap[ext.toLowerCase()] || file.type || "image/jpeg";
+    let buf = Buffer.from(await file.arrayBuffer());
+    try {
+      buf = await sharp(buf, { failOn: "none" })
+        .rotate()
+        .resize(MAX_DIM, MAX_DIM, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: IMAGE_QUALITY })
+        .toBuffer();
+    } catch {
+      errors.push(`${file.name}: not a readable image`);
+      continue;
+    }
 
-    const buf = Buffer.from(await file.arrayBuffer());
     const { error } = await supabase.storage.from(BUCKET).upload(fileName, buf, {
-      contentType: mime,
-      cacheControl: "3600",
+      contentType: "image/webp",
+      cacheControl: CACHE_CONTROL,
       upsert: false,
     });
 
