@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   for (const file of files) {
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
-    let buf = Buffer.from(await file.arrayBuffer());
+    let buf = Buffer.from(new Uint8Array(await file.arrayBuffer()));
     try {
       buf = await sharp(buf, { failOn: "none" })
         .rotate()
@@ -45,11 +45,15 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    const { error } = await supabase.storage.from(BUCKET).upload(fileName, buf, {
-      contentType: "image/webp",
-      cacheControl: CACHE_CONTROL,
-      upsert: false,
-    });
+    const { error } = await supabase.storage.from(BUCKET).upload(
+      fileName,
+      Buffer.from(buf),
+      {
+        contentType: "image/webp",
+        cacheControl: CACHE_CONTROL,
+        upsert: false,
+      },
+    );
 
     if (error) {
       errors.push(`${file.name}: ${error.message}`);
