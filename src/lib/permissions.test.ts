@@ -13,8 +13,8 @@ describe("PERMISSION_MODULES", () => {
     expect(typeof PERMISSION_MODULES).toBe("object");
   });
 
-  it("exposes exactly 22 modules", () => {
-    expect(Object.keys(PERMISSION_MODULES)).toHaveLength(22);
+  it("exposes exactly 23 modules", () => {
+    expect(Object.keys(PERMISSION_MODULES)).toHaveLength(23);
   });
 
   it("includes every module the admin UI uses", () => {
@@ -40,6 +40,7 @@ describe("PERMISSION_MODULES", () => {
       "reports",
       "settings",
       "returns",
+      "delivery_rules",
     ];
     for (const m of expected) {
       expect(PERMISSION_MODULES).toHaveProperty(m);
@@ -70,6 +71,7 @@ describe("PERMISSION_MODULES", () => {
       "staff",
       "commissions",
       "returns",
+      "delivery_rules",
     ];
     for (const m of fullCrud) {
       expect(PERMISSION_MODULES[m]).toEqual(

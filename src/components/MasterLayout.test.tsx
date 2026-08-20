@@ -61,6 +61,7 @@ const fullPerms: RolePermissions = {
   customers: ["view"],
   delivery_zones: ["view"],
   delivery_slots: ["view"],
+  delivery_rules: ["view"],
   gst_numbers: ["view"],
   inventory_log: ["view"],
   banners: ["view"],
@@ -321,6 +322,7 @@ describe("MasterLayout — store-scoped role hides admin-only modules", () => {
     invoices: ["view"],
     delivery_zones: ["view"],
     delivery_slots: ["view"],
+    delivery_rules: ["view"],
     gst_numbers: ["view"],
   };
 
@@ -554,6 +556,7 @@ const managerPerms: RolePermissions = {
   invoices: ["view"],
   delivery_zones: ["view"],
   delivery_slots: ["view"],
+  delivery_rules: ["view"],
   gst_numbers: ["view"],
   banners: ["view"],
   notifications: ["view"],

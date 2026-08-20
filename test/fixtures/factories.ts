@@ -467,6 +467,34 @@ export function makeDeliverySlot(overrides: Partial<{
   };
 }
 
+export function makeDeliveryRule(overrides: Partial<{
+  id: string;
+  store_id: string;
+  name: string;
+  min_order_value: number | null;
+  max_order_value: number | null;
+  min_distance_km: number | null;
+  max_distance_km: number | null;
+  charge: number;
+  priority: number;
+  is_active: boolean;
+  created_at: string;
+}> = {}) {
+  return {
+    id: overrides.id ?? uid("rule"),
+    store_id: overrides.store_id ?? uid("store"),
+    name: overrides.name ?? "Test Rule",
+    min_order_value: overrides.min_order_value ?? null,
+    max_order_value: overrides.max_order_value ?? null,
+    min_distance_km: overrides.min_distance_km ?? null,
+    max_distance_km: overrides.max_distance_km ?? null,
+    charge: overrides.charge ?? 0,
+    priority: overrides.priority ?? 0,
+    is_active: overrides.is_active ?? true,
+    created_at: overrides.created_at ?? nowISO(),
+  };
+}
+
 export function makeGstNumber(overrides: Partial<{
   id: string;
   store_id: string | null;
