@@ -7,6 +7,7 @@ export const PERMISSION_MODULES = {
   customers: ["view", "create", "edit", "delete"],
   delivery_zones: ["view", "create", "edit", "delete"],
   delivery_slots: ["view", "create", "edit", "delete"],
+  delivery_rules: ["view", "create", "edit", "delete"],
   gst_numbers: ["view", "create", "edit", "delete"],
   inventory_log: ["view"],
   banners: ["view", "create", "edit", "delete"],
