@@ -34,16 +34,21 @@ beforeEach(() => {
 });
 
 describe("getRoles (roles module)", () => {
-  it("returns roles with computed userCount from profiles.role_id", async () => {
+  it("returns roles with computed userCount and assignedUsers from profiles", async () => {
     const admin = getAdminClient();
     const r1 = makeRole({ id: 1, name: "Super Admin", permissions: { users: ["view"] } });
     const r2 = makeRole({ id: 2, name: "Admin", permissions: { users: ["view", "edit"] } });
 
-    // 1) roles fetch
-    // 2) profiles.role_id lookup (counts)
     admin.setResponses(
       { data: [r1, r2], error: null },
-      { data: [{ role_id: 1 }, { role_id: 1 }, { role_id: 2 }], error: null },
+      {
+        data: [
+          { role_id: 1, id: "u1", email: "a@test.com", full_name: "Alice" },
+          { role_id: 1, id: "u2", email: "b@test.com", full_name: "Bob" },
+          { role_id: 2, id: "u3", email: "c@test.com", full_name: "Charlie" },
+        ],
+        error: null,
+      },
     );
 
     const roles = await getRoles();
@@ -53,12 +58,21 @@ describe("getRoles (roles module)", () => {
       id: 1,
       name: "Super Admin",
       permissions: { users: ["view"] },
+      permissionSummary: ["users (view)"],
       userCount: 2,
+      assignedUsers: [
+        { id: "u1", email: "a@test.com", full_name: "Alice" },
+        { id: "u2", email: "b@test.com", full_name: "Bob" },
+      ],
     });
     expect(roles[1]).toMatchObject({
       id: 2,
       name: "Admin",
+      permissionSummary: ["users (view, edit)"],
       userCount: 1,
+      assignedUsers: [
+        { id: "u3", email: "c@test.com", full_name: "Charlie" },
+      ],
     });
   });
 
@@ -81,7 +95,6 @@ describe("getRoles (roles module)", () => {
     admin.setResponses({ data: [], error: null });
     const roles = await getRoles();
     expect(roles).toEqual([]);
-    // profiles count query is still issued (with empty in-list)
     expect(admin.chainsForTable("profiles")).toHaveLength(1);
   });
 
@@ -91,11 +104,19 @@ describe("getRoles (roles module)", () => {
 
     admin.setResponses(
       { data: [r1], error: null },
-      { data: [{ role_id: "5" }, { role_id: "5" }, { role_id: "5" }], error: null },
+      {
+        data: [
+          { role_id: "5", id: "x1", email: null, full_name: null },
+          { role_id: "5", id: "x2", email: null, full_name: null },
+          { role_id: "5", id: "x3", email: null, full_name: null },
+        ],
+        error: null,
+      },
     );
 
     const roles = await getRoles();
     expect(roles[0].userCount).toBe(3);
+    expect(roles[0].assignedUsers).toHaveLength(3);
   });
 
   it("defaults userCount to 0 for roles with no assigned profiles", async () => {
@@ -105,12 +126,47 @@ describe("getRoles (roles module)", () => {
 
     admin.setResponses(
       { data: [r1, r2], error: null },
-      { data: [{ role_id: 1 }], error: null },
+      { data: [{ role_id: 1, id: "u1", email: "a@test.com", full_name: "A" }], error: null },
     );
 
     const roles = await getRoles();
     expect(roles[0].userCount).toBe(1);
+    expect(roles[0].assignedUsers).toHaveLength(1);
     expect(roles[1].userCount).toBe(0);
+    expect(roles[1].assignedUsers).toEqual([]);
+  });
+
+  it("computes permissionSummary from permissions object", async () => {
+    const admin = getAdminClient();
+    const r1 = makeRole({
+      id: 1,
+      name: "Full",
+      permissions: { products: ["view", "create", "edit"], orders: ["view"] },
+    });
+
+    admin.setResponses(
+      { data: [r1], error: null },
+      { data: [], error: null },
+    );
+
+    const roles = await getRoles();
+    expect(roles[0].permissionSummary).toEqual([
+      "products (view, create, edit)",
+      "orders (view)",
+    ]);
+  });
+
+  it("returns empty permissionSummary for roles with no permissions", async () => {
+    const admin = getAdminClient();
+    const r1 = makeRole({ id: 1, name: "Empty", permissions: {} });
+
+    admin.setResponses(
+      { data: [r1], error: null },
+      { data: [], error: null },
+    );
+
+    const roles = await getRoles();
+    expect(roles[0].permissionSummary).toEqual([]);
   });
 });
 
