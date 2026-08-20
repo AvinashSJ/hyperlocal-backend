@@ -7,6 +7,18 @@ type ChargeBody = {
   latitude: number;
   longitude: number;
   storeId: string;
+  orderValue?: number;
+};
+
+type DeliveryRule = {
+  id: string;
+  name: string;
+  min_order_value: number | null;
+  max_order_value: number | null;
+  min_distance_km: number | null;
+  max_distance_km: number | null;
+  charge: number;
+  priority: number;
 };
 
 type ChargeResponse = {
@@ -15,6 +27,7 @@ type ChargeResponse = {
   freeDeliveryMinOrder?: number;
   zoneName?: string;
   roadDistanceKm?: number;
+  appliedRule?: string | null;
 };
 
 export const dynamic = "force-dynamic";
@@ -30,7 +43,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { latitude, longitude, storeId } = body;
+  const { latitude, longitude, storeId, orderValue } = body;
 
   if (typeof latitude !== "number" || typeof longitude !== "number" || !storeId) {
     return NextResponse.json(
@@ -93,13 +106,43 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  let deliveryCharge = z.delivery_charge;
+  let appliedRule: string | null = null;
+
+  const { data: rules } = await supabase
+    .from("delivery_rules")
+    .select("id, name, min_order_value, max_order_value, min_distance_km, max_distance_km, charge, priority")
+    .eq("store_id", storeId)
+    .eq("is_active", true)
+    .order("priority", { ascending: true });
+
+  if (rules && rules.length > 0) {
+    const numOrderValue = typeof orderValue === "number" ? orderValue : null;
+    const numDistance = roadDistanceKm ?? null;
+
+    for (const rule of rules as DeliveryRule[]) {
+      if (numOrderValue !== null) {
+        if (rule.min_order_value !== null && numOrderValue < rule.min_order_value) continue;
+        if (rule.max_order_value !== null && numOrderValue > rule.max_order_value) continue;
+      }
+      if (numDistance !== null) {
+        if (rule.min_distance_km !== null && numDistance < rule.min_distance_km) continue;
+        if (rule.max_distance_km !== null && numDistance > rule.max_distance_km) continue;
+      }
+      deliveryCharge = rule.charge;
+      appliedRule = rule.name;
+      break;
+    }
+  }
+
   return NextResponse.json(
     {
       isEligible: true,
-      deliveryCharge: z.delivery_charge,
+      deliveryCharge,
       freeDeliveryMinOrder: z.free_delivery_min_order,
       zoneName: z.name,
       roadDistanceKm,
+      appliedRule,
     } satisfies ChargeResponse,
     { headers: CORS_HEADERS },
   );
