@@ -4,14 +4,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { assertPermission } from "@/lib/require-permission";
 
+export type RoleUser = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+};
+
 export type RoleRow = {
   id: number;
   name: string;
   description: string | null;
   permissions: Record<string, string[]>;
+  permissionSummary: string[];
   is_system: boolean;
   created_at: string;
   userCount: number;
+  assignedUsers: RoleUser[];
 };
 
 export async function getRoles(): Promise<RoleRow[]> {
@@ -29,26 +37,36 @@ export async function getRoles(): Promise<RoleRow[]> {
 
   const roleIds = roles.map((r) => r.id);
 
-  const { data: counts } = await supabase
+  const { data: profiles } = await supabase
     .from("profiles")
-    .select("role_id")
+    .select("role_id, id, email, full_name")
     .in("role_id", roleIds);
 
-  const countMap = new Map<number, number>();
-  for (const row of counts ?? []) {
-    const rid = Number(row.role_id);
-    countMap.set(rid, (countMap.get(rid) ?? 0) + 1);
+  const userMap = new Map<number, RoleUser[]>();
+  for (const p of profiles ?? []) {
+    const rid = Number(p.role_id);
+    if (!userMap.has(rid)) userMap.set(rid, []);
+    userMap.get(rid)!.push({ id: p.id, email: p.email, full_name: p.full_name });
   }
 
-  return roles.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    permissions: r.permissions as Record<string, string[]>,
-    is_system: r.is_system,
-    created_at: r.created_at,
-    userCount: countMap.get(r.id) ?? 0,
-  }));
+  return roles.map((r) => {
+    const perms = r.permissions as Record<string, string[]>;
+    const permissionSummary = Object.entries(perms)
+      .filter(([, actions]) => actions.length > 0)
+      .map(([mod, actions]) => `${mod} (${actions.join(", ")})`);
+
+    return {
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      permissions: perms,
+      permissionSummary,
+      is_system: r.is_system,
+      created_at: r.created_at,
+      userCount: userMap.get(r.id)?.length ?? 0,
+      assignedUsers: userMap.get(r.id) ?? [],
+    };
+  });
 }
 
 export async function createRole(formData: FormData) {

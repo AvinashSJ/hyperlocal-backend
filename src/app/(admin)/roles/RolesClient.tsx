@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Icon } from "@iconify/react";
 import { useRouter } from "next/navigation";
 import { createRole, updateRole, deleteRole } from "./actions";
@@ -37,6 +37,11 @@ const MODULE_LABELS: Record<string, string> = {
   users: "Users",
   roles: "Roles",
   settings: "Settings",
+  staff: "Staff",
+  reports: "Reports",
+  returns: "Returns",
+  commissions: "Commissions",
+  stores: "Stores",
 };
 
 type ActionPermissions = {
@@ -53,6 +58,7 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [expandedUsers, setExpandedUsers] = useState<number | null>(null);
 
   const handleDelete = async (id: number) => {
     const fd = new FormData();
@@ -154,7 +160,7 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
             <tr>
               <th>Role</th>
               <th>Description</th>
-              <th>Type</th>
+              <th>Permissions</th>
               <th className="text-center">Users</th>
               <th>Created</th>
               <th className="text-center">Actions</th>
@@ -177,43 +183,69 @@ export default function RolesClient({ roles, actionPerms }: { roles: RoleRow[]; 
                     {r.description ?? "—"}
                   </td>
                   <td>
-                    {r.is_system ? (
-                      <span className="badge bg-secondary">System</span>
+                    {r.permissionSummary.length === 0 ? (
+                      <span className="text-muted small">No permissions</span>
                     ) : (
-                      <span className="badge bg-info bg-opacity-10 text-info">Custom</span>
+                      <div className="d-flex flex-wrap gap-1" style={{ maxWidth: 320 }}>
+                        {r.permissionSummary.slice(0, 4).map((p) => (
+                          <span key={p} className="badge bg-light text-dark border" style={{ fontSize: "0.7rem" }}>
+                            {p}
+                          </span>
+                        ))}
+                        {r.permissionSummary.length > 4 && (
+                          <span className="badge bg-secondary" style={{ fontSize: "0.7rem" }}>
+                            +{r.permissionSummary.length - 4} more
+                          </span>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="text-center">
-                    <span className="badge bg-primary bg-opacity-10 text-primary">
-                      {r.userCount}
-                    </span>
+                    <button
+                      className="btn btn-sm btn-link text-decoration-none p-0"
+                      onClick={() => setExpandedUsers(expandedUsers === r.id ? null : r.id)}
+                      title={r.assignedUsers.length > 0 ? "Click to see users" : "No users assigned"}
+                    >
+                      <span className="badge bg-primary bg-opacity-10 text-primary">
+                        {r.userCount}
+                      </span>
+                    </button>
+                    {expandedUsers === r.id && r.assignedUsers.length > 0 && (
+                      <div className="text-start mt-1" style={{ fontSize: "0.8rem" }}>
+                        {r.assignedUsers.map((u) => (
+                          <div key={u.id} className="text-muted">
+                            {u.full_name || u.email || u.id.slice(0, 8)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td style={{ fontSize: "0.85rem" }}>
                     <ClientDate value={r.created_at} format="date" />
                   </td>
-                    <td>
-                        <div className="d-flex gap-1 justify-content-center">
-                          {actionPerms?.canEdit && (
-                            <button
-                              className="btn btn-sm btn-outline-primary"
-                              title="Edit"
-                              onClick={() => openEdit(r)}
-                            >
-                              <Icon icon="mdi:pencil" />
-                            </button>
-                          )}
-                          {actionPerms?.canDelete && !r.is_system && (
-                            <button
-                              className="btn btn-sm btn-outline-danger"
-                              title="Delete"
-                              disabled={deleting === r.id}
-                              onClick={() => handleDelete(r.id)}
-                            >
-                              <Icon icon="mdi:delete" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                  <td>
+                    <div className="d-flex gap-1 justify-content-center">
+                      {actionPerms?.canEdit && (
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          title="Edit"
+                          onClick={() => openEdit(r)}
+                        >
+                          <Icon icon="mdi:pencil" />
+                        </button>
+                      )}
+                      {actionPerms?.canDelete && !r.is_system && (
+                        <button
+                          className="btn btn-sm btn-outline-danger"
+                          title="Delete"
+                          disabled={deleting === r.id}
+                          onClick={() => handleDelete(r.id)}
+                        >
+                          <Icon icon="mdi:delete" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))
             )}
