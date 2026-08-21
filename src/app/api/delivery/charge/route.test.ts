@@ -215,6 +215,65 @@ describe("POST /api/delivery/charge", () => {
     const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 1000 }));
     const body = await res.json();
     expect(body.isEligible).toBe(true);
-    expect(body.deliveryCharge).toBe(30);
+    // orderValue 1000 >= freeDeliveryMinOrder 200 → free delivery
+    expect(body.deliveryCharge).toBe(0);
+    expect(body.freeDeliveryMinOrder).toBe(200);
+  });
+
+  it("charges delivery when order is below freeDeliveryMinOrder", async () => {
+    const admin = getAdminClient();
+    admin.setRpcResult("get_applicable_delivery_zone", {
+      data: [{ id: "z-1", name: "Near", delivery_charge: 50, free_delivery_min_order: 5000, is_express: false }],
+      error: null,
+    });
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 3000 }));
+    const body = await res.json();
+    expect(body.isEligible).toBe(true);
+    expect(body.deliveryCharge).toBe(50);
+  });
+
+  it("makes delivery free when order meets freeDeliveryMinOrder", async () => {
+    const admin = getAdminClient();
+    admin.setRpcResult("get_applicable_delivery_zone", {
+      data: [{ id: "z-1", name: "Near", delivery_charge: 50, free_delivery_min_order: 5000, is_express: false }],
+      error: null,
+    });
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 5000 }));
+    const body = await res.json();
+    expect(body.isEligible).toBe(true);
+    expect(body.deliveryCharge).toBe(0);
+    expect(body.freeDeliveryMinOrder).toBe(5000);
+  });
+
+  it("makes delivery free when order exceeds freeDeliveryMinOrder", async () => {
+    const admin = getAdminClient();
+    admin.setRpcResult("get_applicable_delivery_zone", {
+      data: [{ id: "z-1", name: "Near", delivery_charge: 50, free_delivery_min_order: 5000, is_express: false }],
+      error: null,
+    });
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 7500 }));
+    const body = await res.json();
+    expect(body.isEligible).toBe(true);
+    expect(body.deliveryCharge).toBe(0);
+  });
+
+  it("still charges when freeDeliveryMinOrder is 0", async () => {
+    const admin = getAdminClient();
+    admin.setRpcResult("get_applicable_delivery_zone", {
+      data: [{ id: "z-1", name: "Far", delivery_charge: 80, free_delivery_min_order: 0, is_express: false }],
+      error: null,
+    });
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 10000 }));
+    const body = await res.json();
+    expect(body.isEligible).toBe(true);
+    expect(body.deliveryCharge).toBe(80);
   });
 });
