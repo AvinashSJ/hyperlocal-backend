@@ -8,25 +8,24 @@ ALTER TABLE public.delivery_zones
   ADD COLUMN IF NOT EXISTS min_distance_km NUMERIC,
   ADD COLUMN IF NOT EXISTS max_distance_km NUMERIC;
 
--- 2. Migrate existing rule data into zones (one rule per zone, first match wins)
--- This handles the case where a zone already has rules — we keep the highest-priority one
+-- 2. Migrate existing rule data into zones (one rule per store, first match wins)
 DO $$
 DECLARE
   r RECORD;
 BEGIN
   FOR r IN
-    SELECT DISTINCT ON (zone_id)
-      zone_id, min_order_value, max_order_value, min_distance_km, max_distance_km
+    SELECT DISTINCT ON (store_id)
+      store_id, min_order_value, max_order_value, min_distance_km, max_distance_km
     FROM public.delivery_rules
     WHERE is_active = true
-    ORDER BY zone_id, priority ASC
+    ORDER BY store_id, priority ASC
   LOOP
     UPDATE public.delivery_zones
     SET min_order_value = r.min_order_value,
         max_order_value = r.max_order_value,
         min_distance_km = r.min_distance_km,
         max_distance_km = r.max_distance_km
-    WHERE id = r.zone_id
+    WHERE store_id = r.store_id
       AND min_order_value IS NULL
       AND max_order_value IS NULL
       AND min_distance_km IS NULL
