@@ -61,7 +61,7 @@ describe("listMedia", () => {
     expect(listCalls.length).toBe(1);
     expect(listCalls[0].args[0]).toBe("");
     expect((listCalls[0].args[1] as { sortBy: { column: string; order: string } }).sortBy).toEqual({
-      column: "updated_at",
+      column: "created_at",
       order: "desc",
     });
 
