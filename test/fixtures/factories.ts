@@ -423,6 +423,10 @@ export function makeDeliveryZone(overrides: Partial<{
   radius_km: number | null;
   delivery_charge: number;
   free_delivery_min_order: number | null;
+  min_order_value: number | null;
+  max_order_value: number | null;
+  min_distance_km: number | null;
+  max_distance_km: number | null;
   is_active: boolean;
   is_express: boolean;
   boundary: number[][] | null;
@@ -436,6 +440,10 @@ export function makeDeliveryZone(overrides: Partial<{
     radius_km: overrides.radius_km ?? 5,
     delivery_charge: overrides.delivery_charge ?? 30,
     free_delivery_min_order: overrides.free_delivery_min_order ?? 200,
+    min_order_value: overrides.min_order_value ?? null,
+    max_order_value: overrides.max_order_value ?? null,
+    min_distance_km: overrides.min_distance_km ?? null,
+    max_distance_km: overrides.max_distance_km ?? null,
     is_active: overrides.is_active ?? true,
     is_express: overrides.is_express ?? false,
     boundary: overrides.boundary ?? null,
@@ -462,34 +470,6 @@ export function makeDeliverySlot(overrides: Partial<{
     end_time: overrides.end_time ?? "10:00",
     available_days: overrides.available_days ?? [1, 2, 3, 4, 5],
     capacity: overrides.capacity ?? 50,
-    is_active: overrides.is_active ?? true,
-    created_at: overrides.created_at ?? nowISO(),
-  };
-}
-
-export function makeDeliveryRule(overrides: Partial<{
-  id: string;
-  store_id: string;
-  name: string;
-  min_order_value: number | null;
-  max_order_value: number | null;
-  min_distance_km: number | null;
-  max_distance_km: number | null;
-  charge: number;
-  priority: number;
-  is_active: boolean;
-  created_at: string;
-}> = {}) {
-  return {
-    id: overrides.id ?? uid("rule"),
-    store_id: overrides.store_id ?? uid("store"),
-    name: overrides.name ?? "Test Rule",
-    min_order_value: overrides.min_order_value ?? null,
-    max_order_value: overrides.max_order_value ?? null,
-    min_distance_km: overrides.min_distance_km ?? null,
-    max_distance_km: overrides.max_distance_km ?? null,
-    charge: overrides.charge ?? 0,
-    priority: overrides.priority ?? 0,
     is_active: overrides.is_active ?? true,
     created_at: overrides.created_at ?? nowISO(),
   };

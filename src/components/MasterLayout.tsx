@@ -68,7 +68,7 @@ const navItems: NavItem[] = [
       { label: "Settings", href: "/settings", module: "settings" },
       { label: "Delivery Zones", href: "/delivery-zones", module: "delivery_zones" },
       { label: "Delivery Slots", href: "/delivery-slots", module: "delivery_slots" },
-      { label: "Delivery Rules", href: "/delivery-rules", module: "delivery_rules" },
+
       { label: "GST Numbers", href: "/gst-numbers", module: "gst_numbers" },
     ],
   },

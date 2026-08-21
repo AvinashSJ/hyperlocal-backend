@@ -122,37 +122,54 @@ describe("POST /api/delivery/charge", () => {
     expect(body.deliveryCharge).toBe(30);
   });
 
-  it("returns appliedRule=null and zone charge when no rules exist", async () => {
+  it("returns zone charge when no conditions are set", async () => {
     const admin = getAdminClient();
     admin.setRpcResult("get_applicable_delivery_zone", {
       data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, is_express: false }],
       error: null,
     });
     admin.setResponses({ data: { lat: null, lng: null }, error: null });
-    admin.setResponses({ data: [], error: null });
 
     const res = await POST(makeRequest(VALID_BODY));
     const body = await res.json();
     expect(body.deliveryCharge).toBe(30);
-    expect(body.appliedRule).toBeNull();
+    expect(body.isEligible).toBe(true);
   });
 
-  it("uses rule charge when order value matches a rule", async () => {
+  it("rejects order below min_order_value", async () => {
+    const admin = getAdminClient();
+    admin.setRpcResult("get_applicable_delivery_zone", {
+      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, min_order_value: 500, max_order_value: null, min_distance_km: null, max_distance_km: null, is_express: false }],
+      error: null,
+    });
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 300 }));
+    const body = await res.json();
+    expect(body.isEligible).toBe(false);
+  });
+
+  it("rejects order above max_order_value", async () => {
+    const admin = getAdminClient();
+    admin.setRpcResult("get_applicable_delivery_zone", {
+      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, min_order_value: null, max_order_value: 1000, min_distance_km: null, max_distance_km: null, is_express: false }],
+      error: null,
+    });
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
+
+    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 1500 }));
+    const body = await res.json();
+    expect(body.isEligible).toBe(false);
+  });
+
+  it("rejects delivery distance below min_distance_km", async () => {
     process.env.OLA_MAPS_API_KEY = "test-key";
     const admin = getAdminClient();
     admin.setRpcResult("get_applicable_delivery_zone", {
-      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, is_express: false }],
+      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, min_order_value: null, max_order_value: null, min_distance_km: 5, max_distance_km: null, is_express: false }],
       error: null,
     });
-    admin.setResponses(
-      { data: { lat: 12.934, lng: 77.61 }, error: null },
-      {
-        data: [
-          { id: "rule-1", name: "Near Free", min_order_value: 500, max_order_value: null, min_distance_km: null, max_distance_km: 3, charge: 0, priority: 0 },
-        ],
-        error: null,
-      },
-    );
+    admin.setResponses({ data: { lat: 12.934, lng: 77.61 }, error: null });
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -163,27 +180,17 @@ describe("POST /api/delivery/charge", () => {
 
     const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 1000 }));
     const body = await res.json();
-    expect(body.isEligible).toBe(true);
-    expect(body.deliveryCharge).toBe(0);
-    expect(body.appliedRule).toBe("Near Free");
+    expect(body.isEligible).toBe(false);
   });
 
-  it("falls back to zone charge when no rule matches", async () => {
+  it("rejects delivery distance above max_distance_km", async () => {
     process.env.OLA_MAPS_API_KEY = "test-key";
     const admin = getAdminClient();
     admin.setRpcResult("get_applicable_delivery_zone", {
-      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, is_express: false }],
+      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, min_order_value: null, max_order_value: null, min_distance_km: null, max_distance_km: 3, is_express: false }],
       error: null,
     });
-    admin.setResponses(
-      { data: { lat: 12.934, lng: 77.61 }, error: null },
-      {
-        data: [
-          { id: "rule-1", name: "Near Only", min_order_value: null, max_order_value: null, min_distance_km: null, max_distance_km: 3, charge: 0, priority: 0 },
-        ],
-        error: null,
-      },
-    );
+    admin.setResponses({ data: { lat: 12.934, lng: 77.61 }, error: null });
 
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -194,57 +201,20 @@ describe("POST /api/delivery/charge", () => {
 
     const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 1000 }));
     const body = await res.json();
-    expect(body.deliveryCharge).toBe(30);
-    expect(body.appliedRule).toBeNull();
-  });
-
-  it("picks first matching rule by priority order", async () => {
-    process.env.OLA_MAPS_API_KEY = "test-key";
-    const admin = getAdminClient();
-    admin.setRpcResult("get_applicable_delivery_zone", {
-      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, is_express: false }],
-      error: null,
-    });
-    admin.setResponses(
-      { data: { lat: 12.934, lng: 77.61 }, error: null },
-      {
-        data: [
-          { id: "rule-1", name: "Priority 0", min_order_value: null, max_order_value: null, min_distance_km: null, max_distance_km: null, charge: 10, priority: 0 },
-          { id: "rule-2", name: "Priority 10", min_order_value: null, max_order_value: null, min_distance_km: null, max_distance_km: null, charge: 50, priority: 10 },
-        ],
-        error: null,
-      },
-    );
-
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        rows: [{ elements: [{ distance: 2000, duration: 300, status: "ok" }] }],
-      }),
-    });
-
-    const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 1000 }));
-    const body = await res.json();
-    expect(body.deliveryCharge).toBe(10);
-    expect(body.appliedRule).toBe("Priority 0");
+    expect(body.isEligible).toBe(false);
   });
 
   it("skips distance conditions when roadDistanceKm is unavailable", async () => {
     const admin = getAdminClient();
     admin.setRpcResult("get_applicable_delivery_zone", {
-      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, is_express: false }],
+      data: [{ id: "z-1", name: "Central", delivery_charge: 30, free_delivery_min_order: 200, min_distance_km: 5, max_distance_km: null, is_express: false }],
       error: null,
     });
-    admin.setResponses({
-      data: [
-        { id: "rule-1", name: "Far Only", min_distance_km: 5, max_distance_km: null, charge: 50, priority: 0 },
-      ],
-      error: null },
-    );
+    admin.setResponses({ data: { lat: null, lng: null }, error: null });
 
     const res = await POST(makeRequest({ ...VALID_BODY, orderValue: 1000 }));
     const body = await res.json();
-    expect(body.deliveryCharge).toBe(50);
-    expect(body.appliedRule).toBe("Far Only");
+    expect(body.isEligible).toBe(true);
+    expect(body.deliveryCharge).toBe(30);
   });
 });

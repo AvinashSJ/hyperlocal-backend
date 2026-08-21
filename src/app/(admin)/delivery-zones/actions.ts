@@ -11,6 +11,10 @@ type ZoneInput = {
   radius_km: number;
   delivery_charge: number;
   free_delivery_min_order: number;
+  min_order_value: number | null;
+  max_order_value: number | null;
+  min_distance_km: number | null;
+  max_distance_km: number | null;
   is_active: boolean;
   is_express: boolean;
 };
@@ -37,7 +41,7 @@ function makeGeoJsonPolygon(boundary: number[][]): string {
   });
 }
 
-const LIST_COLUMNS = "id, store_id, name, pincodes, radius_km, delivery_charge, free_delivery_min_order, is_active, is_express, created_at";
+const LIST_COLUMNS = "id, store_id, name, pincodes, radius_km, delivery_charge, free_delivery_min_order, min_order_value, max_order_value, min_distance_km, max_distance_km, is_active, is_express, created_at";
 
 export async function getDeliveryZones(storeId?: string | null) {
   const supabase = createAdminClient();
@@ -64,6 +68,10 @@ export async function createDeliveryZone(formData: FormData) {
     radius_km: Number(formData.get("radius_km") ?? 0),
     delivery_charge: Number(formData.get("delivery_charge") ?? 0),
     free_delivery_min_order: Number(formData.get("free_delivery_min_order") ?? 0),
+    min_order_value: formData.get("min_order_value") !== null && formData.get("min_order_value") !== "" ? Number(formData.get("min_order_value")) : null,
+    max_order_value: formData.get("max_order_value") !== null && formData.get("max_order_value") !== "" ? Number(formData.get("max_order_value")) : null,
+    min_distance_km: formData.get("min_distance_km") !== null && formData.get("min_distance_km") !== "" ? Number(formData.get("min_distance_km")) : null,
+    max_distance_km: formData.get("max_distance_km") !== null && formData.get("max_distance_km") !== "" ? Number(formData.get("max_distance_km")) : null,
     is_active: formData.get("is_active") === "on" || formData.get("is_active") === "true",
     is_express: formData.get("is_express") === "on" || formData.get("is_express") === "true",
   };
@@ -102,6 +110,10 @@ export async function updateDeliveryZone(id: string, formData: FormData) {
     radius_km: Number(formData.get("radius_km") ?? 0),
     delivery_charge: Number(formData.get("delivery_charge") ?? 0),
     free_delivery_min_order: Number(formData.get("free_delivery_min_order") ?? 0),
+    min_order_value: formData.get("min_order_value") !== null && formData.get("min_order_value") !== "" ? Number(formData.get("min_order_value")) : null,
+    max_order_value: formData.get("max_order_value") !== null && formData.get("max_order_value") !== "" ? Number(formData.get("max_order_value")) : null,
+    min_distance_km: formData.get("min_distance_km") !== null && formData.get("min_distance_km") !== "" ? Number(formData.get("min_distance_km")) : null,
+    max_distance_km: formData.get("max_distance_km") !== null && formData.get("max_distance_km") !== "" ? Number(formData.get("max_distance_km")) : null,
     is_active: formData.get("is_active") === "on" || formData.get("is_active") === "true",
     is_express: formData.get("is_express") === "on" || formData.get("is_express") === "true",
   };
