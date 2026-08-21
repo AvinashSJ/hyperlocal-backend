@@ -192,6 +192,10 @@ export type DeliveryZone = {
   radius_km: number | null;
   delivery_charge: number;
   free_delivery_min_order: number | null;
+  min_order_value: number | null;
+  max_order_value: number | null;
+  min_distance_km: number | null;
+  max_distance_km: number | null;
   is_active: boolean;
   is_express: boolean;
   boundary: number[][] | null;

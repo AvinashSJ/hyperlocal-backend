@@ -12,6 +12,8 @@ import {
 type Zone = {
   id: string; name: string; store_id: string; pincodes: string[];
   radius_km: number; delivery_charge: number; free_delivery_min_order: number;
+  min_order_value: number | null; max_order_value: number | null;
+  min_distance_km: number | null; max_distance_km: number | null;
   is_active: boolean; is_express: boolean;
   boundary?: number[][] | null;
 };
@@ -162,6 +164,31 @@ export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null
               <div className="form-check">
                 <input type="checkbox" name="is_active" className="form-check-input" id="zoneActive" defaultChecked={zone?.is_active ?? true} />
                 <label className="form-check-label" htmlFor="zoneActive">Active</label>
+              </div>
+            </div>
+
+            <hr className="my-3" />
+            <h6 className="mb-2 text-muted">Conditions <span className="small">(optional — leave blank to apply to all orders)</span></h6>
+
+            <div className="row mb-3">
+              <div className="col-6">
+                <label className="form-label">Min Order Value</label>
+                <input type="number" name="min_order_value" className="form-control" defaultValue={zone?.min_order_value ?? ""} min={0} step="0.01" placeholder="No min" />
+              </div>
+              <div className="col-6">
+                <label className="form-label">Max Order Value</label>
+                <input type="number" name="max_order_value" className="form-control" defaultValue={zone?.max_order_value ?? ""} min={0} step="0.01" placeholder="No max" />
+              </div>
+            </div>
+
+            <div className="row mb-3">
+              <div className="col-6">
+                <label className="form-label">Min Distance (km)</label>
+                <input type="number" name="min_distance_km" className="form-control" defaultValue={zone?.min_distance_km ?? ""} min={0} step="0.1" placeholder="No min" />
+              </div>
+              <div className="col-6">
+                <label className="form-label">Max Distance (km)</label>
+                <input type="number" name="max_distance_km" className="form-control" defaultValue={zone?.max_distance_km ?? ""} min={0} step="0.1" placeholder="No max" />
               </div>
             </div>
           </div>
