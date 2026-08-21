@@ -32,7 +32,8 @@ export async function listMedia(): Promise<MediaFile[]> {
   await ensureBucket(supabase);
 
   const { data, error } = await supabase.storage.from(BUCKET).list("", {
-    sortBy: { column: "updated_at", order: "desc" },
+    limit: 1000,
+    sortBy: { column: "created_at", order: "desc" },
   });
 
   if (error) {
