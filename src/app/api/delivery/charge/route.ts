@@ -132,10 +132,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Enforce free delivery threshold server-side
+  const finalCharge =
+    numOrderValue !== null &&
+    z.free_delivery_min_order > 0 &&
+    numOrderValue >= z.free_delivery_min_order
+      ? 0
+      : z.delivery_charge;
+
   return NextResponse.json(
     {
       isEligible: true,
-      deliveryCharge: z.delivery_charge,
+      deliveryCharge: finalCharge,
       freeDeliveryMinOrder: z.free_delivery_min_order,
       zoneName: z.name,
       roadDistanceKm,
