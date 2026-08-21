@@ -20,6 +20,22 @@ type Zone = {
 
 type ZoneMode = "polygon" | "radius";
 
+function Section({ title, icon, children, defaultOpen = true }: {
+  title: string; icon: string; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="mb-3">
+      <button type="button" className="btn btn-sm w-100 text-start d-flex align-items-center justify-content-between px-0 py-1"
+        onClick={() => setOpen(!open)} style={{ background: "none", border: "none", color: "inherit" }}>
+        <span className="fw-semibold"><i className={`bi ${icon} me-2`} />{title}</span>
+        <i className={`bi bi-chevron-${open ? "up" : "down"} text-muted`} />
+      </button>
+      {open && <div className="pt-2">{children}</div>}
+    </div>
+  );
+}
+
 export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null; onClose: () => void; storeId?: string | null }) {
   const [boundary, setBoundary] = useState<number[][] | null>(null);
   const boundaryFetched = useRef(false);
@@ -55,148 +71,150 @@ export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null
     return { error: result.error.message };
   }, { error: null });
 
+  const hasConditions = (zone?.min_order_value != null && zone.min_order_value !== 0) ||
+    (zone?.max_order_value != null) || (zone?.min_distance_km != null && zone.min_distance_km !== 0) || (zone?.max_distance_km != null);
+
   return (
     <div style={{
       position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1050,
       display: "flex", alignItems: "center", justifyContent: "center",
     }} onClick={onClose}>
-      <div className="card" style={{ width: 560, maxWidth: "90vw" }} onClick={(e) => e.stopPropagation()}>
-        <div className="card-header d-flex justify-content-between align-items-center">
-          <strong>{zone ? "Edit Zone" : "Add Zone"}</strong>
+      <div className="card shadow-lg" style={{ width: 520, maxWidth: "92vw", maxHeight: "90vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div className="card-header d-flex justify-content-between align-items-center py-3">
+          <h6 className="mb-0 fw-bold"><i className="bi bi-geo-alt me-2" />{zone ? "Edit Zone" : "New Zone"}</h6>
           <button type="button" className="btn-close" onClick={onClose} />
         </div>
         <form action={formAction}>
-          <div className="card-body">
-            {state.error && <div className="alert alert-danger py-2">{state.error}</div>}
-
-            <div className="mb-3">
-              <label className="form-label">Name <span className="text-danger">*</span></label>
-              <input type="text" name="name" className="form-control" defaultValue={zone?.name ?? ""} required />
-            </div>
+          <div className="card-body px-4 py-3">
+            {state.error && <div className="alert alert-danger py-2 mb-3"><i className="bi bi-exclamation-triangle me-1" />{state.error}</div>}
 
             {(storeId != null) ? (
               <input type="hidden" name="store_id" value={storeId} />
             ) : (
               <div className="mb-3">
-                <label className="form-label">Store ID <span className="text-danger">*</span></label>
-                <input type="text" name="store_id" className="form-control" defaultValue={zone?.store_id ?? ""} required placeholder="UUID" />
+                <label className="form-label small text-muted">Store ID <span className="text-danger">*</span></label>
+                <input type="text" name="store_id" className="form-control form-control-sm" defaultValue={zone?.store_id ?? ""} required placeholder="UUID" />
               </div>
             )}
 
             <div className="mb-3">
-              <label className="form-label">Pincodes <span className="text-muted small">(comma-separated)</span></label>
-              <input type="text" name="pincodes" className="form-control" defaultValue={zone?.pincodes?.join(", ") ?? ""} placeholder="e.g. 110001, 110002, 110003" />
-            </div>
-
-            <div className="row mb-3">
-              <div className="col-4">
-                <label className="form-label">Delivery Charge</label>
-                <input type="number" name="delivery_charge" className="form-control" defaultValue={zone?.delivery_charge ?? 0} min={0} step="0.01" />
-              </div>
-              <div className="col-4">
-                <label className="form-label">Free Min Order</label>
-                <input type="number" name="free_delivery_min_order" className="form-control" defaultValue={zone?.free_delivery_min_order ?? 0} min={0} step="0.01" />
-              </div>
-              <div className="col-4">
-                <label className="form-label">Express</label>
-                <div className="form-check form-switch" style={{ marginTop: 8 }}>
-                  <input type="checkbox" name="is_express" className="form-check-input" id="zoneExpress" defaultChecked={zone?.is_express ?? false} />
-                </div>
-              </div>
+              <label className="form-label small text-muted">Zone Name <span className="text-danger">*</span></label>
+              <input type="text" name="name" className="form-control form-control-sm" defaultValue={zone?.name ?? ""} required placeholder="e.g. Near Store, 0-3km Free" />
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Coverage Type</label>
-              <div className="d-flex gap-2 mt-1">
-                <button type="button" className={`btn btn-sm ${mode === "radius" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => setMode("radius")}>
-                  <i className="bi bi-circle me-1" />Radius (km)
+              <label className="form-label small text-muted">Pincodes</label>
+              <input type="text" name="pincodes" className="form-control form-control-sm" defaultValue={zone?.pincodes?.join(", ") ?? ""} placeholder="110001, 110002, 110003" />
+            </div>
+
+            <Section title="Pricing" icon="bi-credit-card">
+              <div className="row g-2">
+                <div className="col-6">
+                  <label className="form-label small text-muted">Delivery Charge</label>
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">₹</span>
+                    <input type="number" name="delivery_charge" className="form-control" defaultValue={zone?.delivery_charge ?? 0} min={0} step="0.01" />
+                  </div>
+                </div>
+                <div className="col-6">
+                  <label className="form-label small text-muted">Free Above</label>
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">₹</span>
+                    <input type="number" name="free_delivery_min_order" className="form-control" defaultValue={zone?.free_delivery_min_order ?? 0} min={0} step="0.01" />
+                  </div>
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Coverage" icon="bi-map">
+              <div className="d-flex gap-2 mb-2">
+                <button type="button" className={`btn btn-sm flex-fill ${mode === "radius" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => setMode("radius")}>
+                  <i className="bi bi-circle me-1" />Radius
                 </button>
-                <button type="button" className={`btn btn-sm ${mode === "polygon" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => { setMode("polygon"); setBoundary(boundary); }}>
+                <button type="button" className={`btn btn-sm flex-fill ${mode === "polygon" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => { setMode("polygon"); setBoundary(boundary); }}>
                   <i className="bi bi-hexagon me-1" />Polygon
                 </button>
               </div>
-            </div>
 
-            {mode === "radius" && (
-              <div className="mb-3">
-                <label className="form-label">Radius (km)</label>
-                <input
-                  type="number"
-                  name="radius_km"
-                  className="form-control"
-                  defaultValue={zone?.radius_km ?? 0}
-                  min={0}
-                  step="0.1"
-                  required
-                />
-                <div className="form-text">
-                  Set the delivery radius from the store&apos;s location. Store must have lat/lng configured.
-                  Create multiple zones with different radii and charges for tiered pricing.
-                </div>
-              </div>
-            )}
+              {mode === "radius" && (
+                <>
+                  <div className="input-group input-group-sm mb-1">
+                    <input type="number" name="radius_km" className="form-control" defaultValue={zone?.radius_km ?? 0} min={0} step="0.1" required placeholder="5" />
+                    <span className="input-group-text">km</span>
+                  </div>
+                  <input type="hidden" name="boundary" value="" />
+                  <div className="form-text">Radius from store location. Store needs lat/lng configured.</div>
+                </>
+              )}
 
-            {mode === "radius" && (
-              <input type="hidden" name="boundary" value="" />
-            )}
-
-            {mode === "polygon" && (
-              <>
-                <div className="mb-3">
-                  <label className="form-label">
-                    Boundary Polygon
-                    <span className="text-muted small ms-1">(JSON: [[lat, lng], ...])</span>
-                  </label>
+              {mode === "polygon" && (
+                <>
                   <textarea
                     name="boundary"
-                    className="form-control font-monospace"
-                    rows={3}
+                    className="form-control form-control-sm font-monospace"
+                    rows={2}
                     defaultValue={boundary ? JSON.stringify(boundary) : ""}
-                    placeholder="e.g. [[12.97, 77.59], [12.98, 77.60], [12.96, 77.61]]"
-                    style={{ fontSize: "0.8rem" }}
+                    placeholder="[[12.97, 77.59], [12.98, 77.60], ...]"
+                    style={{ fontSize: "0.75rem" }}
                   />
+                  <input type="hidden" name="radius_km" value="0" />
+                </>
+              )}
+            </Section>
+
+            <Section title="Conditions" icon="bi-funnel" defaultOpen={hasConditions}>
+              <p className="text-muted small mb-2">Restrict this zone to specific order values or distances. Leave blank to apply to all.</p>
+              <div className="row g-2 mb-2">
+                <div className="col-6">
+                  <label className="form-label small text-muted">Min Order</label>
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">₹</span>
+                    <input type="number" name="min_order_value" className="form-control" defaultValue={zone?.min_order_value ?? ""} min={0} step="0.01" placeholder="No min" />
+                  </div>
                 </div>
-                <input type="hidden" name="radius_km" value="0" />
-              </>
-            )}
-
-            <div className="d-flex gap-3">
-              <div className="form-check">
-                <input type="checkbox" name="is_active" className="form-check-input" id="zoneActive" defaultChecked={zone?.is_active ?? true} />
-                <label className="form-check-label" htmlFor="zoneActive">Active</label>
+                <div className="col-6">
+                  <label className="form-label small text-muted">Max Order</label>
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text">₹</span>
+                    <input type="number" name="max_order_value" className="form-control" defaultValue={zone?.max_order_value ?? ""} min={0} step="0.01" placeholder="No max" />
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <hr className="my-3" />
-            <h6 className="mb-2 text-muted">Conditions <span className="small">(optional — leave blank to apply to all orders)</span></h6>
-
-            <div className="row mb-3">
-              <div className="col-6">
-                <label className="form-label">Min Order Value</label>
-                <input type="number" name="min_order_value" className="form-control" defaultValue={zone?.min_order_value ?? ""} min={0} step="0.01" placeholder="No min" />
+              <div className="row g-2">
+                <div className="col-6">
+                  <label className="form-label small text-muted">Min Distance</label>
+                  <div className="input-group input-group-sm">
+                    <input type="number" name="min_distance_km" className="form-control" defaultValue={zone?.min_distance_km ?? ""} min={0} step="0.1" placeholder="No min" />
+                    <span className="input-group-text">km</span>
+                  </div>
+                </div>
+                <div className="col-6">
+                  <label className="form-label small text-muted">Max Distance</label>
+                  <div className="input-group input-group-sm">
+                    <input type="number" name="max_distance_km" className="form-control" defaultValue={zone?.max_distance_km ?? ""} min={0} step="0.1" placeholder="No max" />
+                    <span className="input-group-text">km</span>
+                  </div>
+                </div>
               </div>
-              <div className="col-6">
-                <label className="form-label">Max Order Value</label>
-                <input type="number" name="max_order_value" className="form-control" defaultValue={zone?.max_order_value ?? ""} min={0} step="0.01" placeholder="No max" />
-              </div>
-            </div>
-
-            <div className="row mb-3">
-              <div className="col-6">
-                <label className="form-label">Min Distance (km)</label>
-                <input type="number" name="min_distance_km" className="form-control" defaultValue={zone?.min_distance_km ?? ""} min={0} step="0.1" placeholder="No min" />
-              </div>
-              <div className="col-6">
-                <label className="form-label">Max Distance (km)</label>
-                <input type="number" name="max_distance_km" className="form-control" defaultValue={zone?.max_distance_km ?? ""} min={0} step="0.1" placeholder="No max" />
-              </div>
-            </div>
+            </Section>
           </div>
-          <div className="card-footer d-flex gap-2 justify-content-end">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={pending}>
-              {pending ? "Saving..." : zone ? "Update Zone" : "Create Zone"}
-            </button>
+          <div className="card-footer d-flex align-items-center justify-content-between py-3 px-4">
+            <div className="d-flex gap-3">
+              <div className="form-check form-switch">
+                <input type="checkbox" name="is_active" className="form-check-input" id="zoneActive" defaultChecked={zone?.is_active ?? true} />
+                <label className="form-check-label small" htmlFor="zoneActive">Active</label>
+              </div>
+              <div className="form-check form-switch">
+                <input type="checkbox" name="is_express" className="form-check-input" id="zoneExpress" defaultChecked={zone?.is_express ?? false} />
+                <label className="form-check-label small" htmlFor="zoneExpress">Express</label>
+              </div>
+            </div>
+            <div className="d-flex gap-2">
+              <button type="button" className="btn btn-sm btn-outline-secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn-sm btn-primary px-3" disabled={pending}>
+                {pending ? <><span className="spinner-border spinner-border-sm me-1" />Saving...</> : zone ? "Update" : "Create"}
+              </button>
+            </div>
           </div>
         </form>
       </div>
