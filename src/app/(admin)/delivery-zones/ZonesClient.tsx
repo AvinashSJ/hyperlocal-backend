@@ -12,6 +12,15 @@ type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
 };
 
+function formatConditions(zone: Zone) {
+  const parts: string[] = [];
+  if (zone.min_order_value != null && zone.min_order_value > 0) parts.push(`Min ₹${zone.min_order_value}`);
+  if (zone.max_order_value != null) parts.push(`Max ₹${zone.max_order_value}`);
+  if (zone.min_distance_km != null && zone.min_distance_km > 0) parts.push(`Min ${zone.min_distance_km}km`);
+  if (zone.max_distance_km != null) parts.push(`Max ${zone.max_distance_km}km`);
+  return parts;
+}
+
 export default function ZonesClient({ zones: initial, actionPerms, storeId }: { zones: Zone[]; actionPerms?: ActionPermissions; storeId?: string | null }) {
   const [zones, setZones] = useState(initial);
   const [showForm, setShowForm] = useState(false);
@@ -59,9 +68,8 @@ export default function ZonesClient({ zones: initial, actionPerms, storeId }: { 
             <tr>
               <th>Name</th>
               <th>Pincodes</th>
-              <th>Radius (km)</th>
-              <th>Delivery Charge</th>
-              <th>Free Min Order</th>
+              <th>Charge</th>
+              <th>Conditions</th>
               <th>Status</th>
               <th className="text-center">Actions</th>
             </tr>
@@ -69,44 +77,65 @@ export default function ZonesClient({ zones: initial, actionPerms, storeId }: { 
           <tbody>
             {zones.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4">No delivery zones yet</td>
+                <td colSpan={6} className="text-center text-muted py-4">No delivery zones yet</td>
               </tr>
             )}
-            {zones.map((zone) => (
-              <tr key={zone.id}>
-                <td className="fw-semibold">{zone.name}</td>
-                <td style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {zone.pincodes?.length ? zone.pincodes.join(", ") : "\u2014"}
-                </td>
-                <td>{zone.radius_km}</td>
-                <td>₹{Number(zone.delivery_charge).toFixed(2)}</td>
-                <td>₹{Number(zone.free_delivery_min_order).toFixed(2)}</td>
-                <td>
-                  <div className="d-flex gap-1">
-                    <span className={`badge ${zone.is_active ? "bg-success" : "bg-secondary"}`}>
-                      {zone.is_active ? "Active" : "Inactive"}
-                    </span>
-                    {zone.is_express && (
-                      <span className="badge bg-info">Express</span>
+            {zones.map((zone) => {
+              const conditions = formatConditions(zone);
+              return (
+                <tr key={zone.id}>
+                  <td className="fw-semibold">{zone.name}</td>
+                  <td style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {zone.pincodes?.length ? zone.pincodes.join(", ") : "\u2014"}
+                  </td>
+                  <td>
+                    {Number(zone.delivery_charge) === 0 ? (
+                      <span className="text-success fw-semibold">Free</span>
+                    ) : (
+                      `₹${Number(zone.delivery_charge).toFixed(0)}`
                     )}
-                  </div>
-                </td>
-                <td className="text-center">
-                  <div className="d-flex gap-1 justify-content-center">
-                    {actionPerms?.canEdit && (
-                      <button className="btn btn-sm btn-outline-primary" title="Edit" onClick={() => handleEdit(zone)}>
-                        <Icon icon="ri:pencil-line" width={16} />
-                      </button>
+                    {zone.free_delivery_min_order != null && Number(zone.free_delivery_min_order) > 0 && (
+                      <div className="text-muted small">Free above ₹{Number(zone.free_delivery_min_order).toFixed(0)}</div>
                     )}
-                    {actionPerms?.canDelete && (
-                      <button className="btn btn-sm btn-outline-danger" title="Delete" onClick={() => handleDelete(zone.id, zone.name)}>
-                        <Icon icon="ri:delete-bin-6-line" width={16} />
-                      </button>
+                  </td>
+                  <td>
+                    {conditions.length === 0 ? (
+                      <span className="text-muted small">All orders</span>
+                    ) : (
+                      <div className="d-flex flex-wrap gap-1">
+                        {conditions.map((c, i) => (
+                          <span key={i} className="badge bg-light text-dark border">{c}</span>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <div className="d-flex gap-1">
+                      <span className={`badge ${zone.is_active ? "bg-success" : "bg-secondary"}`}>
+                        {zone.is_active ? "Active" : "Off"}
+                      </span>
+                      {zone.is_express && (
+                        <span className="badge bg-info">Express</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="text-center">
+                    <div className="d-flex gap-1 justify-content-center">
+                      {actionPerms?.canEdit && (
+                        <button className="btn btn-sm btn-outline-primary" title="Edit" onClick={() => handleEdit(zone)}>
+                          <Icon icon="ri:pencil-line" width={16} />
+                        </button>
+                      )}
+                      {actionPerms?.canDelete && (
+                        <button className="btn btn-sm btn-outline-danger" title="Delete" onClick={() => handleDelete(zone.id, zone.name)}>
+                          <Icon icon="ri:delete-bin-6-line" width={16} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
