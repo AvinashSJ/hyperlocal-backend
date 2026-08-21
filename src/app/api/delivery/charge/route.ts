@@ -98,18 +98,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Check zone conditions
+  // Check zone conditions (0 is treated as "no limit" for all fields)
   const numOrderValue = typeof orderValue === "number" ? orderValue : null;
   const numDistance = roadDistanceKm ?? null;
 
   if (numOrderValue !== null) {
-    if (z.min_order_value !== null && numOrderValue < z.min_order_value) {
+    if (z.min_order_value != null && z.min_order_value > 0 && numOrderValue < z.min_order_value) {
       return NextResponse.json(
         { isEligible: false, reason: `Minimum order value is ₹${z.min_order_value}` } satisfies ChargeResponse & { reason: string },
         { headers: CORS_HEADERS },
       );
     }
-    if (z.max_order_value !== null && numOrderValue > z.max_order_value) {
+    if (z.max_order_value != null && z.max_order_value > 0 && numOrderValue > z.max_order_value) {
       return NextResponse.json(
         { isEligible: false, reason: `Maximum order value is ₹${z.max_order_value}` } satisfies ChargeResponse & { reason: string },
         { headers: CORS_HEADERS },
@@ -118,13 +118,13 @@ export async function POST(request: NextRequest) {
   }
 
   if (numDistance !== null) {
-    if (z.min_distance_km !== null && numDistance < z.min_distance_km) {
+    if (z.min_distance_km != null && z.min_distance_km > 0 && numDistance < z.min_distance_km) {
       return NextResponse.json(
         { isEligible: false, reason: `Minimum delivery distance is ${z.min_distance_km} km` } satisfies ChargeResponse & { reason: string },
         { headers: CORS_HEADERS },
       );
     }
-    if (z.max_distance_km !== null && numDistance > z.max_distance_km) {
+    if (z.max_distance_km != null && z.max_distance_km > 0 && numDistance > z.max_distance_km) {
       return NextResponse.json(
         { isEligible: false, reason: `Maximum delivery distance is ${z.max_distance_km} km` } satisfies ChargeResponse & { reason: string },
         { headers: CORS_HEADERS },
