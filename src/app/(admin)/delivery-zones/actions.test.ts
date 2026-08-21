@@ -128,6 +128,10 @@ describe("createDeliveryZone", () => {
       radius_km: 5,
       delivery_charge: 30,
       free_delivery_min_order: 200,
+      min_order_value: null,
+      max_order_value: null,
+      min_distance_km: null,
+      max_distance_km: null,
       is_active: true,
       is_express: true,
     });
@@ -197,6 +201,44 @@ describe("createDeliveryZone", () => {
     expect(insertArg.free_delivery_min_order).toBe(0);
   });
 
+  it("parses condition fields as null when empty, as numbers when provided", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+
+    const fd = buildFormData({
+      name: "Z",
+      store_id: "s-1",
+      pincodes: "560001",
+      min_order_value: "100",
+      max_order_value: "500",
+      min_distance_km: "1.5",
+      max_distance_km: "10",
+    });
+    await runAction(createDeliveryZone, fd);
+
+    const insertArg = admin.chainsForTable("delivery_zones")[0].find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.min_order_value).toBe(100);
+    expect(insertArg.max_order_value).toBe(500);
+    expect(insertArg.min_distance_km).toBe(1.5);
+    expect(insertArg.max_distance_km).toBe(10);
+  });
+
+  it("defaults condition fields to null when missing", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001" });
+    await runAction(createDeliveryZone, fd);
+
+    const insertArg = admin.chainsForTable("delivery_zones")[0].find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.min_order_value).toBeNull();
+    expect(insertArg.max_order_value).toBeNull();
+    expect(insertArg.min_distance_km).toBeNull();
+    expect(insertArg.max_distance_km).toBeNull();
+  });
+
   it("throws when insert returns an error", async () => {
     asAdmin({ delivery_zones: ["create"] });
     const admin = getAdminClient();
@@ -247,6 +289,10 @@ describe("updateDeliveryZone", () => {
       radius_km: 10,
       delivery_charge: 50,
       free_delivery_min_order: 500,
+      min_order_value: "200",
+      max_order_value: "1000",
+      min_distance_km: "2",
+      max_distance_km: "15",
       is_active: "on",
       is_express: "true",
     });
@@ -261,6 +307,10 @@ describe("updateDeliveryZone", () => {
       radius_km: 10,
       delivery_charge: 50,
       free_delivery_min_order: 500,
+      min_order_value: 200,
+      max_order_value: 1000,
+      min_distance_km: 2,
+      max_distance_km: 15,
       is_active: true,
       is_express: true,
     });
