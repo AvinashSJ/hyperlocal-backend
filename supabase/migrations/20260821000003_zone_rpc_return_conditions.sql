@@ -4,6 +4,8 @@
 -- (min/max order value, min/max distance) were missing, making
 -- the eligibility checks in route.ts dead code.
 
+DROP FUNCTION IF EXISTS public.get_applicable_delivery_zone(double precision, double precision, uuid);
+
 CREATE OR REPLACE FUNCTION public.get_applicable_delivery_zone(
   p_lat double precision,
   p_lng double precision,
