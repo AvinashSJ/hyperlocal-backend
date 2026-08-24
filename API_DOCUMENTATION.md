@@ -41,11 +41,20 @@ The Flutter app authenticates via **Supabase Auth** (email/password, phone/OTP).
 
 ### User Roles
 
-| Role | Description | Table: `profiles.role` |
-|------|-------------|----------------------|
+| Role | Description | `profiles.role` |
+|------|-------------|-----------------|
 | `customer` | End user (Flutter app) | `"customer"` |
 | `admin` | Store Manager | `"admin"` |
 | `superadmin` | Platform administrator | `"superadmin"` |
+| `staff` | Limited admin (admin panel only) | `"staff"` |
+
+The `profiles` table has both `role` (text) and `role_id` (FK → `roles` table). A database trigger (`trg_sync_role`) keeps them in sync. The `roles` table defines granular permissions per role.
+
+| Role | `roles.id` | Description |
+|------|-----------|-------------|
+| Super Admin | 1 | Full access |
+| Manager | 2 | Store-scoped access |
+| Staff | 3 | Limited permissions (invoices, orders) |
 
 ---
 
@@ -64,7 +73,10 @@ Customer and admin profiles. The user's own row.
 | `phone` | `text` | yes | |
 | `email` | `text` | yes | |
 | `avatar_url` | `text` | yes | |
-| `role` | `text` | no | `"customer"` / `"admin"` / `"superadmin"` |
+| `role` | `text` | no | `"customer"` / `"admin"` / `"superadmin"` / `"staff"` |
+| `role_id` | `integer` | yes | FK → `roles` table. Synced by `trg_sync_role` trigger |
+| `store_id` | `uuid` FK→stores | yes | Store assignment (for admin/staff) |
+| `must_reset_password` | `boolean` | no | Default: `false`. Forces password change on next login |
 | `created_at` | `timestamptz` | no | Default: `now()` |
 | `updated_at` | `timestamptz` | no | |
 
@@ -136,6 +148,7 @@ Customer and admin profiles. The user's own row.
 | `store_id` | `uuid` FK→stores | yes | NULL = super-admin product |
 | `created_at` | `timestamptz` | no | |
 | `updated_at` | `timestamptz` | no | |
+| `units_sold` | `integer` | no | Default: `0`. Auto-updated by `trg_units_sold` trigger on `order_items` |
 | `avg_rating` | `numeric` | yes | Auto-computed by trigger |
 | `review_count` | `integer` | yes | Auto-computed by trigger |
 
@@ -264,7 +277,11 @@ Order status timeline entries.
 | `pincodes` | `text[]` | yes | Array of pin codes |
 | `radius_km` | `numeric` | yes | For radius-based zones |
 | `delivery_charge` | `numeric` | no | Default: `0` |
-| `free_delivery_min_order` | `numeric` | yes | |
+| `free_delivery_min_order` | `numeric` | yes | Min order total for free delivery (0 = no free delivery) |
+| `min_order_value` | `numeric` | yes | Minimum order value for this zone (0 = no limit) |
+| `max_order_value` | `numeric` | yes | Maximum order value for this zone (0 = no limit) |
+| `min_distance_km` | `numeric` | yes | Minimum delivery distance in km (0 = no limit) |
+| `max_distance_km` | `numeric` | yes | Maximum delivery distance in km (0 = no limit) |
 | `is_active` | `boolean` | no | Default: `true` |
 | `is_express` | `boolean` | no | Default: `false` |
 | `boundary` | `jsonb` | yes | PostGIS polygon as GeoJSON |
@@ -492,6 +509,10 @@ Returns:
     name                   text,
     delivery_charge        numeric,
     free_delivery_min_order numeric,
+    min_order_value        numeric,
+    max_order_value        numeric,
+    min_distance_km        numeric,
+    max_distance_km        numeric,
     is_express             boolean
   )
 ```
@@ -500,6 +521,7 @@ Returns:
 1. First tries PostGIS polygon boundary match (priority 0)
 2. Falls back to radius-based proximity using `ST_DWithin` (priority 1)
 3. Among radius matches, the smallest radius zone wins
+4. Returns the zone's condition fields so the caller can enforce min/max order value and distance constraints
 
 **Flutter usage:**
 ```dart
@@ -508,6 +530,7 @@ final zone = await supabase.rpc('get_applicable_delivery_zone', params: {
   'p_lng': longitude,
   'p_store_id': storeId,
 });
+// zone[0]['min_order_value'], zone[0]['max_order_value'], etc.
 ```
 
 ### 5.2 `decrement_stock`
@@ -650,9 +673,17 @@ if (data['app']['enabled']) {
 {
   "latitude": 19.0760,
   "longitude": 72.8777,
-  "storeId": "uuid-of-store"
+  "storeId": "uuid-of-store",
+  "orderValue": 500
 }
 ```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `latitude` | `number` | yes | Customer latitude |
+| `longitude` | `number` | yes | Customer longitude |
+| `storeId` | `string` | yes | Store UUID |
+| `orderValue` | `number` | no | Cart total in INR. Used for condition checks (min/max order value) and free delivery threshold |
 
 **Response (eligible):**
 ```json
@@ -665,12 +696,39 @@ if (data['app']['enabled']) {
 }
 ```
 
-**Response (not eligible):**
+**Response (eligible — free delivery):**
+When `orderValue >= freeDeliveryMinOrder`, `deliveryCharge` is zeroed server-side:
+```json
+{
+  "isEligible": true,
+  "deliveryCharge": 0,
+  "freeDeliveryMinOrder": 200,
+  "zoneName": "Zone A — 3km",
+  "roadDistanceKm": 2.4
+}
+```
+
+**Response (not eligible — no zone match):**
 ```json
 {
   "isEligible": false
 }
 ```
+
+**Response (not eligible — condition failed):**
+When a zone matches but the order doesn't meet its conditions:
+```json
+{
+  "isEligible": false,
+  "reason": "Minimum order value is ₹500"
+}
+```
+
+Possible `reason` values:
+- `"Minimum order value is ₹{amount}"`
+- `"Maximum order value is ₹{amount}"`
+- `"Minimum delivery distance is {km} km"`
+- `"Maximum delivery distance is {km} km"`
 
 **Error:**
 ```json
@@ -679,13 +737,14 @@ if (data['app']['enabled']) {
 }
 ```
 
-| Field | Type | Notes |
-|-------|------|-------|
+| Response Field | Type | Notes |
+|----------------|------|-------|
 | `isEligible` | `boolean` | Whether delivery is available |
-| `deliveryCharge` | `number` | In INR (₹) |
-| `freeDeliveryMinOrder` | `number` | Min order for free delivery |
+| `deliveryCharge` | `number` | In INR (₹). `0` when order qualifies for free delivery |
+| `freeDeliveryMinOrder` | `number` | Min order total for free delivery from the matched zone |
 | `zoneName` | `string` | Matched zone name |
 | `roadDistanceKm` | `number` | Actual road distance (if Ola Maps API key configured) |
+| `reason` | `string` | Only present when `isEligible: false` — explains why the zone's conditions weren't met |
 
 ### 6.3 `POST /api/upload`
 
@@ -961,7 +1020,12 @@ await supabase.rpc('decrement_stock', params: {
 // Get delivery charge
 final response = await http.post(
   Uri.parse('$baseUrl/api/delivery/charge'),
-  body: jsonEncode({'latitude': lat, 'longitude': lng, 'storeId': storeId}),
+  body: jsonEncode({
+    'latitude': lat,
+    'longitude': lng,
+    'storeId': storeId,
+    'orderValue': cartTotal,  // optional: enables condition checks + free delivery
+  }),
   headers: {'Content-Type': 'application/json'},
 );
 

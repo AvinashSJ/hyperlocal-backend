@@ -32,6 +32,9 @@ yarn-error.log*
 dev-server.log
 dev-server-err.log
 
+# supabase log exports
+supabase_logs*.json
+
 # env files (can opt-in for committing if needed)
 .env*
 

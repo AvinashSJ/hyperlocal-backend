@@ -215,12 +215,14 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
               <Text style={styles.totalValue}>Rs. {totalGst.toFixed(2)}</Text>
             </View>
           )}
-          {Number(order?.delivery_charge ?? 0) > 0 && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Delivery Charges</Text>
-              <Text style={styles.totalValue}>Rs. {Number(order?.delivery_charge ?? 0).toFixed(2)}</Text>
-            </View>
-          )}
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Delivery Charges</Text>
+            <Text style={styles.totalValue}>
+              {Number(order?.delivery_charge ?? 0) > 0
+                ? `Rs. ${Number(order?.delivery_charge ?? 0).toFixed(2)}`
+                : "Free"}
+            </Text>
+          </View>
           <View style={{ ...styles.totalRow, ...styles.grandTotal }}>
             <Text>Total</Text>
             <Text>Rs. {Number(invoice.total_amount).toFixed(2)}</Text>
