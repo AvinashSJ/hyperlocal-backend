@@ -75,6 +75,17 @@ Current actual coverage: ~93% statements, 86% branches, 93% functions, 94% lines
 - For non-atomic delete+insert, the preferred fix is a single Postgres RPC function that does both in one transaction. The error-check is a defense-in-depth minimum.
 - The `updateProduct` and `deleteProduct` actions in `src/app/(admin)/products/actions.ts` follow this pattern (fixed in P12).
 
+**Order numbering: competing triggers and UNIQUE constraints** (P39+ lesson):
+- The initial schema had a `trg_assign_order_number` trigger on `orders INSERT` that set `order_number = 'ORD-YYYY-NNNNNN'` using a global sequence. Our `set_order_store_id()` trigger fires on `order_items INSERT` and calls `generate_order_number()` to set the store-prefixed number (e.g. `ADORD-000004`).
+- Flutter inserts the order first (old trigger fires, sets placeholder), then inserts order_items (our trigger fires but `store_id IS NULL` guard may skip if already set). The placeholder stays.
+- **Do NOT add UNIQUE constraints on `order_number`** — Flutter sends a hardcoded placeholder for every order. The advisory lock + MAX-based approach in `generate_order_number()` already prevents duplicates.
+- **Check for old triggers** when modifying order numbering — they live on Supabase directly, not in our migration files. Query `pg_trigger` to verify.
+- When the migration `20260824000001` failed at step 2 (UNIQUE constraint), step 3 (function replacement) was also rolled back — leaving the old `nextval`-based function active. **Always apply migration steps individually on PROD** to isolate failures.
+- The `orders.order_number` column has a NOT NULL constraint. Flutter doesn't send `order_number` — it relies on a trigger to set it. The old `trg_assign_order_number` (BEFORE INSERT on orders) set `ORD-YYYY-NNNNNN`. Dropping it without a replacement causes every Flutter order INSERT to fail with `null value in column "order_number" violates not-null constraint`. **Always add a replacement BEFORE INSERT trigger** when dropping the old one.
+- The `set_order_store_id()` trigger fires on `order_items` INSERT, not `orders` INSERT — so it can't satisfy the NOT NULL constraint on its own. The orders table needs its own BEFORE INSERT trigger to provide a placeholder value.
+- **`CREATE OR REPLACE FUNCTION` does not always invalidate PostgreSQL's cached PL/pgSQL plans.** After replacing a function that is called from a trigger, the trigger may continue executing the old function body from a stale cached plan. **Always DROP + CREATE (not just REPLACE) when changing a function that is called from triggers.** The DROP forces plan cache invalidation. Migration `20260825000001` demonstrates the correct pattern.
+- **RLS bypass: triggers called from authenticated sessions inherit the caller's RLS policies.** If a trigger function queries a table with RLS enabled, it only sees rows the caller has access to. For functions that need to see ALL rows (like `generate_order_number` which does `SELECT MAX(...) FROM orders`), use `SECURITY DEFINER` so the function runs as the owner and bypasses RLS. Without it, the authenticated user can only see their own orders, so MAX always returns 0 and the order number is always 000001.
+
 **Mock-incompleteness (known limitations, not bugs):**
 - `storage.from(bucket).list` and `storage.remove` always return success — cannot test media error paths
 - `chainsForTable` groups by call-list boundaries, not by builder closure — see "Mock chainsForTable limitation" in `TEST_REPORT.md` P7 section
