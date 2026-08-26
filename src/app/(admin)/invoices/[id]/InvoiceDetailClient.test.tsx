@@ -45,6 +45,7 @@ const fakeInvoice: InvoiceDetail = {
     gstin: null,
     store_id: "s-1",
     delivery_charge: 0,
+    payment_method: "cod",
     // P43: the order's store is now also joined and exposed.
     stores: { name: "FreshCart", code: "A1B2C3D4" },
     profiles: { full_name: "Alice", phone: "+911234567890" },

@@ -25,13 +25,14 @@ const styles = StyleSheet.create({
   table: { width: "100%", borderWidth: 1, borderColor: "#ccc", marginBottom: 15 },
   tableHeader: { flexDirection: "row", backgroundColor: "#f0f0f0", borderBottomWidth: 1, borderBottomColor: "#ccc" },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#eee" },
-  cellNo: { width: "5%", padding: 4, textAlign: "center", overflow: "hidden" },
-  cellProduct: { width: "32%", padding: 4, overflow: "hidden" },
-  cellHsn: { width: "10%", padding: 4, textAlign: "center", overflow: "hidden" },
-  cellQty: { width: "8%", padding: 4, textAlign: "center", overflow: "hidden" },
+  cellNo: { width: "4%", padding: 4, textAlign: "center", overflow: "hidden" },
+  cellProduct: { width: "24%", padding: 4, overflow: "hidden" },
+  cellUnitPrice: { width: "13%", padding: 4, textAlign: "right", overflow: "hidden" },
+  cellHsn: { width: "9%", padding: 4, textAlign: "center", overflow: "hidden" },
+  cellQty: { width: "6%", padding: 4, textAlign: "center", overflow: "hidden" },
   cellTaxable: { width: "16%", padding: 4, textAlign: "right", overflow: "hidden" },
   cellGst: { width: "14%", padding: 4, textAlign: "right", overflow: "hidden" },
-  cellTotal: { width: "15%", padding: 4, textAlign: "right", overflow: "hidden" },
+  cellTotal: { width: "14%", padding: 4, textAlign: "right", overflow: "hidden" },
   headerText: { fontSize: 9, fontWeight: "bold" },
 
   totalsSection: { marginLeft: "auto", width: "45%", marginBottom: 20 },
@@ -116,6 +117,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
   const slabs = computeGstSlabs(items);
   const totalGst = slabs.reduce((s, slab) => s + slab.cgst + slab.sgst, 0);
   const totalTaxable = slabs.reduce((s, slab) => s + slab.taxableAmount, 0);
+  const deliveryType = order?.payment_method === "pay_at_pickup" ? "Pickup" : "Delivery";
 
   return (
     <Document>
@@ -139,6 +141,11 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
           </View>
         </View>
 
+        <View style={{ flexDirection: "row", marginBottom: 10 }}>
+          <Text style={{ fontSize: 9, color: "#888" }}>DELIVERY TYPE: </Text>
+          <Text style={{ fontSize: 9, fontWeight: "bold" }}>{deliveryType}</Text>
+        </View>
+
         <View style={styles.section}>
           <View style={styles.halfBox}>
             <Text style={styles.label}>BILL TO</Text>
@@ -160,6 +167,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
           <View style={styles.tableHeader}>
             <Text style={styles.cellNo}><Text style={styles.headerText}>#</Text></Text>
             <Text style={styles.cellProduct}><Text style={styles.headerText}>Product</Text></Text>
+            <Text style={styles.cellUnitPrice}><Text style={styles.headerText}>Unit Price</Text></Text>
             <Text style={styles.cellHsn}><Text style={styles.headerText}>HSN</Text></Text>
             <Text style={styles.cellQty}><Text style={styles.headerText}>Qty</Text></Text>
             <Text style={styles.cellTaxable}><Text style={styles.headerText}>Taxable</Text></Text>
@@ -178,6 +186,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
               <View key={item.id} style={styles.tableRow}>
                 <Text style={styles.cellNo}>{i + 1}</Text>
                 <Text style={styles.cellProduct}>{productLabel}</Text>
+                <Text style={styles.cellUnitPrice}>Rs. {Number(item.unit_price).toFixed(2)}</Text>
                 <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
                 <Text style={styles.cellQty}>{item.quantity}</Text>
                 <Text style={styles.cellTaxable}>Rs. {taxable.toFixed(2)}</Text>

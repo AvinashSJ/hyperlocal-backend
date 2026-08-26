@@ -66,6 +66,7 @@ export type InvoiceDetail = InvoiceRow & {
     gstin: string | null;
     store_id: string | null;
     delivery_charge: number;
+    payment_method: string | null;
     stores: { name: string } | null;
     profiles: { full_name: string | null; phone: string | null } | null;
     addresses: {
@@ -107,7 +108,7 @@ export async function getInvoice(id: string): Promise<InvoiceDetail> {
     // P26: the order_items SELECT now reads the snapshot columns directly.
     // The products JOIN is kept as a fallback for legacy rows (placed before
     // the migration) where the snapshot is NULL.
-    .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, store_id, delivery_charge, stores!orders_store_id_fkey(name), profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate), product_variants(name)))")
+    .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, store_id, delivery_charge, payment_method, stores!orders_store_id_fkey(name), profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate), product_variants(name)))")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
