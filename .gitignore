@@ -38,6 +38,11 @@ supabase_logs*.json
 # env files (can opt-in for committing if needed)
 .env*
 
+# local backups (db dumps + storage snapshots) — never committed
+/backups/
+/backups.zip
+.backup.env
+
 # vercel
 .vercel
 

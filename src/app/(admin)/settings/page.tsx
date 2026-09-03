@@ -1,6 +1,6 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, safeGetUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStoreSettings } from "./actions";
 import {
@@ -23,7 +23,7 @@ export default async function SettingsPage({
   const actionPerms = getActionPermissions(permissions, "stores");
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await safeGetUser(supabase);
   if (!user) redirect("/auth/login");
 
   let roleName = "Admin";

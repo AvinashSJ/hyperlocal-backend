@@ -1,5 +1,5 @@
 import { requirePermission, getActionPermissions } from "@/lib/require-permission";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, safeGetUser } from "@/lib/supabase/server";
 import { getUsers, getRoles, getStoresLight } from "./actions";
 import UsersClient from "./UsersClient";
 
@@ -11,7 +11,7 @@ export default async function UsersPage() {
   const actionPerms = getActionPermissions(permissions, "users");
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await safeGetUser(supabase);
   const currentUserId = user?.id ?? "";
 
   return (

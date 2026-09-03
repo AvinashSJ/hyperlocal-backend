@@ -94,6 +94,12 @@ export default function ProductForm({
     () => (hasVariants ? Math.min(...variants.map((v) => Number(v.price) || 0)) : 0),
     [variants, hasVariants],
   );
+  // Variant products: product-level stock is DERIVED as the sum of all
+  // variant stocks (kept in sync by a DB trigger). It is read-only here.
+  const derivedStock = useMemo(
+    () => variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0),
+    [variants],
+  );
 
   const effectiveMrp = hasVariants ? derivedMrp : mrp;
   const effectiveSelling = hasVariants ? derivedSelling : sellingPrice;
@@ -322,16 +328,36 @@ export default function ProductForm({
 
                 <div className="row g-3 mt-2">
                   <div className="col-md-3">
-                    <label className="form-label">Stock Quantity</label>
-                    <input
-                      name="stock_quantity"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="form-control"
-                      value={stockQty}
-                      onChange={(e) => setStockQty(Number(e.target.value) || 0)}
-                    />
+                    <label className="form-label">
+                      Stock Quantity
+                      {hasVariants && (
+                        <span
+                          className="text-muted fw-normal"
+                          style={{ fontSize: "0.78rem" }}
+                          title="Derived from the sum of variant stock"
+                        >
+                          {" "}(sum of variants)
+                        </span>
+                      )}
+                    </label>
+                    {hasVariants ? (
+                      <div
+                        className="form-control-plaintext fw-semibold"
+                        data-testid="product-stock-sum"
+                      >
+                        {derivedStock}
+                      </div>
+                    ) : (
+                      <input
+                        name="stock_quantity"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="form-control"
+                        value={stockQty}
+                        onChange={(e) => setStockQty(Number(e.target.value) || 0)}
+                      />
+                    )}
                   </div>
                   <div className="col-md-3">
                     <label className="form-label">Low Stock Threshold</label>

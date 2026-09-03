@@ -2,7 +2,7 @@ import { requirePermission, getActionPermissions } from "@/lib/require-permissio
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, safeGetUser } from "@/lib/supabase/server";
 import { getStoreById, getStoreRelations } from "../actions";
 import { getPrimaryGstin } from "@/app/(admin)/gst-numbers/actions";
 import StoreDetailClient from "./StoreDetailClient";
@@ -31,7 +31,7 @@ export default async function StoreDetailPage({
   // Resolve roleName the same way /stores does so we can decide
   // whether to show the per-store data. Manager/Staff are bounced.
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await safeGetUser(supabase);
   if (!user) redirect("/auth/login");
   const { data: profile } = await supabase
     .from("profiles")
