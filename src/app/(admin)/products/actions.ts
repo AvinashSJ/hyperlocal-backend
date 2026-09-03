@@ -73,27 +73,34 @@ export async function createProduct(formData: FormData) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
+  // For variant products, stock_quantity is DERIVED (sum of variants) via a
+  // DB trigger; we must NOT send an admin-entered value here, otherwise the
+  // trigger would immediately overwrite it and the two would fight.
+  const productInsert: Record<string, unknown> = {
+    name,
+    description: description || null,
+    category_id: categoryId || null,
+    brand: brand || null,
+    unit_of_measurement: unit,
+    mrp,
+    selling_price: sellingPrice,
+    discount_percent: discountPercent,
+    gst_rate: gstRate,
+    hsn_code: hsnCode || null,
+    low_stock_threshold: lowStockThreshold || null,
+    purchase_rate: purchaseRate,
+    status,
+    sku: sku || null,
+    store_id: userStoreId ?? null,
+    cascade_locked: cascadeLocked,
+  };
+  if (variants.length === 0) {
+    productInsert.stock_quantity = stockQty;
+  }
+
   const { data: product, error: productError } = await supabase
     .from("products")
-    .insert({
-      name,
-      description: description || null,
-      category_id: categoryId || null,
-      brand: brand || null,
-      unit_of_measurement: unit,
-      mrp,
-      selling_price: sellingPrice,
-      discount_percent: discountPercent,
-      gst_rate: gstRate,
-      hsn_code: hsnCode || null,
-      stock_quantity: stockQty,
-      low_stock_threshold: lowStockThreshold || null,
-      purchase_rate: purchaseRate,
-      status,
-      sku: sku || null,
-      store_id: userStoreId ?? null,
-      cascade_locked: cascadeLocked,
-    })
+    .insert(productInsert)
     .select("id")
     .single();
 
@@ -198,12 +205,17 @@ export async function updateProduct(id: string, formData: FormData) {
     discount_percent: discountPercent,
     gst_rate: gstRate,
     hsn_code: hsnCode || null,
-    stock_quantity: stockQty,
     low_stock_threshold: lowStockThreshold || null,
     purchase_rate: purchaseRate,
     status,
     sku: sku || null,
   };
+  // For variant products, stock_quantity is DERIVED (sum of variants) via a
+  // DB trigger; omit it here so the trigger stays the single source of truth
+  // (the re-inserted variants below drive the recompute).
+  if (variants.length === 0) {
+    updatePayload.stock_quantity = stockQty;
+  }
   if (isSuperAdmin && cascadeLocked !== null) {
     updatePayload.cascade_locked = cascadeLocked;
   }

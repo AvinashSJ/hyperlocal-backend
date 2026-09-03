@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, safeGetUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import MasterLayout from "@/components/MasterLayout";
 import { signOut } from "@/app/auth/actions";
@@ -19,9 +19,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await safeGetUser(supabase);
 
   if (!user) {
     redirect("/auth/login");

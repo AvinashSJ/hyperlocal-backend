@@ -22,7 +22,7 @@ vi.mock("next/headers", () => ({
   }),
 }));
 
-import { createClient } from "./server";
+import { createClient, safeGetUser } from "./server";
 
 beforeEach(() => {
   cookieStoreMock.cookies.clear();
@@ -56,5 +56,36 @@ describe("createClient (server)", () => {
     const a: SupabaseClient = await createClient();
     const b: SupabaseClient = await createClient();
     expect(a).not.toBe(b);
+  });
+});
+
+describe("safeGetUser (server)", () => {
+  const mockSupabase = (auth = {}) =>
+    ({ auth: { getUser: auth } }) as any;
+
+  it("returns the user when the session is valid", async () => {
+    const user = { id: "u-1", email: "a@b.c" };
+    const supabase = mockSupabase(vi.fn().mockResolvedValue({ data: { user } }));
+    await expect(safeGetUser(supabase)).resolves.toEqual(user);
+  });
+
+  it("returns null when getUser returns no user", async () => {
+    const supabase = mockSupabase(vi.fn().mockResolvedValue({ data: { user: null } }));
+    await expect(safeGetUser(supabase)).resolves.toBeNull();
+  });
+
+  it.each(["refresh_token_not_found", "refresh_token_already_used"])(
+    "returns null on tolerated auth error (%s)",
+    async (code) => {
+      const err = Object.assign(new Error("stale refresh"), { code, status: 400 });
+      const supabase = mockSupabase(vi.fn().mockRejectedValue(err));
+      await expect(safeGetUser(supabase)).resolves.toBeNull();
+    },
+  );
+
+  it("rethrows non-tolerated auth errors", async () => {
+    const err = Object.assign(new Error("boom"), { status: 503 });
+    const supabase = mockSupabase(vi.fn().mockRejectedValue(err));
+    await expect(safeGetUser(supabase)).rejects.toThrow("boom");
   });
 });
