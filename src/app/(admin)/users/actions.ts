@@ -383,6 +383,17 @@ export async function createUser(formData: FormData) {
   if (!email || !password) throw new Error("Email and password are required");
   if (!roleId) throw new Error("Role is required");
 
+  const { data: roleData, error: roleError } = await supabase
+    .from("roles")
+    .select("name")
+    .eq("id", Number(roleId))
+    .single();
+
+  if (roleError || !roleData?.name) throw new Error("Selected role was not found");
+  if (roleData.name === "Manager" && !storeId) {
+    throw new Error("A store is required when creating a Manager");
+  }
+
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -405,12 +416,6 @@ export async function createUser(formData: FormData) {
   // Look up the role name to derive the `role` string used for segmentation
   // (admin vs customer). Without this, the column defaults to 'customer'
   // and the user gets misclassified.
-  const { data: roleData } = await supabase
-    .from("roles")
-    .select("name")
-    .eq("id", Number(roleId))
-    .single();
-
   const role: "admin" | "superadmin" =
     roleData?.name === "Super Admin" ? "superadmin" : "admin";
 
@@ -483,7 +488,9 @@ export async function resetUserPassword(formData: FormData) {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ must_reset_password: true })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .single();
   if (profileError) throw new Error(profileError.message);
 
   revalidatePath("/users");

@@ -524,4 +524,27 @@ describe("ProductsClient — server-side pagination + URL-driven filters (P80)",
     );
     unmount();
   });
+
+  it("does not link to a page after the last page", async () => {
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <ProductsClient
+          products={[productA]}
+          categories={[]}
+          actionPerms={noopActionPerms}
+          total={45}
+          page={3}
+          totalPages={3}
+          pageSize={20}
+        />,
+      );
+    });
+
+    const pagination = container.querySelector('[data-testid="product-pagination"]')!;
+    const next = pagination.querySelector('li.disabled span[aria-disabled="true"]');
+    expect(next?.textContent).toBe("Next");
+    expect(pagination.querySelector('a[aria-label="Next"]')).toBeNull();
+    unmount();
+  });
 });

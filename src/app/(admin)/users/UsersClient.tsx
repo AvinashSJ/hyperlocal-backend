@@ -377,7 +377,11 @@ export default function UsersClient({
                   {selectedRoleId && roles.find((r) => String(r.id) === selectedRoleId)?.name !== "Super Admin" && (
                     <div className="mb-3">
                       <label className="form-label">Store</label>
-                      <select name="store_id" className="form-select">
+                      <select
+                        name="store_id"
+                        className="form-select"
+                        required={roles.find((r) => String(r.id) === selectedRoleId)?.name === "Manager"}
+                      >
                         <option value="">No store</option>
                         {stores.map((s) => (
                           <option key={s.id} value={s.id}>
