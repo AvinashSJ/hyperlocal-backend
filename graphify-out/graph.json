@@ -697,6 +697,15 @@
       "norm_label": "getCustomers"
     },
     {
+      "id": "src_app_admin_customers_actions_ts_customeraddress",
+      "label": "CustomerAddress",
+      "file_type": "export",
+      "source_file": "app/(admin)/customers/actions.ts",
+      "source_location": "L0",
+      "community": 7,
+      "norm_label": "CustomerAddress"
+    },
+    {
       "id": "src_app_admin_customers_actions_ts_customeruser",
       "label": "CustomerUser",
       "file_type": "export",
@@ -4745,6 +4754,78 @@
       "source_location": "L1",
       "community": 48,
       "norm_label": "cors"
+    },
+    {
+      "id": "src_lib_group_order_items_test_ts",
+      "label": "group-order-items.test.ts",
+      "file_type": "server_component",
+      "source_file": "lib/group-order-items.test.ts",
+      "source_location": "L1",
+      "community": 48,
+      "norm_label": "TestItem"
+    },
+    {
+      "id": "src_lib_group_order_items_test_ts_testitem",
+      "label": "TestItem",
+      "file_type": "export",
+      "source_file": "lib/group-order-items.test.ts",
+      "source_location": "L0",
+      "community": 48,
+      "norm_label": "TestItem"
+    },
+    {
+      "id": "src_lib_group_order_items_test_ts_in",
+      "label": "in",
+      "file_type": "export",
+      "source_file": "lib/group-order-items.test.ts",
+      "source_location": "L0",
+      "community": 48,
+      "norm_label": "in"
+    },
+    {
+      "id": "src_lib_group_order_items_ts",
+      "label": "group-order-items.ts",
+      "file_type": "server_component",
+      "source_file": "lib/group-order-items.ts",
+      "source_location": "L1",
+      "community": 48,
+      "norm_label": "resolveItemCategory"
+    },
+    {
+      "id": "src_lib_group_order_items_ts_resolveitemcategory",
+      "label": "resolveItemCategory",
+      "file_type": "export",
+      "source_file": "lib/group-order-items.ts",
+      "source_location": "L0",
+      "community": 48,
+      "norm_label": "resolveItemCategory"
+    },
+    {
+      "id": "src_lib_group_order_items_ts_grouporderitems",
+      "label": "groupOrderItems",
+      "file_type": "export",
+      "source_file": "lib/group-order-items.ts",
+      "source_location": "L0",
+      "community": 48,
+      "norm_label": "groupOrderItems"
+    },
+    {
+      "id": "src_lib_group_order_items_ts_resolvedcategory",
+      "label": "ResolvedCategory",
+      "file_type": "export",
+      "source_file": "lib/group-order-items.ts",
+      "source_location": "L0",
+      "community": 48,
+      "norm_label": "ResolvedCategory"
+    },
+    {
+      "id": "src_lib_group_order_items_ts_rawcategoryjoin",
+      "label": "RawCategoryJoin",
+      "file_type": "export",
+      "source_file": "lib/group-order-items.ts",
+      "source_location": "L0",
+      "community": 48,
+      "norm_label": "RawCategoryJoin"
     },
     {
       "id": "src_lib_ola_maps_ts",

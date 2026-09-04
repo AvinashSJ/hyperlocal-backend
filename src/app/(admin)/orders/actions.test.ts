@@ -354,16 +354,33 @@ describe("updatePaymentStatus", () => {
     await expect(updatePaymentStatus("o-1", "paid")).rejects.toBeInstanceOf(PermissionError);
   });
 
-  it("updates payment_status, revalidates list and detail", async () => {
+  it("updates payment_status, writes activity log, revalidates list and detail", async () => {
     asAdmin({ orders: ["edit"] });
+    setServerUser({ id: "u-1", email: "u@test.com" });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: null });
+    admin.enqueueResponse({ data: { payment_status: "unpaid" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
 
     await updatePaymentStatus("o-1", "paid");
 
-    const updateArg = admin.chainsForTable("orders")[0]
+    const updateArg = admin.chainsForTable("orders")[1]
       .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
     expect(updateArg).toEqual({ payment_status: "paid" });
+
+    const logChain = admin.chainsForTable("activity_logs")[0];
+    const insertArg = logChain.find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg).toMatchObject({
+      user_id: "u-1",
+      action: "update",
+      entity_type: "order",
+      entity_id: "o-1",
+      details: {
+        action_type: "payment_status_paid",
+        previous_payment_status: "unpaid",
+        new_payment_status: "paid",
+      },
+    });
 
     expect(revalidatePathMock).toHaveBeenCalledWith("/orders");
     expect(revalidatePathMock).toHaveBeenCalledWith("/orders/o-1");
@@ -373,10 +390,13 @@ describe("updatePaymentStatus", () => {
     "accepts payment_status '%s'",
     async (status) => {
       asAdmin({ orders: ["edit"] });
+      setServerUser({ id: "u-1", email: "u@test.com" });
       const admin = getAdminClient();
-      admin.enqueueResponse({ data: null, error: null });
+      admin.enqueueResponse({ data: { payment_status: "unpaid" }, error: null }); // pre-select
+      admin.enqueueResponse({ data: null, error: null }); // orders.update
+      admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
       await updatePaymentStatus("o-1", status);
-      const updateArg = admin.chainsForTable("orders")[0]
+      const updateArg = admin.chainsForTable("orders")[1]
         .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
       expect(updateArg.payment_status).toBe(status);
     },
@@ -385,9 +405,11 @@ describe("updatePaymentStatus", () => {
   it("throws when the update fails", async () => {
     asAdmin({ orders: ["edit"] });
     const admin = getAdminClient();
-    admin.enqueueResponse({ data: null, error: { message: "db error" } });
+    admin.enqueueResponse({ data: { payment_status: "unpaid" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: { message: "db error" } }); // orders.update
 
     await expect(updatePaymentStatus("o-1", "paid")).rejects.toThrow("db error");
+    expect(admin.chainsForTable("activity_logs")).toHaveLength(0);
   });
 });
 

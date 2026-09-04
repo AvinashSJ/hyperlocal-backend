@@ -1,33 +1,55 @@
--- place_order RPC parity migration.
+-- P71: pay_at_pickup orders must start UNPAID.
 --
--- The atomic `place_order` RPCs existed ONLY in production (not version
--- controlled in this repo). This migration captures them so the backend
--- repo is the single source of truth and the schema is reproducible.
+-- Bug: both place_order overloads derived payment_status with
+--   CASE WHEN p_payment_method = 'cod' THEN 'unpaid' ELSE 'paid' END
+-- so any non-COD method — including `pay_at_pickup` — was created as 'paid'.
+-- A customer who chose Pay at Pickup hasn't paid anything yet; they pay when
+-- they collect the order.
 --
--- Why atomic:
---   Each overload is a single PL/pgSQL function, so its body runs as ONE
---   transaction. If any order_items insert or decrement_stock call fails,
---   the WHOLE order (orders row + all items + tracks) rolls back — no
---   partial order is ever created. This is the root-cause fix for the
---   partial-order/network bug previously handled client-side in Flutter.
+-- Fix: treat `pay_at_pickup` (and `cod`) as unpaid:
+--   CASE WHEN p_payment_method IN ('cod', 'pay_at_pickup') THEN 'unpaid'
+--        ELSE 'paid' END
 --
--- Two overloads:
---   1. 13-arg — COMPLETE. Adds p_delivery_slot_id, p_delivery_date,
---      p_cart_id (the multi-store grouping cart_id). ALSO enforces the P54
---      single-store guard (RAISE if mixed stores). This is the one the
---      Flutter checkout must call.
---   2. 11-arg — LEGACY, kept for backwards compatibility (drops slot/date/
---      cart). Flutter must NOT use this one for new orders; it exists only
---      so any older callers keep working.
+-- Why DROP + CREATE (not just CREATE OR REPLACE): per the P-lesson on plan
+-- cache invalidation, replacing a function body does not always invalidate
+-- PostgreSQL's cached PL/pgSQL plans. DROP forces the cache to be rebuilt.
 --
--- Both are SECURITY DEFINER so they can insert orders under any user and
--- freely read products/order_tracks regardless of caller RLS. They call
--- public.decrement_stock, whose oversell guard (RAISE instead of floor-to-0)
--- is provided by migration 20260903000001.
+-- Both overloads are recreated with identical signatures so existing callers
+-- (incl. the Flutter checkout, which calls the 13-arg overload with cart_id)
+-- are unaffected.
+--
+-- No constraint change needed: `pay_at_pickup` is already a valid
+-- `payment_method` value (added in migration 20260623000008).
+--
+-- Atomic: the whole file runs in a single transaction so the two
+-- DROP+CREATE pairs are all-or-nothing. If any statement fails, the
+-- transaction rolls back and the previous function bodies are preserved —
+-- there is no window where an overload is left dropped. Apply with:
+--   psql ... -f 20260904000001_fix_place_order_pay_at_pickup_unpaid.sql
+-- (The file has its own BEGIN/COMMIT, so do NOT pass --single-transaction,
+-- which would try to nest a second transaction block.)
 
--- 13-arg overload (complete, recommended) -----------------------------------
+BEGIN;
 
-CREATE OR REPLACE FUNCTION public.place_order(
+-- 13-arg overload (complete, recommended — used by Flutter checkout) ----------
+
+DROP FUNCTION IF EXISTS public.place_order(
+  p_user_id uuid,
+  p_address_id uuid,
+  p_subtotal numeric,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_delivery_charge numeric,
+  p_total_amount numeric,
+  p_payment_method text,
+  p_special_instructions text,
+  p_items jsonb,
+  p_delivery_slot_id uuid,
+  p_delivery_date date,
+  p_cart_id uuid
+);
+
+CREATE FUNCTION public.place_order(
   p_user_id uuid,
   p_address_id uuid DEFAULT NULL::uuid,
   p_subtotal numeric DEFAULT 0,
@@ -42,10 +64,10 @@ CREATE OR REPLACE FUNCTION public.place_order(
   p_delivery_date date DEFAULT NULL::date,
   p_cart_id uuid DEFAULT NULL::uuid
 )
-  RETURNS text
-  LANGUAGE plpgsql
-  SECURITY DEFINER
-  AS $function$
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $function$
 DECLARE
   v_order_id UUID;
   v_order_number TEXT;
@@ -53,14 +75,12 @@ DECLARE
   v_qty DECIMAL;
   v_store_ids UUID[];
 BEGIN
-  -- -------------------------------------------------------------------------
   -- P54: defense-in-depth single-store check.
   -- Flutter MUST split a multi-store cart into N orders at checkout and
   -- call this RPC once per group. This check rejects callers that
   -- forget to split. Without it, the P48 trigger (which sets
   -- orders.store_id to the FIRST product's store on the first order_item
   -- insert) would silently miscount the other stores' revenue.
-  -- -------------------------------------------------------------------------
   SELECT array_agg(DISTINCT p.store_id)
     INTO v_store_ids
   FROM   jsonb_array_elements(p_items) AS item
@@ -72,10 +92,6 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
 
-  -- -------------------------------------------------------------------------
-  -- Insert the order. cart_id groups this order with its siblings
-  -- from the same multi-store checkout (Approach E).
-  -- -------------------------------------------------------------------------
   INSERT INTO public.orders (
     user_id,
     status,
@@ -147,9 +163,22 @@ BEGIN
 END;
 $function$;
 
--- 11-arg overload (legacy, backwards compatibility) --------------------------
+-- 10-arg overload (legacy, backwards compatibility) ----------------------------
 
-CREATE OR REPLACE FUNCTION public.place_order(
+DROP FUNCTION IF EXISTS public.place_order(
+  p_user_id uuid,
+  p_address_id uuid,
+  p_subtotal numeric,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_delivery_charge numeric,
+  p_total_amount numeric,
+  p_payment_method text,
+  p_special_instructions text,
+  p_items jsonb
+);
+
+CREATE FUNCTION public.place_order(
   p_user_id uuid,
   p_address_id uuid DEFAULT NULL::uuid,
   p_subtotal numeric DEFAULT 0,
@@ -235,3 +264,38 @@ BEGIN
   RETURN v_order_number;
 END;
 $function$;
+
+-- Re-apply grants that were owned by the dropped functions. SECURITY DEFINER
+-- functions run as the definer, but SELECT/UPDATE grants on referenced tables
+-- are still enforced for the definer at call time; ensure the public schema
+-- grant that Supabase normally applies is present in case it was lost.
+GRANT EXECUTE ON FUNCTION public.place_order(
+  p_user_id uuid,
+  p_address_id uuid,
+  p_subtotal numeric,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_delivery_charge numeric,
+  p_total_amount numeric,
+  p_payment_method text,
+  p_special_instructions text,
+  p_items jsonb,
+  p_delivery_slot_id uuid,
+  p_delivery_date date,
+  p_cart_id uuid
+) TO authenticated, anon;
+
+GRANT EXECUTE ON FUNCTION public.place_order(
+  p_user_id uuid,
+  p_address_id uuid,
+  p_subtotal numeric,
+  p_discount_amount numeric,
+  p_tax_amount numeric,
+  p_delivery_charge numeric,
+  p_total_amount numeric,
+  p_payment_method text,
+  p_special_instructions text,
+  p_items jsonb
+) TO authenticated, anon;
+
+COMMIT;

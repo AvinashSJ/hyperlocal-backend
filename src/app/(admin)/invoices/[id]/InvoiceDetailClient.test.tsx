@@ -71,7 +71,7 @@ const fakeInvoice: InvoiceDetail = {
         product_sku: "TP-001",
         variant_name: null,
         product_hsn_code: "1234",
-        products: { name: "Test Product", hsn_code: "1234", gst_rate: 18 },
+        products: { name: "Test Product", hsn_code: "1234", gst_rate: 18, category_id: null, categories: null },
         product_variants: null,
       },
     ],

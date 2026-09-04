@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@iconify/react";
 import type { InvoiceDetail } from "../actions";
 import ClientDate from "@/components/ClientDate";
+import { groupOrderItems, resolveItemCategory } from "@/lib/group-order-items";
 
 type GstSlab = {
   rate: number;
@@ -34,6 +35,7 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
   const order = invoice.orders;
   const addr = order?.addresses;
   const items = order?.order_items ?? [];
+  const itemGroups = groupOrderItems(items, resolveItemCategory);
   const slabs = computeGstSlabs(items);
   const totalCgst = slabs.reduce((s, slab) => s + slab.cgst, 0);
   const totalSgst = slabs.reduce((s, slab) => s + slab.sgst, 0);
@@ -180,29 +182,49 @@ export default function InvoiceDetailClient({ invoice }: { invoice: InvoiceDetai
                       </tr>
                     </thead>
                     <tbody>
-                      {order?.order_items.map((item, i) => {
-                        const taxable = Number(item.total_price) - Number(item.gst_amount);
-                        const cgst = Number(item.gst_amount) / 2;
-                        const sgst = Number(item.gst_amount) / 2;
-                        const variant = item.variant_name ?? item.product_variants?.name;
-                        const productLabel = variant
-                          ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
-                          : item.product_name ?? item.products?.name ?? "Deleted Product";
+                      {(() => {
+                        let lineNo = 0;
+                        return itemGroups.flatMap((group) => [
+                          <tr key={`h-${group.rootId ?? "uncategorized"}`} className="table-secondary">
+                            <td colSpan={9} className="fw-bold text-uppercase small text-muted">
+                              {group.rootName}
+                            </td>
+                          </tr>,
+                          ...group.subcategories.flatMap((sub) => [
+                            ...(sub.name
+                              ? [
+                                <tr key={`sh-${group.rootId}-${sub.id}`} className="table-light">
+                                  <td colSpan={9} className="ps-3 fw-semibold">{sub.name}</td>
+                                </tr>,
+                              ]
+                              : []),
+                            ...sub.items.map((item) => {
+                              lineNo++;
+                              const taxable = Number(item.total_price) - Number(item.gst_amount);
+                              const cgst = Number(item.gst_amount) / 2;
+                              const sgst = Number(item.gst_amount) / 2;
+                              const variant = item.variant_name ?? item.product_variants?.name;
+                              const productLabel = variant
+                                ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
+                                : item.product_name ?? item.products?.name ?? "Deleted Product";
 
-                        return (
-                          <tr key={item.id}>
-                            <td>{i + 1}</td>
-                            <td>{productLabel}</td>
-                            <td>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</td>
-                            <td className="text-center">{item.quantity}</td>
-                            <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
-                            <td className="text-end">₹{taxable.toLocaleString()}</td>
-                            <td className="text-end">{item.gst_rate > 0 ? `${item.gst_rate / 2}%  ₹${cgst.toLocaleString()}` : "—"}</td>
-                            <td className="text-end">{item.gst_rate > 0 ? `${item.gst_rate / 2}%  ₹${sgst.toLocaleString()}` : "—"}</td>
-                            <td className="text-end">₹{Number(item.total_price).toLocaleString()}</td>
-                          </tr>
-                        );
-                      })}
+                              return (
+                                <tr key={item.id}>
+                                  <td>{lineNo}</td>
+                                  <td>{productLabel}</td>
+                                  <td>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</td>
+                                  <td className="text-center">{item.quantity}</td>
+                                  <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
+                                  <td className="text-end">₹{taxable.toLocaleString()}</td>
+                                  <td className="text-end">{item.gst_rate > 0 ? `${item.gst_rate / 2}%  ₹${cgst.toLocaleString()}` : "—"}</td>
+                                  <td className="text-end">{item.gst_rate > 0 ? `${item.gst_rate / 2}%  ₹${sgst.toLocaleString()}` : "—"}</td>
+                                  <td className="text-end">₹{Number(item.total_price).toLocaleString()}</td>
+                                </tr>
+                              );
+                            }),
+                          ]),
+                        ]);
+                      })()}
                     </tbody>
                   </table>
                 </div>

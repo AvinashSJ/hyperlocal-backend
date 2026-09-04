@@ -118,12 +118,104 @@ describe("getCustomers (no storeId — all customers)", () => {
     const admin = getAdminClient();
     admin.setResponses(
       { data: [{ id: "u-1", full_name: "A", avatar_url: null, role: "customer" }], error: null },
-      { data: [{ user_id: "u-1" }, { user_id: "u-1" }, { user_id: "u-1" }], error: null },
+      {
+        data: [
+          { user_id: "u-1", id: "a-1" },
+          { user_id: "u-1", id: "a-2" },
+          { user_id: "u-1", id: "a-3" },
+        ],
+        error: null,
+      },
       { data: [], error: null },
     );
 
     const customers = await getCustomers();
     expect(customers[0].addressCount).toBe(3);
+    expect(customers[0].addresses).toHaveLength(3);
+  });
+
+  it("returns full address details for each customer", async () => {
+    seedAuthUsers([{ id: "u-1", email: "a@x.com", created_at: "2025-01-01T00:00:00Z" }]);
+
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "u-1", full_name: "A", avatar_url: null, role: "customer" }], error: null },
+      {
+        data: [
+          {
+            id: "a-1",
+            user_id: "u-1",
+            type: "home",
+            full_name: "Alice",
+            phone: "999",
+            pincode: "560001",
+            address_line1: "12 Main St",
+            address_line2: "Apt 4",
+            landmark: "Near park",
+            city: "Bengaluru",
+            state: "KA",
+            is_default: true,
+            is_deliverable: true,
+          },
+          {
+            id: "a-2",
+            user_id: "u-1",
+            type: "work",
+            full_name: "Alice Corp",
+            phone: "888",
+            pincode: "560002",
+            address_line1: "OG Road",
+            address_line2: null,
+            landmark: null,
+            city: "Bengaluru",
+            state: "KA",
+            is_default: false,
+            is_deliverable: false,
+          },
+        ],
+        error: null,
+      },
+      { data: [], error: null },
+    );
+
+    const customers = await getCustomers();
+    expect(customers[0].addresses).toMatchObject([
+      {
+        id: "a-1",
+        type: "home",
+        address_line1: "12 Main St",
+        address_line2: "Apt 4",
+        city: "Bengaluru",
+        state: "KA",
+        pincode: "560001",
+        is_default: true,
+        is_deliverable: true,
+      },
+      {
+        id: "a-2",
+        type: "work",
+        is_default: false,
+        is_deliverable: false,
+      },
+    ]);
+    expect(customers[0].addressCount).toBe(2);
+  });
+
+  it("requests the full address columns in the addresses query", async () => {
+    seedAuthUsers([{ id: "u-1", email: "a@x.com", created_at: "2025-01-01T00:00:00Z" }]);
+
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "u-1", full_name: "A", avatar_url: null, role: "customer" }], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    );
+
+    await getCustomers();
+    const addressChains = admin.chainsForTable("addresses");
+    const selectCall = addressChains[0].find((c) => c.method === "select");
+    expect(selectCall!.args[0]).toContain("address_line1");
+    expect(selectCall!.args[0]).toContain("is_deliverable");
   });
 
   it("aggregates orderCount per user", async () => {

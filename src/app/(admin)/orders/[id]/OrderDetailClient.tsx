@@ -14,6 +14,7 @@ import ReturnRequestsPanel from "./ReturnRequestsPanel";
 // by server/client timezone divergence in toLocaleDateString.
 import ClientDate from "@/components/ClientDate";
 import type { ActivityLogWithUser } from "@/lib/activity-log";
+import { groupOrderItems, resolveItemCategory } from "@/lib/group-order-items";
 
 const STATUS_BADGES: Record<string, string> = {
   pending: "bg-warning text-dark",
@@ -48,6 +49,7 @@ export default function OrderDetailClient({
 }) {
   const addr = order.addresses;
   const profile = order.profiles;
+  const itemGroups = groupOrderItems(order.order_items, resolveItemCategory);
 
   return (
     <>
@@ -157,21 +159,37 @@ export default function OrderDetailClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {order.order_items.map((item) => (
-                      <tr key={item.id}>
-                        {/* P26: prefer the snapshot (survives product/variant deletion),
-                            fall back to the JOIN, then to "Deleted Product" if both are null
-                            (legacy rows where the product was already deleted before the migration). */}
-                        <td>{item.product_name ?? item.products?.name ?? "Deleted Product"}</td>
-                        <td>{item.variant_name ?? item.product_variants?.name ?? "—"}</td>
-                        <td className="text-center">{item.quantity}</td>
-                        <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
-                        <td className="text-end">
-                          {item.gst_rate > 0 ? `${item.gst_rate}% (₹${Number(item.gst_amount).toLocaleString()})` : "—"}
+                    {itemGroups.flatMap((group) => [
+                      <tr key={`h-${group.rootId ?? "uncategorized"}`} className="table-secondary">
+                        <td colSpan={6} className="fw-bold text-uppercase small text-muted">
+                          {group.rootName}
                         </td>
-                        <td className="text-end fw-semibold">₹{Number(item.total_price).toLocaleString()}</td>
-                      </tr>
-                    ))}
+                      </tr>,
+                      ...group.subcategories.flatMap((sub) => [
+                        ...(sub.name
+                          ? [
+                            <tr key={`sh-${group.rootId}-${sub.id}`} className="table-light">
+                              <td colSpan={6} className="ps-3 fw-semibold">{sub.name}</td>
+                            </tr>,
+                          ]
+                          : []),
+                        ...sub.items.map((item) => (
+                          <tr key={item.id}>
+                            {/* P26: prefer the snapshot (survives product/variant deletion),
+                                fall back to the JOIN, then to "Deleted Product" if both are null
+                                (legacy rows where the product was already deleted before the migration). */}
+                            <td>{item.product_name ?? item.products?.name ?? "Deleted Product"}</td>
+                            <td>{item.variant_name ?? item.product_variants?.name ?? "—"}</td>
+                            <td className="text-center">{item.quantity}</td>
+                            <td className="text-end">₹{Number(item.unit_price).toLocaleString()}</td>
+                            <td className="text-end">
+                              {item.gst_rate > 0 ? `${item.gst_rate}% (₹${Number(item.gst_amount).toLocaleString()})` : "—"}
+                            </td>
+                            <td className="text-end fw-semibold">₹{Number(item.total_price).toLocaleString()}</td>
+                          </tr>
+                        )),
+                      ]),
+                    ])}
                   </tbody>
                   <tfoot className="table-light">
                     <tr>
