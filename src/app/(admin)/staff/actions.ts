@@ -243,7 +243,9 @@ export async function resetStaffPassword(formData: FormData) {
   const { error: profileError } = await supabase
     .from("profiles")
     .update({ must_reset_password: true })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .single();
   if (profileError) throw new Error(profileError.message);
 
   revalidatePath("/staff");

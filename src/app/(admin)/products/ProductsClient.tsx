@@ -401,13 +401,17 @@ export default function ProductsClient({
             </span>
             <ul className="pagination pagination-sm mb-0">
               <li className={`page-item ${page <= 1 ? "disabled" : ""}`}>
-                <Link
-                  className="page-link"
-                  href={buildHref({ page: String(page - 1) })}
-                  aria-label="Previous"
-                >
-                  Prev
-                </Link>
+                {page <= 1 ? (
+                  <span className="page-link" aria-disabled="true">Prev</span>
+                ) : (
+                  <Link
+                    className="page-link"
+                    href={buildHref({ page: String(page - 1) })}
+                    aria-label="Previous"
+                  >
+                    Prev
+                  </Link>
+                )}
               </li>
               {pageNumbers.map((n) =>
                 n < 0 ? (
@@ -426,13 +430,17 @@ export default function ProductsClient({
                 ),
               )}
               <li className={`page-item ${page >= totalPages ? "disabled" : ""}`}>
-                <Link
-                  className="page-link"
-                  href={buildHref({ page: String(page + 1) })}
-                  aria-label="Next"
-                >
-                  Next
-                </Link>
+                {page >= totalPages ? (
+                  <span className="page-link" aria-disabled="true">Next</span>
+                ) : (
+                  <Link
+                    className="page-link"
+                    href={buildHref({ page: String(page + 1) })}
+                    aria-label="Next"
+                  >
+                    Next
+                  </Link>
+                )}
               </li>
             </ul>
           </nav>
