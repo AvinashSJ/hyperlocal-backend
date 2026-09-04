@@ -179,8 +179,8 @@ export function createMockSupabase(): MockSupabaseHandle {
         return take();
       },
       admin: {
-        async listUsers() {
-          calls.push({ method: "auth.admin.listUsers", args: [] });
+        async listUsers(options?: unknown) {
+          calls.push({ method: "auth.admin.listUsers", args: options ? [options] : [] });
           return { data: { users }, error: null };
         },
         async createUser(payload: { email: string; [k: string]: unknown }) {

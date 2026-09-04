@@ -66,6 +66,7 @@
     "7": [
       "actions.test",
       "getCustomers",
+      "CustomerAddress",
       "CustomerUser",
       "CustomersClient",
       "async"
@@ -450,6 +451,12 @@
       "CategoryNode",
       "EffectiveStores",
       "cors",
+      "TestItem",
+      "in",
+      "resolveItemCategory",
+      "groupOrderItems",
+      "ResolvedCategory",
+      "RawCategoryJoin",
       "LatLng",
       "OlaDistanceMatrixRow",
       "OlaDistanceMatrixResponse",

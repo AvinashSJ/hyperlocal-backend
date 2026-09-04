@@ -82,7 +82,14 @@ export type OrderDetail = OrderRow & {
     variant_name: string | null;
     product_hsn_code: string | null;
     // Kept as fallback for legacy rows that have NULL snapshots
-    products: { name: string; sku: string | null } | null;
+    products: {
+      name: string; sku: string | null; category_id: string | null;
+      // Category + (parent) category resolved for grouping line items.
+      categories: {
+        id: string; name: string; parent_id: string | null;
+        parent_cat: { name: string } | null;
+      } | null;
+    } | null;
     product_variants: { name: string } | null;
   }[];
   order_tracks: { id: string; status: string; notes: string | null; created_at: string }[];
@@ -97,7 +104,9 @@ export async function getOrder(id: string) {
     // that have NULL snapshots.
     // P43: also join with stores(name, code) so the order detail page
     // can show which store the order belongs to.
-    .select("*, profiles(full_name, phone, email), stores!orders_store_id_fkey(name, code), addresses(*), order_items(*, products(name, sku), product_variants(name)), order_tracks(*)")
+    // P68: join products->categories so line items can be grouped by
+    // category/subcategory. parent_cat resolves the subcategory's root.
+    .select("*, profiles(full_name, phone, email), stores!orders_store_id_fkey(name, code), addresses(*), order_items(*, products(name, sku, category_id, categories!products_category_id_fkey(id, name, parent_id, parent_cat:categories!categories_parent_id_fkey(name))), product_variants(name)), order_tracks(*)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
@@ -214,8 +223,28 @@ export async function updateOrderStatus(
 export async function updatePaymentStatus(id: string, payment_status: PaymentStatus) {
   await assertPermission("orders", "edit");
   const supabase = createAdminClient();
+
+  const { data: prev } = await supabase
+    .from("orders")
+    .select("payment_status")
+    .eq("id", id)
+    .maybeSingle();
+  const previousPaymentStatus = prev?.payment_status ?? null;
+
   const { error } = await supabase.from("orders").update({ payment_status }).eq("id", id);
   if (error) throw new Error(error.message);
+
+  await logActivity({
+    action: "update",
+    entityType: "order",
+    entityId: id,
+    details: {
+      action_type: `payment_status_${payment_status}`,
+      previous_payment_status: previousPaymentStatus,
+      new_payment_status: payment_status,
+    },
+  });
+
   revalidatePath("/orders");
   revalidatePath(`/orders/${id}`);
 }

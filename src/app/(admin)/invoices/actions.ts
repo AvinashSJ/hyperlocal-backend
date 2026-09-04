@@ -82,7 +82,15 @@ export type InvoiceDetail = InvoiceRow & {
       variant_name: string | null;
       product_hsn_code: string | null;
       // Legacy JOIN (fallback for rows placed before the migration)
-      products: { name: string; hsn_code: string | null; gst_rate: number } | null;
+      products: {
+        name: string; hsn_code: string | null; gst_rate: number;
+        category_id: string | null;
+        // Category + parent category resolved for grouping line items.
+        categories: {
+          id: string; name: string; parent_id: string | null;
+          parent_cat: { name: string } | null;
+        } | null;
+      } | null;
       product_variants: { name: string } | null;
     }[];
   } | null;
@@ -108,7 +116,9 @@ export async function getInvoice(id: string): Promise<InvoiceDetail> {
     // P26: the order_items SELECT now reads the snapshot columns directly.
     // The products JOIN is kept as a fallback for legacy rows (placed before
     // the migration) where the snapshot is NULL.
-    .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, store_id, delivery_charge, payment_method, stores!orders_store_id_fkey(name), profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate), product_variants(name)))")
+    // P68: join products->categories so line items can be grouped by
+    // category/subcategory. parent_cat resolves the subcategory's root.
+    .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, store_id, delivery_charge, payment_method, stores!orders_store_id_fkey(name), profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate, category_id, categories!products_category_id_fkey(id, name, parent_id, parent_cat:categories!categories_parent_id_fkey(name))), product_variants(name)))")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);

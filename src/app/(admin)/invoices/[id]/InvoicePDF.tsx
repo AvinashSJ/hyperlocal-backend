@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import type { InvoiceDetail, InvoiceStore } from "../actions";
+import { groupOrderItems, resolveItemCategory } from "@/lib/group-order-items";
 
 Font.register({
   family: "Helvetica",
@@ -25,6 +26,10 @@ const styles = StyleSheet.create({
   table: { width: "100%", borderWidth: 1, borderColor: "#ccc", marginBottom: 15 },
   tableHeader: { flexDirection: "row", backgroundColor: "#f0f0f0", borderBottomWidth: 1, borderBottomColor: "#ccc" },
   tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#eee" },
+  groupRow: { flexDirection: "row", backgroundColor: "#e8e8e8", borderBottomWidth: 1, borderBottomColor: "#ccc" },
+  subgroupRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#eee" },
+  cellGroup: { width: "100%", paddingVertical: 4, paddingHorizontal: 4, fontWeight: "bold", fontSize: 9, textTransform: "uppercase", color: "#555" },
+  cellSubgroup: { width: "100%", paddingVertical: 3, paddingHorizontal: 8, fontWeight: "bold", fontSize: 9 },
   cellNo: { width: "4%", padding: 4, textAlign: "center", overflow: "hidden" },
   cellProduct: { width: "24%", padding: 4, overflow: "hidden" },
   cellUnitPrice: { width: "13%", padding: 4, textAlign: "right", overflow: "hidden" },
@@ -108,6 +113,7 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
   const order = invoice.orders;
   const addr = order?.addresses;
   const items = order?.order_items ?? [];
+  const itemGroups = groupOrderItems(items, resolveItemCategory);
   const store = invoice.store;
   const orderStore = order?.stores ?? null;
   const gstin = resolveGstin(store);
@@ -174,27 +180,45 @@ export default function InvoicePDF({ invoice }: { invoice: InvoiceDetail }) {
             <Text style={styles.cellGst}><Text style={styles.headerText}>GST</Text></Text>
             <Text style={styles.cellTotal}><Text style={styles.headerText}>Total</Text></Text>
           </View>
-          {items.map((item, i) => {
-            const taxable = Number(item.total_price) - Number(item.gst_amount);
-            const gstAmount = Number(item.gst_amount);
-            const variant = item.variant_name ?? item.product_variants?.name;
-            const productLabel = variant
-              ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
-              : item.product_name ?? item.products?.name ?? "Deleted Product";
+          {(() => {
+            let lineNo = 0;
+            return itemGroups.flatMap((group) => [
+              <View key={`h-${group.rootId ?? "uncategorized"}`} style={styles.groupRow}>
+                <Text style={styles.cellGroup}>{group.rootName}</Text>
+              </View>,
+              ...group.subcategories.flatMap((sub) => [
+                ...(sub.name
+                  ? [
+                    <View key={`sh-${group.rootId}-${sub.id}`} style={styles.subgroupRow}>
+                      <Text style={styles.cellSubgroup}>{sub.name}</Text>
+                    </View>,
+                  ]
+                  : []),
+                ...sub.items.map((item) => {
+                  lineNo++;
+                  const taxable = Number(item.total_price) - Number(item.gst_amount);
+                  const gstAmount = Number(item.gst_amount);
+                  const variant = item.variant_name ?? item.product_variants?.name;
+                  const productLabel = variant
+                    ? `${item.product_name ?? item.products?.name ?? "Deleted Product"} — ${variant}`
+                    : item.product_name ?? item.products?.name ?? "Deleted Product";
 
-            return (
-              <View key={item.id} style={styles.tableRow}>
-                <Text style={styles.cellNo}>{i + 1}</Text>
-                <Text style={styles.cellProduct}>{productLabel}</Text>
-                <Text style={styles.cellUnitPrice}>Rs. {Number(item.unit_price).toFixed(2)}</Text>
-                <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
-                <Text style={styles.cellQty}>{item.quantity}</Text>
-                <Text style={styles.cellTaxable}>Rs. {taxable.toFixed(2)}</Text>
-                <Text style={styles.cellGst}>{item.gst_rate > 0 ? `${item.gst_rate / 2}%  Rs. ${gstAmount.toFixed(2)}` : "—"}</Text>
-                <Text style={styles.cellTotal}>Rs. {Number(item.total_price).toFixed(2)}</Text>
-              </View>
-            );
-          })}
+                  return (
+                    <View key={item.id} style={styles.tableRow}>
+                      <Text style={styles.cellNo}>{lineNo}</Text>
+                      <Text style={styles.cellProduct}>{productLabel}</Text>
+                      <Text style={styles.cellUnitPrice}>Rs. {Number(item.unit_price).toFixed(2)}</Text>
+                      <Text style={styles.cellHsn}>{item.product_hsn_code ?? item.products?.hsn_code ?? "—"}</Text>
+                      <Text style={styles.cellQty}>{item.quantity}</Text>
+                      <Text style={styles.cellTaxable}>Rs. {taxable.toFixed(2)}</Text>
+                      <Text style={styles.cellGst}>{item.gst_rate > 0 ? `${item.gst_rate / 2}%  Rs. ${gstAmount.toFixed(2)}` : "—"}</Text>
+                      <Text style={styles.cellTotal}>Rs. {Number(item.total_price).toFixed(2)}</Text>
+                    </View>
+                  );
+                }),
+              ]),
+            ]);
+          })()}
         </View>
 
         <View style={styles.totalsSection}>

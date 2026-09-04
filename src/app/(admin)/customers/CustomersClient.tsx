@@ -2,11 +2,23 @@
 
 import { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
-import Link from "next/link";
 import type { CustomerUser } from "./actions";
 // P63: client-side date renderer. Avoids hydration mismatches caused
 // by server/client timezone divergence in toLocaleDateString.
 import ClientDate from "@/components/ClientDate";
+
+const PAGE_SIZE = 25;
+
+function formatAddress(a: CustomerUser["addresses"][number]): string {
+  const parts: string[] = [];
+  if (a.address_line1) parts.push(a.address_line1);
+  if (a.address_line2) parts.push(a.address_line2);
+  if (a.landmark) parts.push(a.landmark);
+  const cityState = [a.city, a.state].filter(Boolean).join(", ");
+  if (cityState) parts.push(cityState);
+  if (a.pincode) parts.push(a.pincode);
+  return parts.join(", ");
+}
 
 export default function CustomersClient({
   customers,
@@ -14,18 +26,53 @@ export default function CustomersClient({
   customers: CustomerUser[];
 }) {
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [expandedAddresses, setExpandedAddresses] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const filtered = useMemo(() => {
+    if (!search) return customers;
+    const q = search.toLowerCase();
     return customers.filter((c) => {
-      if (!search) return true;
-      const q = search.toLowerCase();
+      const addrText = (c.addresses ?? [])
+        .map(formatAddress)
+        .join(" ")
+        .toLowerCase();
       return (
         (c.email?.toLowerCase() ?? "").includes(q) ||
         (c.phone?.toLowerCase() ?? "").includes(q) ||
-        (c.profile?.full_name?.toLowerCase() ?? "").includes(q)
+        (c.profile?.full_name?.toLowerCase() ?? "").includes(q) ||
+        addrText.includes(q)
       );
     });
   }, [customers, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+  };
+
+  const changePage = (next: number) => {
+    const clamped = Math.min(Math.max(1, next), totalPages);
+    setPage(clamped);
+  };
+
+  const toggleAddresses = (customerId: string) => {
+    setExpandedAddresses((prev) => {
+      const next = new Set(prev);
+      if (next.has(customerId)) next.delete(customerId);
+      else next.add(customerId);
+      return next;
+    });
+  };
 
   return (
     <div>
@@ -34,10 +81,10 @@ export default function CustomersClient({
         <input
           type="text"
           className="form-control form-control-sm"
-          placeholder="Search name, email or phone..."
-          style={{ width: 260 }}
+          placeholder="Search name, email, phone or address..."
+          style={{ width: 280 }}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
         />
       </div>
       <div className="table-responsive">
@@ -47,21 +94,21 @@ export default function CustomersClient({
               <th>Customer</th>
               <th>Email</th>
               <th>Phone</th>
-              <th className="text-center">Addresses</th>
+              <th>Addresses</th>
               <th className="text-center">Orders</th>
               <th>Joined</th>
               <th>Last Login</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {pageItems.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-4">
                   No customers found
                 </td>
               </tr>
             ) : (
-              filtered.map((c) => (
+              pageItems.map((c) => (
                 <tr key={c.id}>
                   <td>
                     <div className="d-flex align-items-center gap-2">
@@ -78,10 +125,54 @@ export default function CustomersClient({
                   </td>
                   <td>{c.email ?? "—"}</td>
                   <td>{c.phone ?? "—"}</td>
-                  <td className="text-center">
-                    <span className="badge bg-secondary bg-opacity-10 text-secondary">
-                      {c.addressCount}
-                    </span>
+                  <td>
+                    {c.addresses.length === 0 ? (
+                      <span className="text-muted">
+                        <span className="badge bg-secondary bg-opacity-10 text-secondary me-2">
+                          0
+                        </span>
+                        —
+                      </span>
+                    ) : (
+                      <div className="small" style={{ minWidth: 260 }}>
+                        <span className="badge bg-secondary bg-opacity-10 text-secondary me-2">
+                          {c.addresses.length}
+                        </span>
+                        {c.addresses
+                          .slice(0, expandedAddresses.has(c.id) ? c.addresses.length : 1)
+                          .map((a) => (
+                            <div key={a.id} className="mb-1">
+                              {a.is_default && (
+                                <span className="badge bg-success bg-opacity-10 text-success me-1">
+                                  Default
+                                </span>
+                              )}
+                              {!a.is_deliverable && (
+                                <span className="badge bg-danger bg-opacity-10 text-danger me-1">
+                                  Not deliverable
+                                </span>
+                              )}
+                              {a.type && (
+                                <span className="badge bg-secondary bg-opacity-10 text-secondary me-1 text-uppercase">
+                                  {a.type}
+                                </span>
+                              )}
+                              <div className="mt-1 text-muted">{formatAddress(a)}</div>
+                            </div>
+                          ))}
+                        {c.addresses.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0 mt-1"
+                            onClick={() => toggleAddresses(c.id)}
+                          >
+                            {expandedAddresses.has(c.id)
+                              ? `Show less`
+                              : `+${c.addresses.length - 1} more`}
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="text-center">
                     <span className="badge bg-primary bg-opacity-10 text-primary">
@@ -100,6 +191,29 @@ export default function CustomersClient({
           </tbody>
         </table>
       </div>
+      {filtered.length > PAGE_SIZE && (
+        <div className="d-flex align-items-center justify-content-between mt-3">
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            disabled={currentPage === 1}
+            onClick={() => changePage(currentPage - 1)}
+          >
+            <Icon icon="mdi:chevron-left" /> Prev
+          </button>
+          <span className="text-muted small">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-secondary"
+            disabled={currentPage === totalPages}
+            onClick={() => changePage(currentPage + 1)}
+          >
+            Next <Icon icon="mdi:chevron-right" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
