@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupOrderItems, resolveItemCategory } from "./group-order-items";
+import { groupOrderItems, resolveItemCategory, enrichParentCategories } from "./group-order-items";
 import type { RawCategoryJoin } from "./group-order-items";
 
 type TestItem = {
@@ -166,5 +166,56 @@ describe("groupOrderItems", () => {
     expect(flatItems).toContain(itemA);
     expect(flatItems).toContain(itemB);
     expect(flatItems).toHaveLength(2);
+  });
+});
+
+describe("enrichParentCategories", () => {
+  it("returns items unchanged when no item has a parent_id", async () => {
+    const items = [root("a", "Snacks"), noProduct("b")];
+    const fetchParentNames = async () => {
+      throw new Error("should not be called");
+    };
+    const result = await enrichParentCategories(items, fetchParentNames);
+    expect(result).toEqual(items);
+  });
+
+  it("fetch parent names once per distinct parent_id and inject parent_cat", async () => {
+    const chips = { id: "o1", products: { categories: { id: "c1", name: "Chips", parent_id: "r1" } } };
+    const drinks = { id: "o2", products: { categories: { id: "c2", name: "Drinks", parent_id: "r1" } } };
+    const bakery = { id: "o3", products: { categories: { id: "c3", name: "Bread", parent_id: "r2" } } };
+    const called: string[][] = [];
+    const fetchParentNames = async (ids: string[]) => {
+      called.push([...ids].sort());
+      return new Map([
+        ["r1", "Snacks"],
+        ["r2", "Bakery"],
+      ]);
+    };
+    const result = await enrichParentCategories([chips, drinks, bakery], fetchParentNames);
+
+    expect(called).toEqual([["r1", "r2"]]);
+    expect(result).toEqual([
+      { id: "o1", products: { categories: { id: "c1", name: "Chips", parent_id: "r1", parent_cat: { name: "Snacks" } } } },
+      { id: "o2", products: { categories: { id: "c2", name: "Drinks", parent_id: "r1", parent_cat: { name: "Snacks" } } } },
+      { id: "o3", products: { categories: { id: "c3", name: "Bread", parent_id: "r2", parent_cat: { name: "Bakery" } } } },
+    ]);
+  });
+
+  it("sets parent_cat null when the parent name is missing from the lookup", async () => {
+    const chips = { id: "o1", products: { categories: { id: "c1", name: "Chips", parent_id: "ghost" } } };
+    const result = await enrichParentCategories([chips], async () => new Map());
+    expect(result).toEqual([
+      { id: "o1", products: { categories: { id: "c1", name: "Chips", parent_id: "ghost", parent_cat: null } } },
+    ]);
+  });
+
+  it("grouping works end-to-end after enrichment (subcategory folds under root)", async () => {
+    const chips = { id: "o1", products: { categories: { id: "c1", name: "Chips", parent_id: "r1" } } };
+    const snacks = { id: "o2", products: { categories: { id: "r1", name: "Snacks", parent_id: null } } };
+    const enriched = await enrichParentCategories([chips, snacks], async () => new Map([["r1", "Snacks"]]));
+    const groups = groupOrderItems(enriched as never, resolveItemCategory);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].rootName).toBe("Snacks");
+    expect(groups[0].subcategories.map((s) => s.name)).toEqual(["Chips", ""]);
   });
 });
