@@ -1,0 +1,11 @@
+id,date,timestamp,level,status,method,host,pathname,event_message,headers,regions,log_type,latency,log_count,logs,auth_user
+93f8ea8f-3f29-4f5e-bf40-6d88c3ffcb29,"""2026-09-04T10:29:39.223Z""",2026-09-04T10:29:39.223000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+f33f37c0-28fd-4321-bcd8-1b01bd2a79ac,"""2026-09-04T10:29:03.836Z""",2026-09-04T10:29:03.836000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+303a6f73-8acb-42d8-8a69-65c03ee7082e,"""2026-09-04T10:28:47.276Z""",2026-09-04T10:28:47.276000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+07190c1b-4331-406a-a403-34818555aa23,"""2026-09-04T10:28:30.368Z""",2026-09-04T10:28:30.368000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+8e5dcb50-bf30-44c7-89e3-7aaa2c7a2402,"""2026-09-04T10:28:29.538Z""",2026-09-04T10:28:29.538000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+a7cb4b90-c35b-4dbc-a8e2-c35c663e9896,"""2026-09-04T10:28:08.472Z""",2026-09-04T10:28:08.472000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+74c35ed2-7f7d-4d2c-a1bf-3adcaa522e56,"""2026-09-04T10:28:07.004Z""",2026-09-04T10:28:07.004000,error,3D000,,,,"database ""postgres.xjmngvxbaxlutupqavdr"" does not exist",{},[],postgres,0,null,[],null
+8a25c2c1-5d41-45b5-ac88-3677685544c0,"""2026-09-04T10:02:18.133Z""",2026-09-04T10:02:18.133000,error,42P10,,,,ORDER BY position 2 is not in select list,{},[],postgres,0,null,[],null
+c7e29cba-a8a6-4151-be24-3394704ff1b1,"""2026-09-04T10:00:45.021Z""",2026-09-04T10:00:45.021000,error,42601,,,,"syntax error at or near ""' AND p.prokind='""",{},[],postgres,0,null,[],null
+abcd33df-fba2-4b3b-85ea-44ce2c9f00e3,"""2026-09-04T09:59:56.615Z""",2026-09-04T09:59:56.615000,error,42702,,,,"column reference ""oid"" is ambiguous",{},[],postgres,0,null,[],null

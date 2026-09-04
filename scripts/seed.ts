@@ -50,6 +50,7 @@ async function ensureTestStore(): Promise<string> {
     .from("stores")
     .insert({
       name: "Test Store",
+        code: "TESTSTORE",
       slug: "test-store",
       phone: "+1-555-TESTORE",
       email: "store@test.com",

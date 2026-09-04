@@ -28,7 +28,10 @@ export type RawCategoryJoin = {
   id: string;
   name: string;
   parent_id: string | null;
-  parent_cat: { name: string } | null;
+  // Optional because PostgreSQL's PostgREST can't resolve the
+  // categories self-join (categories.parent_id -> categories.id).
+  // enrichParentCategories() fills it in JS before grouping runs.
+  parent_cat?: { name: string } | null;
 } | null;
 
 /** Convenience resolver for items with `products?.categories` (order/invoice shape). */
@@ -115,4 +118,62 @@ export function groupOrderItems<T>(
     });
   }
   return result;
+}
+
+/**
+ * A category with only the fields we can fetch via PostgREST's
+ * products->categories join (which resolves reliably), plus the
+ * optional resolved parent name.
+ */
+export type EnrichCategory = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  parent_cat?: { name: string } | null;
+};
+
+/**
+ * PostgREST cannot resolve the self-referencing categories
+ * relationship (categories.parent_id -> categories.id) through a
+ * nested `parent_cat:categories!categories_parent_id_fkey(name)`
+ * join — it returns PGRST200 ("Could not find a relationship
+ * between 'categories' and 'categories' in the schema cache").
+ *
+ * So instead we fetch each item's category via the reliable
+ * products->categories join (id, name, parent_id), then resolve the
+ * parent category names in JS with a single follow-up query keyed by
+ * the distinct `parent_id` values. This reconstructs the exact
+ * `parent_cat: { name }` shape that `resolveItemCategory` reads, so
+ * the grouping consumers stay unchanged.
+ *
+ * The `fetchParentNames` callback is injected to keep this module
+ * pure-of-Supabase: pass `(ids) => Promise<Map<string, string>>`.
+ */
+export async function enrichParentCategories<
+  T extends { products?: { categories?: EnrichCategory | null } | null },
+>(
+  items: T[] | null | undefined,
+  fetchParentNames: (parentIds: string[]) => Promise<Map<string, string>>,
+): Promise<T[]> {
+  if (!items) return items as unknown as T[];
+  const parentIds = new Set<string>();
+  for (const item of items) {
+    const parentId = item?.products?.categories?.parent_id;
+    if (parentId) parentIds.add(parentId);
+  }
+  if (parentIds.size === 0) return items;
+
+  const nameById = await fetchParentNames(Array.from(parentIds));
+  return items.map((item) => {
+    const cat = item?.products?.categories;
+    if (!cat || !cat.parent_id) return item;
+    const parentName = nameById.get(cat.parent_id);
+    return {
+      ...item,
+      products: {
+        ...item.products,
+        categories: { ...cat, parent_cat: parentName ? { name: parentName } : null },
+      },
+    };
+  });
 }

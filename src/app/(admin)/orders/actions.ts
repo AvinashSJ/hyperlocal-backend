@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission, PermissionError } from "@/lib/require-permission";
 import { logActivity } from "@/lib/activity-log";
 import { generateInvoice } from "@/app/(admin)/invoices/actions";
+import { enrichParentCategories } from "@/lib/group-order-items";
 
 export { generateInvoice as generateInvoiceForOrder };
 
@@ -85,9 +86,12 @@ export type OrderDetail = OrderRow & {
     products: {
       name: string; sku: string | null; category_id: string | null;
       // Category + (parent) category resolved for grouping line items.
+      // parent_cat is optional because the raw query returns categories
+      // without the self-join; enrichParentCategories fills it in JS
+      // (PostgREST cannot resolve categories.parent_id -> categories.id).
       categories: {
         id: string; name: string; parent_id: string | null;
-        parent_cat: { name: string } | null;
+        parent_cat?: { name: string } | null;
       } | null;
     } | null;
     product_variants: { name: string } | null;
@@ -105,12 +109,28 @@ export async function getOrder(id: string) {
     // P43: also join with stores(name, code) so the order detail page
     // can show which store the order belongs to.
     // P68: join products->categories so line items can be grouped by
-    // category/subcategory. parent_cat resolves the subcategory's root.
-    .select("*, profiles(full_name, phone, email), stores!orders_store_id_fkey(name, code), addresses(*), order_items(*, products(name, sku, category_id, categories!products_category_id_fkey(id, name, parent_id, parent_cat:categories!categories_parent_id_fkey(name))), product_variants(name)), order_tracks(*)")
+    // category/subcategory. parent_cat (the subcategory's root) is
+    // NOT fetched via a PostgREST self-join here — PostgREST can't
+    // resolve categories.parent_id -> categories.id (PGRST200), so we
+    // fetch category id/name/parent_id and resolve parent names in JS
+    // via enrichParentCategories below.
+    .select("*, profiles(full_name, phone, email), stores!orders_store_id_fkey(name, code), addresses(*), order_items(*, products(name, sku, category_id, categories!products_category_id_fkey(id, name, parent_id)), product_variants(name)), order_tracks(*)")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
-  return order as OrderDetail;
+
+  // P68: resolve the subcategory->root (parent_cat) names in JS because
+  // PostgREST cannot serve the categories self-relationship.
+  const enriched = order as OrderDetail;
+  enriched.order_items = await enrichParentCategories(enriched.order_items, async (ids) => {
+    const { data: cats, error: catError } = await supabase
+      .from("categories")
+      .select("id, name")
+      .in("id", ids);
+    if (catError) throw new Error(catError.message);
+    return new Map((cats ?? []).map((c) => [c.id, c.name]));
+  });
+  return enriched;
 }
 
 export async function updateOrderStatus(

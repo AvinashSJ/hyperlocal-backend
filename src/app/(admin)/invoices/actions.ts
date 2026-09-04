@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertPermission } from "@/lib/require-permission";
+import { enrichParentCategories } from "@/lib/group-order-items";
 
 type InvoiceRow = {
   id: string;
@@ -86,9 +87,12 @@ export type InvoiceDetail = InvoiceRow & {
         name: string; hsn_code: string | null; gst_rate: number;
         category_id: string | null;
         // Category + parent category resolved for grouping line items.
+        // parent_cat is optional because the raw query returns categories
+        // without the self-join; enrichParentCategories fills it in JS
+        // (PostgREST cannot resolve categories.parent_id -> categories.id).
         categories: {
           id: string; name: string; parent_id: string | null;
-          parent_cat: { name: string } | null;
+          parent_cat?: { name: string } | null;
         } | null;
       } | null;
       product_variants: { name: string } | null;
@@ -117,13 +121,28 @@ export async function getInvoice(id: string): Promise<InvoiceDetail> {
     // The products JOIN is kept as a fallback for legacy rows (placed before
     // the migration) where the snapshot is NULL.
     // P68: join products->categories so line items can be grouped by
-    // category/subcategory. parent_cat resolves the subcategory's root.
-    .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, store_id, delivery_charge, payment_method, stores!orders_store_id_fkey(name), profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate, category_id, categories!products_category_id_fkey(id, name, parent_id, parent_cat:categories!categories_parent_id_fkey(name))), product_variants(name)))")
+    // category/subcategory. parent_cat is NOT fetched via a PostgREST
+    // self-join here (categories.parent_id -> categories.id fails with
+    // PGRST200); we fetch category id/name/parent_id and resolve parent
+    // names in JS via enrichParentCategories below.
+    .select("*, orders!invoices_order_id_fkey(order_number, placed_at, gstin, store_id, delivery_charge, payment_method, stores!orders_store_id_fkey(name), profiles(full_name, phone), addresses(*), order_items(*, products(name, hsn_code, gst_rate, category_id, categories!products_category_id_fkey(id, name, parent_id)), product_variants(name)))")
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
 
   const detail = data as InvoiceDetail;
+  // P68: resolve the subcategory->root (parent_cat) names in JS because
+  // PostgREST cannot serve the categories self-relationship.
+  if (detail.orders?.order_items) {
+    detail.orders.order_items = await enrichParentCategories(detail.orders.order_items, async (ids) => {
+      const { data: cats, error: catError } = await supabase
+        .from("categories")
+        .select("id, name")
+        .in("id", ids);
+      if (catError) throw new Error(catError.message);
+      return new Map((cats ?? []).map((c) => [c.id, c.name]));
+    });
+  }
   detail.store = await fetchInvoiceStore(detail.orders?.store_id ?? null);
   return detail;
 }
