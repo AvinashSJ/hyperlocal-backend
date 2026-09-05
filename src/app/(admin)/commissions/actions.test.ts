@@ -28,10 +28,25 @@ import {
   getCommissionPeriodsForStore,
   getCommissionPayments,
   getCommissionById,
+  generateCommissionForPeriod,
   recordPayment,
   deleteCommissionPayment,
   getStoresLight,
 } from "./actions";
+
+// Mirrors getCurrentWeekRange() in actions.ts: the current Sunday-to-Sunday
+// window (UTC), so tests can build period rows that skip the auto-create.
+function getCurWeek(): { start: string; end: string } {
+  const now = new Date();
+  const dow = now.getUTCDay();
+  const startDate = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow),
+  );
+  const endDate = new Date(startDate.getTime() + 7 * 86400000);
+  const fmt = (d: Date) =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  return { start: fmt(startDate), end: fmt(endDate) };
+}
 
 beforeEach(() => {
   resetSupabaseClients();
@@ -124,7 +139,7 @@ describe("getCommissionPayments", () => {
   });
 });
 
-describe("getCommissionStoresForList (P68): live aggregates per store", () => {
+describe("getCommissionStoresForList: snapshot totals per store", () => {
   it("rejects users without commissions:view permission", async () => {
     asAdmin({});
     await expect(getCommissionStoresForList()).rejects.toBeInstanceOf(PermissionError);
@@ -134,18 +149,16 @@ describe("getCommissionStoresForList (P68): live aggregates per store", () => {
     asSuperAdmin();
     const admin = getAdminClient();
     admin.enqueueResponse({ data: [], error: null });
-    // No orders, no commissions, no payments, no settings — none of
-    // these queries are made when there are no stores (early return).
+    // No commissions, no payments, no settings — none of these queries
+    // are made when there are no stores (early return).
     const result = await getCommissionStoresForList();
     expect(result).toEqual([]);
   });
 
-  it("returns stores with live aggregates (revenue × rate - paid = balance)", async () => {
+  it("sums STORED commission_amount per store (no order math), paid from payments", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
     // 1) stores. s-2 has commission_rate: 0 to mean "no per-store rate"
-    // (the makeStore factory uses ?? 10 as default, so 0 is the only way
-    // to express "no rate" via the factory).
     admin.enqueueResponse({
       data: [
         makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
@@ -153,25 +166,16 @@ describe("getCommissionStoresForList (P68): live aggregates per store", () => {
       ],
       error: null,
     });
-    // 2) paid orders
+    // 2) commission rows (locked amounts)
     admin.enqueueResponse({
       data: [
-        { store_id: "s-1", total_amount: 1000, placed_at: "2026-04-15T00:00:00.000Z" },
-        { store_id: "s-1", total_amount: 500,  placed_at: "2026-04-20T00:00:00.000Z" },
-        { store_id: "s-2", total_amount: 2000, placed_at: "2026-04-10T00:00:00.000Z" },
+        { id: "p-1", store_id: "s-1", period_start: "2026-04-05", period_end: "2026-04-12", commission_amount: 100 },
+        { id: "p-2", store_id: "s-1", period_start: "2026-04-12", period_end: "2026-04-19", commission_amount: 50 },
+        { id: "p-3", store_id: "s-2", period_start: "2026-04-05", period_end: "2026-04-12", commission_amount: 0 },
       ],
       error: null,
     });
-    // 3) commission rows
-    admin.enqueueResponse({
-      data: [
-        { id: "p-1", store_id: "s-1", period_start: "2026-04-01", period_end: "2026-04-30" },
-        { id: "p-2", store_id: "s-1", period_start: "2026-03-01", period_end: "2026-03-31" },
-        { id: "p-3", store_id: "s-2", period_start: "2026-04-01", period_end: "2026-04-30" },
-      ],
-      error: null,
-    });
-    // 4) payments
+    // 3) payments
     admin.enqueueResponse({
       data: [
         { commission_id: "p-1", amount: 50 },
@@ -179,25 +183,23 @@ describe("getCommissionStoresForList (P68): live aggregates per store", () => {
       ],
       error: null,
     });
-    // 5) settings (global default rate lookup) — returns nothing → default 0
+    // 4) settings (global default rate lookup) — returns nothing → default 0
     admin.enqueueResponse({ data: null, error: null });
 
     const result = await getCommissionStoresForList();
     expect(result).toHaveLength(2);
 
     const s1 = result.find((r) => r.id === "s-1")!;
-    // s-1: April period has revenue 1500 (1000+500) at 10% = 150. March
-    // period has no orders in the date range, so 0. Total = 150.
     expect(s1.commission_rate).toBe(10);
     expect(s1.period_count).toBe(2);
+    // total_commission = 100 + 50 (STORED, no orders consulted)
     expect(s1.total_commission).toBe(150);
     expect(s1.total_paid).toBe(50);
     expect(s1.total_balance).toBe(100);
-    // last_period_end: max(end) = "2026-04-30"
-    expect(s1.last_period_end).toBe("2026-04-30");
+    // last_period_end: max(end) = "2026-04-19"
+    expect(s1.last_period_end).toBe("2026-04-19");
 
     const s2 = result.find((r) => r.id === "s-2")!;
-    // s-2: no per-store rate (null), no global default → 0
     expect(s2.commission_rate).toBe(0);
     expect(s2.period_count).toBe(1);
     expect(s2.total_commission).toBe(0);
@@ -209,19 +211,11 @@ describe("getCommissionStoresForList (P68): live aggregates per store", () => {
     asSuperAdmin();
     const admin = getAdminClient();
     admin.enqueueResponse({
-      data: [
-        makeStore({ id: "s-1", name: "NoRate", code: "NR", commission_rate: 0 }),
-      ],
+      data: [makeStore({ id: "s-1", name: "NoRate", code: "NR", commission_rate: 0 })],
       error: null,
     });
     admin.enqueueResponse({
-      data: [{ store_id: "s-1", total_amount: 1000, placed_at: "2026-04-10T00:00:00.000Z" }],
-      error: null,
-    });
-    admin.enqueueResponse({
-      data: [
-        { id: "p-1", store_id: "s-1", period_start: "2026-04-01", period_end: "2026-04-30" },
-      ],
+      data: [{ id: "p-1", store_id: "s-1", period_start: "2026-04-05", period_end: "2026-04-12", commission_amount: 70 }],
       error: null,
     });
     admin.enqueueResponse({ data: [], error: null });
@@ -230,11 +224,12 @@ describe("getCommissionStoresForList (P68): live aggregates per store", () => {
 
     const result = await getCommissionStoresForList();
     expect(result[0].commission_rate).toBe(7);
+    // total_commission is the stored amount, not revenue × rate
     expect(result[0].total_commission).toBe(70);
   });
 });
 
-describe("getCommissionPeriodsForStore (P68): live per-period aggregates", () => {
+describe("getCommissionPeriodsForStore: weekly snapshot periods", () => {
   it("rejects users without commissions:view permission", async () => {
     asAdmin({});
     await expect(getCommissionPeriodsForStore("s-1")).rejects.toBeInstanceOf(PermissionError);
@@ -244,175 +239,299 @@ describe("getCommissionPeriodsForStore (P68): live per-period aggregates", () =>
     asSuperAdmin();
     const admin = getAdminClient();
     admin.enqueueResponse({ data: null, error: null });
-    // Auto-create inserts if a period is missing, but here no periods
-    // exist. We need an enqueueResponse for the refetch query (the
-    // post-insert refetch) — but the auto-create only runs when there
-    // are no current-month periods. So no refetch happens.
     const result = await getCommissionPeriodsForStore("missing");
     expect(result.store.name).toBe("—");
     expect(result.periods).toEqual([]);
   });
 
-  it("returns periods with live revenue, commission, paid, balance, and status", async () => {
+  it("uses STORED revenue/rate/amount per period and live paid from payments", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
-    // We need the current month in the commission rows so the
-    // auto-create path is skipped. Use a fixed past month + the actual
-    // current month so the test is deterministic.
-    const now = new Date();
-    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-    const periodCur = { id: "p-cur", period_start: curStart, period_end: curEnd, notes: null };
-    const periodPast = { id: "p-past", period_start: "2025-04-01", period_end: "2025-04-30", notes: null };
+    const cur = getCurWeek();
+    const periodCur = {
+      id: "p-cur",
+      period_start: cur.start,
+      period_end: cur.end,
+      total_revenue: 500,
+      commission_rate: 10,
+      commission_amount: 50,
+      status: "unpaid",
+      notes: null,
+    };
+    const periodPast = {
+      id: "p-past",
+      period_start: "2025-04-06",
+      period_end: "2025-04-13",
+      total_revenue: 1000,
+      commission_rate: 10,
+      commission_amount: 100,
+      status: "unpaid",
+      notes: null,
+    };
 
     // 1) store
     admin.enqueueResponse({
       data: makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
       error: null,
     });
-    // 2) commission rows for s-1 (includes current month → no auto-create)
-    admin.enqueueResponse({
-      data: [periodCur, periodPast],
-      error: null,
-    });
-    // 3) paid orders (with 1 in current month, 1 in past)
-    admin.enqueueResponse({
-      data: [
-        { total_amount: 1000, placed_at: "2025-04-15T00:00:00.000Z" },
-        { total_amount: 500,  placed_at: curStart + "T00:00:00.000Z" },
-      ],
-      error: null,
-    });
-    // 4) payments
-    admin.enqueueResponse({
-      data: [{ commission_id: "p-cur", amount: 20 }],
-      error: null,
-    });
-    // 5) settings (default rate, used by effectiveRateFor)
+    // 2) commission rows (includes current week → no auto-create; NO orders query)
+    admin.enqueueResponse({ data: [periodCur, periodPast], error: null });
+    // 3) payments
+    admin.enqueueResponse({ data: [{ commission_id: "p-cur", amount: 20 }], error: null });
+    // 4) settings (default rate for the store header)
     admin.enqueueResponse({ data: null, error: null });
 
     const result = await getCommissionPeriodsForStore("s-1");
     expect(result.periods).toHaveLength(2);
 
-    // p-cur: 500 revenue, 10% = 50 commission, 20 paid, 30 balance
     const pCur = result.periods.find((p) => p.id === "p-cur")!;
     expect(pCur.total_revenue).toBe(500);
     expect(pCur.commission_amount).toBe(50);
     expect(pCur.paid_amount).toBe(20);
     expect(pCur.balance_due).toBe(30);
     expect(pCur.status).toBe("partially_paid");
+    expect(pCur.generated).toBe(true);
 
-    // p-past: 1000 revenue, 10% = 100 commission, 0 paid, 100 balance
     const pPast = result.periods.find((p) => p.id === "p-past")!;
     expect(pPast.total_revenue).toBe(1000);
     expect(pPast.commission_amount).toBe(100);
     expect(pPast.paid_amount).toBe(0);
     expect(pPast.balance_due).toBe(100);
     expect(pPast.status).toBe("unpaid");
+    expect(pPast.generated).toBe(true);
   });
 
-  it("auto-creates a current-month row on first view if missing", async () => {
+  it("auto-creates an empty current-week row on first view if missing", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
-    const now = new Date();
-    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const cur = getCurWeek();
 
     // 1) store
     admin.enqueueResponse({
       data: makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
       error: null,
     });
-    // 2) commission rows for s-1 (empty — current month missing)
+    // 2) commission rows for s-1 (empty — current week missing)
     admin.enqueueResponse({ data: [], error: null });
     // 3) settings (for getGlobalDefaultRate inside auto-create)
     admin.enqueueResponse({ data: null, error: null });
-    // 4) INSERT current month row
+    // 4) INSERT current week row
     admin.enqueueResponse({
-      data: { id: "p-new", period_start: curStart, period_end: curEnd, notes: null },
+      data: { id: "p-new", period_start: cur.start, period_end: cur.end, total_revenue: 0, commission_rate: 10, commission_amount: 0, status: "paid", notes: null },
       error: null,
     });
     // 5) refetch commission rows (now includes the new row)
     admin.enqueueResponse({
-      data: [{ id: "p-new", period_start: curStart, period_end: curEnd, notes: null }],
+      data: [{ id: "p-new", period_start: cur.start, period_end: cur.end, total_revenue: 0, commission_rate: 10, commission_amount: 0, status: "paid", notes: null }],
       error: null,
     });
-    // 6) paid orders (empty for the new period)
-    admin.enqueueResponse({ data: [], error: null });
-    // 7) payments (none for the new row)
+    // 6) payments (none for the new row)
     admin.enqueueResponse({ data: [], error: null });
 
     const result = await getCommissionPeriodsForStore("s-1");
     expect(result.periods).toHaveLength(1);
     expect(result.periods[0].id).toBe("p-new");
-    // No orders this month → revenue 0, commission 0, status paid
+    // No orders consulted → revenue 0, commission 0, status paid, NOT generated
     expect(result.periods[0].total_revenue).toBe(0);
+    expect(result.periods[0].commission_amount).toBe(0);
     expect(result.periods[0].status).toBe("paid");
+    expect(result.periods[0].generated).toBe(false);
   });
 
-  it("does NOT auto-create when the current-month row already exists", async () => {
+  it("does NOT auto-create when the current-week row already exists", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
-    const now = new Date();
-    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const cur = getCurWeek();
 
     // 1) store
     admin.enqueueResponse({
       data: makeStore({ id: "s-1", name: "FreshCart", code: "FCD", commission_rate: 10 }),
       error: null,
     });
-    // 2) commission rows (already has the current month)
+    // 2) commission rows (already has the current week)
     admin.enqueueResponse({
-      data: [{ id: "p-existing", period_start: curStart, period_end: curEnd, notes: null }],
+      data: [{ id: "p-existing", period_start: cur.start, period_end: cur.end, total_revenue: 0, commission_rate: 10, commission_amount: 0, status: "paid", notes: null }],
       error: null,
     });
-    // 3) paid orders
+    // 3) payments
     admin.enqueueResponse({ data: [], error: null });
-    // 4) payments
-    admin.enqueueResponse({ data: [], error: null });
-    // 5) settings
+    // 4) settings
     admin.enqueueResponse({ data: null, error: null });
 
     const result = await getCommissionPeriodsForStore("s-1");
     expect(result.periods).toHaveLength(1);
 
-    // No INSERT should have been made
     const insertCalls = admin.calls.filter((c) => c.method === "insert");
     expect(insertCalls).toHaveLength(0);
   });
 
-  it("P68: 'paid' status is derived from paid_amount (not from stored status)", async () => {
+  it("derives 'paid' from (stored amount, paid) even when the stored status is 'unpaid'", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
-    const now = new Date();
-    const curStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const curEnd = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    const cur = getCurWeek();
 
     admin.enqueueResponse({
       data: makeStore({ id: "s-1", commission_rate: 10 }),
       error: null,
     });
-    // Use the current month so auto-create is skipped
+    // Stored: 100 commission, but stored status says "unpaid" — paid of 100
+    // from the payments table fully covers it → shown as paid.
     admin.enqueueResponse({
-      data: [{ id: "p-1", period_start: curStart, period_end: curEnd, notes: null }],
+      data: [{ id: "p-1", period_start: cur.start, period_end: cur.end, total_revenue: 1000, commission_rate: 10, commission_amount: 100, status: "unpaid", notes: null }],
       error: null,
     });
-    admin.enqueueResponse({
-      data: [{ total_amount: 1000, placed_at: curStart + "T00:00:00.000Z" }],
-      error: null,
-    });
-    // paid_amount = 100 = full commission (10% of 1000)
     admin.enqueueResponse({ data: [{ commission_id: "p-1", amount: 100 }], error: null });
     admin.enqueueResponse({ data: null, error: null });
 
     const result = await getCommissionPeriodsForStore("s-1");
     expect(result.periods[0].status).toBe("paid");
     expect(result.periods[0].balance_due).toBe(0);
+  });
+});
+
+describe("generateCommissionForPeriod: weekly snapshot", () => {
+  it("rejects users without commissions:edit permission", async () => {
+    asAdmin({ commissions: ["view"] });
+    const fd = buildFormData({ period_id: "p-1" });
+    await expect(generateCommissionForPeriod(fd)).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("throws when period_id is missing", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const fd = buildFormData({});
+    await expect(generateCommissionForPeriod(fd)).rejects.toThrow(/Valid period/);
+  });
+
+  it("throws when the period does not exist", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: null, error: null });
+    const fd = buildFormData({ period_id: "missing" });
+    await expect(generateCommissionForPeriod(fd)).rejects.toThrow(/Commission period not found/);
+  });
+
+  it("refuses to re-generate a period that was already generated", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "p-1", store_id: "s-1", period_start: "2026-08-23", period_end: "2026-08-30", total_revenue: 5514, commission_amount: 55.14 },
+      error: null,
+    });
+    const fd = buildFormData({ period_id: "p-1" });
+    await expect(generateCommissionForPeriod(fd)).rejects.toThrow(/already generated/);
+  });
+
+  it("throws when the store has no commission rate configured", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "p-1", store_id: "s-1", period_start: "2026-08-30", period_end: "2026-09-06", total_revenue: 0, commission_amount: 0 },
+      error: null,
+    });
+    // store with no per-store rate, and no global default (settings → null)
+    admin.enqueueResponse({ data: makeStore({ id: "s-1", commission_rate: 0 }), error: null });
+    admin.enqueueResponse({ data: null, error: null }); // settings lookup
+
+    const fd = buildFormData({ period_id: "p-1" });
+    await expect(generateCommissionForPeriod(fd)).rejects.toThrow(/No commission rate configured/);
+  });
+
+  it("throws when the orders query fails", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "p-1", store_id: "s-1", period_start: "2026-08-30", period_end: "2026-09-06", total_revenue: 0, commission_amount: 0 },
+      error: null,
+    });
+    admin.enqueueResponse({ data: makeStore({ id: "s-1", commission_rate: 10 }), error: null });
+    admin.enqueueResponse({ data: null, error: { message: "boom" } }); // orders
+
+    const fd = buildFormData({ period_id: "p-1" });
+    await expect(generateCommissionForPeriod(fd)).rejects.toThrow(/boom/);
+  });
+
+  it("snapshots the week: Σ subtotal of paid+delivered orders × rate, then locks the row", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "p-1", store_id: "s-1", period_start: "2026-08-30", period_end: "2026-09-06", total_revenue: 0, commission_amount: 0 },
+      error: null,
+    });
+    admin.enqueueResponse({ data: makeStore({ id: "s-1", name: "FreshCart", commission_rate: 10 }), error: null });
+    // 1550 total subtotal in the window → 10% commission = 155
+    admin.enqueueResponse({
+      data: [{ subtotal: 1500 }, { subtotal: 50 }],
+      error: null,
+    });
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    const fd = buildFormData({ period_id: "p-1" });
+    await generateCommissionForPeriod(fd);
+
+    const updateCall = admin.chainsForTable("store_commissions").flatMap((c) => c)
+      .find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({
+      total_revenue: 1550,
+      commission_rate: 10,
+      commission_amount: 155,
+      balance_due: 155,
+      status: "unpaid",
+    });
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions/store/s-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/commissions/p-1");
+  });
+
+  it("uses the global default rate when the store has no per-store rate", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "p-1", store_id: "s-1", period_start: "2026-08-30", period_end: "2026-09-06", total_revenue: 0, commission_amount: 0 },
+      error: null,
+    });
+    admin.enqueueResponse({ data: makeStore({ id: "s-1", name: "NoRate", commission_rate: 0 }), error: null });
+    admin.enqueueResponse({ data: { value: { rate: 7 } }, error: null }); // settings default
+    admin.enqueueResponse({ data: [{ subtotal: 1000 }], error: null });
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    const fd = buildFormData({ period_id: "p-1" });
+    await generateCommissionForPeriod(fd);
+
+    const updateCall = admin.chainsForTable("store_commissions").flatMap((c) => c)
+      .find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({
+      total_revenue: 1000,
+      commission_rate: 7,
+      commission_amount: 70,
+      balance_due: 70,
+      status: "unpaid",
+    });
+  });
+
+  it("sets status to 'paid' when the week has no deliverable revenue", async () => {
+    asAdmin({ commissions: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({
+      data: { id: "p-1", store_id: "s-1", period_start: "2026-08-30", period_end: "2026-09-06", total_revenue: 0, commission_amount: 0 },
+      error: null,
+    });
+    admin.enqueueResponse({ data: makeStore({ id: "s-1", name: "FreshCart", commission_rate: 10 }), error: null });
+    admin.enqueueResponse({ data: [], error: null }); // no orders
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    const fd = buildFormData({ period_id: "p-1" });
+    await generateCommissionForPeriod(fd);
+
+    const updateCall = admin.chainsForTable("store_commissions").flatMap((c) => c)
+      .find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({
+      total_revenue: 0,
+      commission_rate: 10,
+      commission_amount: 0,
+      balance_due: 0,
+      status: "paid",
+    });
   });
 });
 

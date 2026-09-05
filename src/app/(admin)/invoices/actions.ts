@@ -258,8 +258,11 @@ export async function generateInvoice(orderId: string) {
 
   // Tax breakdown is computed once from the order; it doesn't
   // change across retry attempts. Hoisted outside the loop.
-  const taxableAmount = Number(order.total_amount) - Number(order.delivery_charge);
   const gstTotal = order.order_items.reduce((sum: number, item: { gst_amount: number }) => sum + Number(item.gst_amount), 0);
+  const taxableAmount = order.order_items.reduce(
+    (sum: number, item: { total_price: number; gst_amount: number }) => sum + (Number(item.total_price) - Number(item.gst_amount)),
+    0,
+  );
   const cgst = gstTotal / 2;
   const sgst = gstTotal / 2;
 

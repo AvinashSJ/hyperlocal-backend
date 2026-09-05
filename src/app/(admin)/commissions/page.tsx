@@ -6,9 +6,9 @@ export default async function CommissionsPage() {
   const perm = await requirePermission("commissions", "view");
   const actionPerms = getActionPermissions(perm.permissions, "commissions");
 
-  // P68: the list page now shows STORES, not commissions. Each store
-  // has a live aggregate of total commission, paid, and balance
-  // across all its commission periods.
+  // Weekly snapshot commissions: the list page shows STORES, not commissions.
+  // Each store has totals summed from its LOCKED per-week commission rows
+  // plus payments tracked per period.
   const stores = await getCommissionStoresForList();
 
   return (

@@ -12,8 +12,9 @@ export default async function StoreCommissionsPage({
   const { store_id: storeId } = await params;
   const actionPerms = getActionPermissions(perm.permissions, "commissions");
 
-  // P68: per-store commission periods with live values. Auto-creates
-  // a current-month row on first view if none exists.
+  // Weekly snapshot commissions: revenue/commission are locked when the
+  // current week is generated. Auto-creates an empty current-week row on
+  // first view if none exists.
   const { store, periods } = await getCommissionPeriodsForStore(storeId);
 
   return (
