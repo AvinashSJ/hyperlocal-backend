@@ -3,6 +3,10 @@
 import { useState, useMemo } from "react";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
+import { runServerAction } from "@/lib/run-server-action";
+import { generateCommissionForPeriod } from "../../actions";
 import type { CommissionPeriod } from "../../actions";
 import type { ActionPermissions } from "@/lib/require-permission";
 // P63: client-side date renderer. Avoids hydration mismatches caused
@@ -39,7 +43,9 @@ export default function StoreCommissionsClient({
   periods: CommissionPeriod[];
   actionPerms?: ActionPermissions;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
+  const [generating, setGenerating] = useState(false);
 
   const filtered = useMemo(() => {
     if (!search) return periods;
@@ -61,7 +67,7 @@ export default function StoreCommissionsClient({
         <input
           type="text"
           className="form-control form-control-sm"
-          placeholder="Search by period (YYYY-MM)..."
+          placeholder="Search by period (YYYY-MM-DD)..."
           style={{ width: 240 }}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -137,14 +143,43 @@ export default function StoreCommissionsClient({
                     </span>
                   </td>
                   <td className="text-center">
-                    <Link
-                      href={`/commissions/${p.id}`}
-                      className="btn btn-sm btn-outline-primary"
-                      title="View detail / record payment"
-                      data-testid={`store-commission-view-${p.id}`}
-                    >
-                      <Icon icon="mdi:eye-outline" />
-                    </Link>
+                    <div className="d-flex gap-1 justify-content-center align-items-center">
+                      {actionPerms?.canEdit && !p.generated && (
+                        <form
+                          className="d-inline"
+                          action={async (fd) => {
+                            setGenerating(true);
+                            const result = await runServerAction(generateCommissionForPeriod, fd);
+                            setGenerating(false);
+                            if (result.ok) {
+                              toast.success("Commission generated");
+                              router.refresh();
+                            } else {
+                              toast.error(result.error.message);
+                            }
+                          }}
+                        >
+                          <input type="hidden" name="period_id" value={p.id} />
+                          <button
+                            type="submit"
+                            className="btn btn-sm btn-success"
+                            disabled={generating}
+                            data-testid={`store-commission-generate-${p.id}`}
+                          >
+                            <Icon icon="mdi:lightning-bolt-outline" className="me-1" />
+                            {generating ? "Generating…" : "Generate"}
+                          </button>
+                        </form>
+                      )}
+                      <Link
+                        href={`/commissions/${p.id}`}
+                        className="btn btn-sm btn-outline-primary"
+                        title="View detail / record payment"
+                        data-testid={`store-commission-view-${p.id}`}
+                      >
+                        <Icon icon="mdi:eye-outline" />
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -154,7 +189,7 @@ export default function StoreCommissionsClient({
       </div>
 
       <p className="text-muted small mt-2 mb-0">
-        Revenue, commission, paid, and balance are all computed live from current paid orders. The current month is auto-created on first view of this page.
+        Revenue and commission are snapshotted when you Generate the current week — generated weeks are locked and never re-computed. Paid and balance track collected payments. The current week is auto-created on first view of this page.
       </p>
     </div>
   );

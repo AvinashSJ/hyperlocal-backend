@@ -37,20 +37,16 @@ export type SimpleStore = {
   commission_rate: number | null;
 };
 
-export type GenerateAllResult = {
-  generated: number;
-  skipped: number;
-  total_stores: number;
-  errors: { store_id: string; store_name: string; message: string }[];
-};
-
 const DEFAULT_COMMISSION_KEY = "default_commission_rate";
 
-// P68: live aggregates. The /commissions list page is now a list of
-// stores, each with a live-computed total commission / paid / balance.
-// /commissions/[store_id] is the per-month breakdown, also fully live.
+// Weekly snapshot commissions. The /commissions list page is a list of
+// stores, each with totals summed from LOCKED per-week commission rows.
+// /commissions/[store_id] is the per-week breakdown. Revenue and commission
+// are snapshotted once when the current week is generated (see
+// generateCommissionForPeriod); generated periods never change. Only the
+// paid/balance columns move after that, via commission_payments.
 
-// P68: one row per store in the list, with live aggregates
+// one row per store in the list, with snapshot totals
 export type CommissionStoreSummary = {
   id: string;
   name: string;
@@ -58,22 +54,23 @@ export type CommissionStoreSummary = {
   commission_rate: number;          // resolved effective rate (per-store or default)
   period_count: number;             // number of commission rows
   last_period_end: string | null;   // max(period_end) across all rows, or null
-  total_commission: number;         // live: sum of per-period commission_amount
-  total_paid: number;               // live: sum of all commission_payments for the store
-  total_balance: number;            // live: total_commission - total_paid
+  total_commission: number;         // sum of stored commission_amount across periods (locked)
+  total_paid: number;               // sum of all commission_payments for the store
+  total_balance: number;            // total_commission - total_paid
 };
 
-// P68: one row per commission period (per store, per month) with live values
+// one row per commission period (per store, per week) with snapshot values
 export type CommissionPeriod = {
   id: string;                       // the store_commissions row id (for drill-in)
   period_start: string;
   period_end: string;
-  total_revenue: number;            // live: sum of paid orders in this period
-  commission_rate: number;          // the rate that was used
-  commission_amount: number;        // live: total_revenue × rate / 100
+  total_revenue: number;            // stored: subtotal of paid+delivered orders in the week (snapshot)
+  commission_rate: number;          // the rate that was used (stored on the row)
+  commission_amount: number;        // stored: total_revenue × rate / 100 (snapshot)
   paid_amount: number;              // live: sum of commission_payments for this row
-  balance_due: number;              // live: commission_amount - paid_amount
+  balance_due: number;              // commission_amount - paid_amount
   status: "unpaid" | "partially_paid" | "paid";
+  generated: boolean;               // true when the week's revenue was snapshotted (stored revenue > 0)
   notes: string | null;
 };
 
@@ -128,15 +125,24 @@ async function resolveUserId(): Promise<string | null> {
   }
 }
 
-function getCurrentMonthRange(): { start: string; end: string } {
+/**
+ * Weekly commission period: the 7-day window from the most recent Sunday
+ * (00:00 UTC) to the following Sunday, matching the convention the old
+ * cron-based generator used (period_start = Sunday, period_end = Sunday,
+ * inclusive dates). Today Saturday Sep 5 2026 → start 2026-08-30, end 2026-09-06.
+ */
+function toISODate(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function getCurrentWeekRange(): { start: string; end: string } {
   const now = new Date();
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const start = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-  // last day of current month: day 0 of next month
-  const lastDay = new Date(y, m + 1, 0).getDate();
-  const end = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-  return { start, end };
+  const dow = now.getUTCDay(); // 0 = Sunday
+  const startDate = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - dow),
+  );
+  const endDate = new Date(startDate.getTime() + 7 * 86400000);
+  return { start: toISODate(startDate), end: toISODate(endDate) };
 }
 
 function deriveStatus(commissionAmount: number, paid: number): "unpaid" | "partially_paid" | "paid" {
@@ -185,16 +191,15 @@ function effectiveRateFor(
 }
 
 /**
- * P68: List of stores for the /commissions list page. Each store has
- * a live aggregate of total commission, total paid, and total balance
- * across all its commission periods. Computed from the current orders
- * table on every page load (4 batched queries, O(1) regardless of store
- * count or order volume).
+ * List of stores for the /commissions list page. Each store has totals
+ * summed from its STORED (locked) per-week commission rows plus live
+ * payments. Nothing is recomputed from orders here — generated weeks are
+ * immutable; ungenerated weeks contribute 0 until generateCommissionForPeriod
+ * snapshots them. (3 batched queries.)
  */
 export async function getCommissionStoresForList(): Promise<CommissionStoreSummary[]> {
   await assertPermission("commissions", "view");
   const adminSupabase = createAdminClient();
-  // Clear the in-memory cache so the live computation is fresh per request
   _settingsRateCache.clear();
 
   // 1) stores
@@ -208,31 +213,38 @@ export async function getCommissionStoresForList(): Promise<CommissionStoreSumma
 
   if (stores.length === 0) return [];
 
-  // 2) all paid orders
-  const ordersRes = await adminSupabase
-    .from("orders")
-    .select("store_id, total_amount, placed_at")
-    .eq("payment_status", "paid");
-  const orders = (ordersRes.data ?? []) as { store_id: string | null; total_amount: number; placed_at: string }[];
-
-  // 3) all commission rows (id, store_id, period_start, period_end)
+  // 2) all commission rows (id, store_id, period bounds, locked commission_amount)
   const commRes = await adminSupabase
     .from("store_commissions")
-    .select("id, store_id, period_start, period_end");
-  const commissions = (commRes.data ?? []) as { id: string; store_id: string; period_start: string; period_end: string }[];
+    .select("id, store_id, period_start, period_end, commission_amount");
+  const commissions = (commRes.data ?? []) as {
+    id: string;
+    store_id: string;
+    period_start: string;
+    period_end: string;
+    commission_amount: number;
+  }[];
 
-  // 4) all commission_payments joined with their commission row
+  // 3) all commission_payments joined with their commission row
   const payRes = await adminSupabase
     .from("commission_payments")
     .select("commission_id, amount");
   const allPayments = (payRes.data ?? []) as { commission_id: string; amount: number }[];
 
-  // Default rate (global) — cached per request
+  // Default rate (global) — cached per request, for the rate column only
   const defaultRate = await getGlobalDefaultRate(adminSupabase);
 
-  // Build maps for O(1) lookup
   const periodById = new Map<string, { store_id: string }>();
   for (const c of commissions) periodById.set(c.id, { store_id: c.store_id });
+
+  // commissionAmountByStore: sum of stored (locked) amounts per store
+  const amountByStore = new Map<string, number>();
+  for (const c of commissions) {
+    amountByStore.set(
+      c.store_id,
+      (amountByStore.get(c.store_id) ?? 0) + Number(c.commission_amount),
+    );
+  }
 
   // paymentsByStore: sum of all payments for the store
   const paymentsByStore = new Map<string, number>();
@@ -245,48 +257,22 @@ export async function getCommissionStoresForList(): Promise<CommissionStoreSumma
     );
   }
 
-  // commission_amountByStore: sum of all live commission_amounts for the store
-  // We need (store_id, period_start, period_end) → sum of paid orders
-  // Build: ordersByStoreAndPeriod: Map<store_id, Map<period_id, sum>>
-  // First, group commissions by store
-  const periodsByStore = new Map<string, { id: string; start: string; end: string }[]>();
-  for (const c of commissions) {
-    const list = periodsByStore.get(c.store_id) ?? [];
-    list.push({ id: c.id, start: c.period_start, end: c.period_end });
-    periodsByStore.set(c.store_id, list);
-  }
-
-  // Build: period boundaries in epoch for quick compare
-  function periodContains(periodStart: string, periodEnd: string, placedAt: string): boolean {
-    return placedAt >= periodStart && placedAt <= `${periodEnd}T23:59:59.999Z`;
-  }
-
   const summary: CommissionStoreSummary[] = stores.map((s) => {
-    const periods = periodsByStore.get(s.id) ?? [];
-    const rate = effectiveRateFor(s, defaultRate);
-
-    // Sum revenue per period, then compute commission_amount per period, then total
-    let totalCommission = 0;
-    for (const period of periods) {
-      const periodRevenue = orders
-        .filter((o) => o.store_id === s.id && periodContains(period.start, period.end, o.placed_at))
-        .reduce((sum, o) => sum + Number(o.total_amount), 0);
-      totalCommission += periodRevenue * (rate / 100);
-    }
-
+    const totalCommission = amountByStore.get(s.id) ?? 0;
     const totalPaid = paymentsByStore.get(s.id) ?? 0;
     const totalBalance = Math.max(totalCommission - totalPaid, 0);
 
-    // last_period_end: max end across this store's periods
+    // count + last_period_end derive straight from the commission rows
+    const periods = commissions.filter((c) => c.store_id === s.id);
     const lastEnd = periods
-      .map((p) => p.end)
+      .map((p) => p.period_end)
       .reduce<string | null>((max, e) => (max === null || e > max ? e : max), null);
 
     return {
       id: s.id,
       name: s.name,
       code: s.code,
-      commission_rate: rate,
+      commission_rate: effectiveRateFor(s, defaultRate),
       period_count: periods.length,
       last_period_end: lastEnd,
       total_commission: round2(totalCommission),
@@ -303,9 +289,12 @@ function round2(n: number): number {
 }
 
 /**
- * P68: Per-store commission periods. Returns all commission rows for
- * the given store, with live-computed revenue / amount / paid / balance.
- * Auto-creates a row for the current month on first view if none exists.
+ * Per-store commission periods. Returns all commission rows for the given
+ * store with their SNAPSHOT revenue/rate/amount (locked once generated),
+ * live paid from commission_payments, and balance/status derived from
+ * (stored amount, live paid). Auto-creates an empty row for the current
+ * week on first view if it does not already exist — it shows ₹0 until the
+ * Generate action snapshots it.
  */
 export async function getCommissionPeriodsForStore(
   storeId: string,
@@ -330,18 +319,27 @@ export async function getCommissionPeriodsForStore(
     };
   }
 
-  // 2) Commission rows for this store
+  // 2) Commission rows for this store (with stored money columns)
   const commRes = await adminSupabase
     .from("store_commissions")
-    .select("id, period_start, period_end, notes")
+    .select(
+      "id, period_start, period_end, total_revenue, commission_rate, commission_amount, status, notes",
+    )
     .eq("store_id", storeId)
     .order("period_start", { ascending: false });
   let periods = (commRes.data ?? []) as {
-    id: string; period_start: string; period_end: string; notes: string | null;
+    id: string;
+    period_start: string;
+    period_end: string;
+    total_revenue: number;
+    commission_rate: number;
+    commission_amount: number;
+    status: string;
+    notes: string | null;
   }[];
 
-  // 3) Auto-create the current month if missing
-  const { start: curStart, end: curEnd } = getCurrentMonthRange();
+  // 3) Auto-create the current week if missing
+  const { start: curStart, end: curEnd } = getCurrentWeekRange();
   const hasCurrent = periods.some((p) => p.period_start === curStart);
   if (!hasCurrent) {
     const defaultRate = await getGlobalDefaultRate(adminSupabase);
@@ -359,31 +357,22 @@ export async function getCommissionPeriodsForStore(
         status: "paid",
         notes: null,
       })
-      .select("id, period_start, period_end, notes")
+      .select("id, period_start, period_end, total_revenue, commission_rate, commission_amount, status, notes")
       .single();
     if (insErr) {
       // Non-fatal: log and continue. The page still works with existing periods.
-      console.warn(`[commissions] auto-create current month failed: ${insErr.message}`);
+      console.warn(`[commissions] auto-create current week failed: ${insErr.message}`);
     } else if (inserted) {
-      // Refetch the list so the new row is included
       const refetch = await adminSupabase
         .from("store_commissions")
-        .select("id, period_start, period_end, notes")
+        .select("id, period_start, period_end, total_revenue, commission_rate, commission_amount, status, notes")
         .eq("store_id", storeId)
         .order("period_start", { ascending: false });
       periods = (refetch.data ?? []) as typeof periods;
     }
   }
 
-  // 4) Paid orders for this store
-  const ordersRes = await adminSupabase
-    .from("orders")
-    .select("total_amount, placed_at")
-    .eq("store_id", storeId)
-    .eq("payment_status", "paid");
-  const orders = (ordersRes.data ?? []) as { total_amount: number; placed_at: string }[];
-
-  // 5) Commission payments for these commission rows
+  // 4) Commission payments for these commission rows
   const periodIds = periods.map((p) => p.id);
   const payRes = periodIds.length
     ? await adminSupabase
@@ -393,22 +382,17 @@ export async function getCommissionPeriodsForStore(
     : { data: [] as { commission_id: string; amount: number }[] };
   const payments = (payRes.data ?? []) as { commission_id: string; amount: number }[];
 
-  // 6) Default rate + effective rate for this store
-  const defaultRate = await getGlobalDefaultRate(adminSupabase);
-  const rate = effectiveRateFor(store, defaultRate);
-
-  // 7) paid_by_period
+  // 5) paid_by_period
   const paidByPeriod = new Map<string, number>();
   for (const p of payments) {
     paidByPeriod.set(p.commission_id, (paidByPeriod.get(p.commission_id) ?? 0) + Number(p.amount));
   }
 
-  // 8) Build the live period list
+  // 6) Build the period list. Amount fields come from the LOCKED stored
+  // values (set by generateCommissionForPeriod). Only paid is live.
   const result: CommissionPeriod[] = periods.map((p) => {
-    const totalRevenue = orders
-      .filter((o) => o.placed_at >= p.period_start && o.placed_at <= `${p.period_end}T23:59:59.999Z`)
-      .reduce((sum, o) => sum + Number(o.total_amount), 0);
-    const commissionAmount = totalRevenue * (rate / 100);
+    const totalRevenue = Number(p.total_revenue);
+    const commissionAmount = Number(p.commission_amount);
     const paidAmount = paidByPeriod.get(p.id) ?? 0;
     const balanceDue = Math.max(commissionAmount - paidAmount, 0);
     return {
@@ -416,16 +400,20 @@ export async function getCommissionPeriodsForStore(
       period_start: p.period_start,
       period_end: p.period_end,
       total_revenue: round2(totalRevenue),
-      commission_rate: rate,
+      commission_rate: Number(p.commission_rate),
       commission_amount: round2(commissionAmount),
       paid_amount: round2(paidAmount),
       balance_due: round2(balanceDue),
       status: deriveStatus(commissionAmount, paidAmount),
+      generated: totalRevenue > 0,
       notes: p.notes,
     };
   });
 
-  return { store: { ...store, commission_rate: rate }, periods: result };
+  return {
+    store: { ...store, commission_rate: effectiveRateFor(store, await getGlobalDefaultRate(adminSupabase)) },
+    periods: result,
+  };
 }
 
 /**
@@ -489,6 +477,82 @@ export async function getCommissionPayments(commissionId: string): Promise<Commi
     created_by_name: (p.profiles as { full_name: string } | null)?.full_name ?? null,
     created_at: p.created_at,
   }));
+}
+
+/**
+ * Snapshot a commission period from its paid orders and lock it.
+ *
+ * Revenue basis (matches the original weekly generator):
+ *   - orders with payment_status = 'paid' AND status = 'delivered'
+ *   - windowed on delivered_at within [period_start, period_end]
+ *   - revenue = Σ subtotal (excludes delivery_charge + tax)
+ *   - commission = revenue × effective_rate / 100
+ *
+ * The row's total_revenue / commission_rate / commission_amount /
+ * balance_due / status are written once and LEFT ALONE afterwards. A
+ * second call refuses to run, so a generated week can never be
+ * "regenerated" into a later week — the previous week's orders stay
+ * attributed to the previous week only.
+ */
+export async function generateCommissionForPeriod(formData: FormData): Promise<void> {
+  await assertPermission("commissions", "edit");
+
+  const periodId = formData.get("period_id") as string;
+  if (!periodId) throw new Error("Valid period is required");
+
+  const adminSupabase = createAdminClient();
+  _settingsRateCache.clear();
+
+  const { data: row } = await adminSupabase
+    .from("store_commissions")
+    .select("id, store_id, period_start, period_end, total_revenue, commission_amount")
+    .eq("id", periodId)
+    .maybeSingle();
+  if (!row) throw new Error("Commission period not found");
+  if (Number(row.total_revenue) > 0 || Number(row.commission_amount) > 0) {
+    throw new Error("Commission already generated for this period");
+  }
+
+  const { data: store } = await adminSupabase
+    .from("stores")
+    .select("id, name, commission_rate")
+    .eq("id", row.store_id)
+    .maybeSingle();
+  if (!store) throw new Error("Store not found");
+  const rate = await resolveCommissionRate(adminSupabase, store);
+  if (rate <= 0) {
+    throw new Error(`No commission rate configured for ${store.name}`);
+  }
+
+  const ordersRes = await adminSupabase
+    .from("orders")
+    .select("subtotal")
+    .eq("store_id", row.store_id)
+    .eq("payment_status", "paid")
+    .eq("status", "delivered")
+    .gte("delivered_at", `${row.period_start}T00:00:00.000Z`)
+    .lte("delivered_at", `${row.period_end}T23:59:59.999Z`);
+  if (ordersRes.error) throw new Error(ordersRes.error.message);
+  const revenue = round2(
+    (ordersRes.data ?? []).reduce((sum, o) => sum + Number(o.subtotal), 0),
+  );
+
+  const commission = round2(revenue * (rate / 100));
+  const { error: updateError } = await adminSupabase
+    .from("store_commissions")
+    .update({
+      total_revenue: revenue,
+      commission_rate: rate,
+      commission_amount: commission,
+      balance_due: commission,
+      status: commission > 0 ? "unpaid" : "paid",
+    })
+    .eq("id", periodId);
+  if (updateError) throw new Error(updateError.message);
+
+  revalidatePath("/commissions");
+  revalidatePath(`/commissions/store/${row.store_id}`);
+  revalidatePath(`/commissions/${periodId}`);
 }
 
 export async function recordPayment(formData: FormData) {

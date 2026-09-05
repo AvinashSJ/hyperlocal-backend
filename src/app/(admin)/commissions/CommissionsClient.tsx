@@ -114,7 +114,7 @@ export default function CommissionsClient({
 
       {actionPerms?.canView && (
         <p className="text-muted small mt-2 mb-0">
-          All amounts are computed live from current paid orders. Click a store to see per-period breakdown.
+          Totals are from generated weekly commissions (locked at generation time). Payments and balances are tracked per period. Click a store to see the weekly breakdown.
         </p>
       )}
     </div>

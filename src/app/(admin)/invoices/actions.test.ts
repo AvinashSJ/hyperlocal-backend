@@ -210,10 +210,13 @@ describe("getInvoice", () => {
 });
 
 describe("generateInvoice", () => {
-  function makeOrderWithItems(totalAmount: number, deliveryCharge: number, items: { gst_amount: number }[]) {
+  function makeOrderWithItems(totalAmount: number, deliveryCharge: number, items: { gst_amount: number; total_price?: number }[]) {
     return {
       ...makeOrder({ id: "o-1", total_amount: totalAmount, delivery_charge: deliveryCharge }),
-      order_items: items.map((i) => ({ ...makeOrderItem(), gst_amount: i.gst_amount })),
+      order_items: items.map((i) => {
+        const base = makeOrderItem();
+        return { ...base, total_price: i.total_price ?? base.total_price, gst_amount: i.gst_amount };
+      }),
     };
   }
 
@@ -323,11 +326,11 @@ describe("generateInvoice", () => {
     expect(insertArg.invoice_number).toBe(`INV-STORE_B-${new Date().getFullYear()}-0001`);
   });
 
-  it("computes taxable_amount as total - delivery_charge", async () => {
+  it("computes taxable_amount as Σ(total_price − gst_amount)", async () => {
     asAdmin({ invoices: ["create"] });
     const admin = getAdminClient();
     admin.enqueueResponse({
-      data: makeOrderWithItems(1180, 100, [{ gst_amount: 180 }]),
+      data: makeOrderWithItems(1180, 100, [{ total_price: 1260, gst_amount: 180 }]),
       error: null,
     });
     admin.enqueueResponse({ data: { count: 5, error: null }, error: null });
