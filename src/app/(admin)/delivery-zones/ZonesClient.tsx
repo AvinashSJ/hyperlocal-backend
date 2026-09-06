@@ -3,8 +3,8 @@
 import { useState, useCallback } from "react";
 import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
-import { deleteDeliveryZone, type getDeliveryZones } from "./actions";
-import ZoneForm from "./ZoneForm";
+import { deleteDeliveryZone, getZoneForEdit, type ZoneForEdit, type getDeliveryZones } from "./actions";
+import ZoneForm, { type StoreOption } from "./ZoneForm";
 
 type Zone = Awaited<ReturnType<typeof getDeliveryZones>>[number];
 
@@ -21,10 +21,11 @@ function formatConditions(zone: Zone) {
   return parts;
 }
 
-export default function ZonesClient({ zones: initial, actionPerms, storeId }: { zones: Zone[]; actionPerms?: ActionPermissions; storeId?: string | null }) {
+export default function ZonesClient({ zones: initial, actionPerms, storeId, stores }: { zones: Zone[]; actionPerms?: ActionPermissions; storeId?: string | null; stores: StoreOption[] }) {
   const [zones, setZones] = useState(initial);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Zone | null>(null);
+  const [editing, setEditing] = useState<ZoneForEdit | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const handleDelete = useCallback(async (id: string, name: string) => {
     if (!confirm(`Delete zone "${name}"?`)) return;
@@ -37,10 +38,19 @@ export default function ZonesClient({ zones: initial, actionPerms, storeId }: { 
     }
   }, []);
 
-  const handleEdit = useCallback((zone: Zone) => {
-    setEditing(zone);
-    setShowForm(true);
-  }, []);
+  const handleEdit = useCallback(async (zone: Zone) => {
+    if (loadingId) return;
+    setLoadingId(zone.id);
+    try {
+      const full = await getZoneForEdit(zone.id);
+      setEditing(full);
+      setShowForm(true);
+    } catch {
+      toast.error("Failed to load zone details");
+    } finally {
+      setLoadingId(null);
+    }
+  }, [loadingId]);
 
   const handleNew = useCallback(() => {
     setEditing(null);
@@ -122,7 +132,7 @@ export default function ZonesClient({ zones: initial, actionPerms, storeId }: { 
                   <td className="text-center">
                     <div className="d-flex gap-1 justify-content-center">
                       {actionPerms?.canEdit && (
-                        <button className="btn btn-sm btn-outline-primary" title="Edit" onClick={() => handleEdit(zone)}>
+                        <button className="btn btn-sm btn-outline-primary" title="Edit" onClick={() => handleEdit(zone)} disabled={loadingId !== null}>
                           <Icon icon="ri:pencil-line" width={16} />
                         </button>
                       )}
@@ -140,7 +150,7 @@ export default function ZonesClient({ zones: initial, actionPerms, storeId }: { 
         </table>
       </div>
 
-      {showForm && <ZoneForm zone={editing} onClose={handleFormClose} storeId={storeId} />}
+      {showForm && <ZoneForm zone={editing} onClose={handleFormClose} storeId={storeId} stores={stores} />}
     </>
   );
 }

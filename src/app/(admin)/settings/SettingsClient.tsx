@@ -12,11 +12,6 @@ const MapLocationPicker = dynamic(() => import("./MapLocationPicker"), { ssr: fa
 import { updateStore, updateStoreSetting, updateReturnsConfig } from "./actions";
 import type { StoreSettingsData, ReturnsConfig } from "./actions";
 import {
-  createDeliveryZone,
-  updateDeliveryZone,
-  deleteDeliveryZone,
-} from "@/app/(admin)/delivery-zones/actions";
-import {
   createDeliverySlot,
   updateDeliverySlot,
   deleteDeliverySlot,
@@ -101,10 +96,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function CheckRow({ children }: { children: React.ReactNode }) {
-  return <div className="d-flex gap-3">{children}</div>;
-}
-
 function CheckField({ id, name, label, defaultChecked }: { id: string; name: string; label: string; defaultChecked: boolean }) {
   return (
     <div className="form-check">
@@ -114,7 +105,7 @@ function CheckField({ id, name, label, defaultChecked }: { id: string; name: str
   );
 }
 
-/* ──────────── DELIVERY ZONES ──────────── */
+/* ──────────── DELIVERY ZONES (read-only summary) ──────────── */
 
 type ZoneRow = {
   id: string; name: string; store_id: string; pincodes: string[];
@@ -122,97 +113,48 @@ type ZoneRow = {
   is_active: boolean; is_express: boolean;
 };
 
-function ZonesSection({ initial, disabled }: { initial: ZoneRow[]; disabled?: boolean }) {
-  const [zones, setZones] = useState(initial);
-
-  const handleDelete = useCallback(async (id: string, name: string) => {
-    if (!confirm(`Delete zone "${name}"?`)) return;
-    try {
-      await deleteDeliveryZone(id);
-      setZones((prev) => prev.filter((z) => z.id !== id));
-      toast.success("Zone deleted");
-    } catch { toast.error("Failed to delete zone"); }
-  }, []);
-
+function ZonesReadonlyList({ zones }: { zones: ZoneRow[] }) {
   return (
-      <InlineCrud<ZoneRow>
-        label="Delivery Zones"
-        items={zones}
-        emptyMsg="No delivery zones yet"
-        onDelete={handleDelete}
-        FormComponent={ZoneFormBody}
-        formTitle={(z) => z ? "Edit Zone" : "Add Zone"}
-        disabled={disabled}
-        columns={[
-        { header: "Name", render: (z) => <span className="fw-semibold">{z.name}</span> },
-        { header: "Pincodes", render: (z) => (
-          <span style={{ maxWidth: 180, display: "inline-block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {z.pincodes?.length ? z.pincodes.join(", ") : "\u2014"}
-          </span>
-        )},
-        { header: "Radius", render: (z) => `${z.radius_km} km` },
-        { header: "Charge", render: (z) => `₹${Number(z.delivery_charge).toFixed(2)}` },
-        { header: "Status", render: (z) => (
-          <div className="d-flex gap-1">
-            <span className={`badge ${z.is_active ? "bg-success" : "bg-secondary"}`}>{z.is_active ? "Active" : "Inactive"}</span>
-            {z.is_express && <span className="badge bg-info">Express</span>}
+    <div>
+      {zones.length > 0 ? (
+        <>
+          <div className="table-responsive mb-2">
+            <table className="table table-sm align-middle mb-0">
+              <thead className="table-light">
+                <tr>
+                  <th>Name</th>
+                  <th>Radius</th>
+                  <th>Charge</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {zones.map((z) => (
+                  <tr key={z.id}>
+                    <td className="fw-semibold">{z.name}</td>
+                    <td>{z.radius_km ? `${z.radius_km} km` : "\u2014"}</td>
+                    <td>
+                      {Number(z.delivery_charge) === 0 ? "Free" : `\u20B9${Number(z.delivery_charge).toFixed(2)}`}
+                      {Number(z.free_delivery_min_order) > 0 && (
+                        <div className="text-muted small">Free above \u20B9{Number(z.free_delivery_min_order).toFixed(0)}</div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge ${z.is_active ? "bg-success" : "bg-secondary"}`}>
+                        {z.is_active ? "Active" : "Inactive"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )},
-      ]}
-    />
-  );
-}
-
-function ZoneFormBody({ item: zone, onActionDone }: { item: ZoneRow | null; onActionDone: () => void }) {
-  const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
-    const action = zone ? updateDeliveryZone.bind(null, zone.id) : createDeliveryZone;
-    const result = await runServerAction(action, formData);
-    if (result.ok) {
-      onActionDone();
-      return { error: null };
-    }
-    return { error: result.error.message };
-  }, { error: null });
-
-  return (
-    <form action={formAction}>
-      {state.error && <div className="alert alert-danger py-2">{state.error}</div>}
-      <Field label="Name *">
-        <input type="text" name="name" className="form-control" defaultValue={zone?.name ?? ""} required />
-      </Field>
-      <Field label="Store ID *">
-        <input type="text" name="store_id" className="form-control" defaultValue={zone?.store_id ?? ""} required placeholder="UUID" />
-      </Field>
-      <Field label={`Pincodes ${zone ? "" : "(comma-separated)"}`}>
-        <input type="text" name="pincodes" className="form-control" defaultValue={zone?.pincodes?.join(", ") ?? ""} placeholder="e.g. 110001, 110002" />
-      </Field>
-      <div className="row mb-3">
-        <div className="col-4">
-          <Field label="Radius (km)">
-            <input type="number" name="radius_km" className="form-control" defaultValue={zone?.radius_km ?? 0} min={0} step="0.1" />
-          </Field>
-        </div>
-        <div className="col-4">
-          <Field label="Delivery Charge">
-            <input type="number" name="delivery_charge" className="form-control" defaultValue={zone?.delivery_charge ?? 0} min={0} step="0.01" />
-          </Field>
-        </div>
-        <div className="col-4">
-          <Field label="Free Min Order">
-            <input type="number" name="free_delivery_min_order" className="form-control" defaultValue={zone?.free_delivery_min_order ?? 0} min={0} step="0.01" />
-          </Field>
-        </div>
-      </div>
-      <CheckRow>
-        <CheckField id="zoneActive" name="is_active" label="Active" defaultChecked={zone?.is_active ?? true} />
-        <CheckField id="zoneExpress" name="is_express" label="Express" defaultChecked={zone?.is_express ?? false} />
-      </CheckRow>
-      <div className="d-flex gap-2 justify-content-end mt-3">
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Saving..." : zone ? "Update Zone" : "Create Zone"}
-        </button>
-      </div>
-    </form>
+        </>
+      ) : (
+        <p className="text-muted mb-2">No delivery zones yet.</p>
+      )}
+      <Link href="/delivery-zones" className="btn btn-sm btn-outline-primary">Manage zones →</Link>
+    </div>
   );
 }
 
@@ -1343,7 +1285,7 @@ export default function SettingsClient({
       <h5 className="fw-bold mb-3">Additional Configuration</h5>
 
       <SectionCard title="Delivery Zones" count={(displayData.zones as ZoneRow[]).length} defaultOpen>
-        <ZonesSection initial={displayData.zones as ZoneRow[]} disabled={isCreate || !actionPerms?.canEdit} />
+        <ZonesReadonlyList zones={displayData.zones as ZoneRow[]} />
       </SectionCard>
 
       <SectionCard title="Delivery Slots" count={(displayData.slots as SlotRow[]).length}>
