@@ -424,7 +424,7 @@ export default function ReportsClient({
               className="btn btn-sm btn-outline-success"
               onClick={() => downloadCSV("pnl-report.csv", ["Line Item", "Amount"], [
                 { "Line Item": "Gross Revenue", Amount: pnl.grossRevenue },
-                { "Line Item": "Less: Discounts", Amount: pnl.discounts },
+                { "Line Item": "Discounts off MRP (informational)", Amount: pnl.discounts },
                 { "Line Item": "Less: Returns & Refunds", Amount: pnl.returnsRefunds },
                 { "Line Item": "Net Revenue", Amount: pnl.netRevenue },
                 { "Line Item": "Less: Cost of Goods Sold", Amount: pnl.cogs },
@@ -458,7 +458,7 @@ export default function ReportsClient({
                 </thead>
                 <tbody>
                   <tr className="table-success"><td className="fw-medium">Gross Revenue</td><td className="text-end fw-medium">{currency(pnl.grossRevenue)}</td></tr>
-                  <tr><td className="text-muted ps-4">&mdash; Discounts</td><td className="text-end">{currency(pnl.discounts)}</td></tr>
+                  <tr><td className="text-muted ps-4">Discounts off MRP (informational, already reflected in Gross Revenue)&nbsp;&mdash; not deducted</td><td className="text-end">{currency(pnl.discounts)}</td></tr>
                   <tr><td className="text-muted ps-4">&mdash; Returns &amp; Refunds</td><td className="text-end">{currency(pnl.returnsRefunds)}</td></tr>
                   <tr className="table-info"><td className="fw-medium">Net Revenue</td><td className="text-end fw-medium">{currency(pnl.netRevenue)}</td></tr>
                   <tr><td className="text-muted ps-4">&mdash; Cost of Goods Sold</td><td className="text-end">{currency(pnl.cogs)}</td></tr>

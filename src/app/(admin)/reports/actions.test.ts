@@ -588,13 +588,13 @@ describe("getPnLSummary", () => {
     expect(result.grossRevenue).toBe(1000);
     expect(result.discounts).toBe(50);
     expect(result.returnsRefunds).toBe(100);
-    expect(result.netRevenue).toBe(850);
+    expect(result.netRevenue).toBe(900);
     expect(result.cogs).toBe(200);
     expect(result.deliveryCharges).toBe(30);
     expect(result.commissions).toBe(50);
-    expect(result.grossProfit).toBe(570);
+    expect(result.grossProfit).toBe(620);
     expect(result.gstCollected).toBe(90);
-    expect(result.netProfit).toBe(480);
+    expect(result.netProfit).toBe(530);
   });
 
   it("returns zeros when no data exists", async () => {

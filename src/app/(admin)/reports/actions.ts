@@ -450,7 +450,7 @@ export async function getPnLSummary(
   const { data: commissions } = await commQ;
   const totalCommissions = (commissions ?? []).reduce((s, c) => s + Number(c.commission_amount), 0);
 
-  const netRevenue = grossRevenue - discounts - returnsRefunds;
+  const netRevenue = grossRevenue - returnsRefunds;
   const grossProfit = netRevenue - cogs - deliveryCharges - totalCommissions;
   const netProfit = grossProfit - gstCollected;
 
