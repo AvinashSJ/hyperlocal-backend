@@ -241,7 +241,14 @@ export async function updateOrderStatus(
 }
 
 export async function updatePaymentStatus(id: string, payment_status: PaymentStatus) {
-  await assertPermission("orders", "edit");
+  const perm = await assertPermission("orders", "edit");
+  // Staff may update order status (orders:edit) but must NOT change
+  // payment status. This is the authoritative server-side guard — it
+  // protects against direct action calls, not just hidden UI. Manager
+  // and Super Admin are unaffected (role !== "Staff").
+  if (perm.role === "Staff") {
+    throw new Error("Staff cannot update payment status.");
+  }
   const supabase = createAdminClient();
 
   const { data: prev } = await supabase

@@ -354,6 +354,13 @@ describe("updatePaymentStatus", () => {
     await expect(updatePaymentStatus("o-1", "paid")).rejects.toBeInstanceOf(PermissionError);
   });
 
+  it("rejects Staff even when they have orders:edit", async () => {
+    asAdmin({ orders: ["edit"] }, { role: "Staff" });
+    await expect(updatePaymentStatus("o-1", "paid")).rejects.toThrow(
+      "Staff cannot update payment status.",
+    );
+  });
+
   it("updates payment_status, writes activity log, revalidates list and detail", async () => {
     asAdmin({ orders: ["edit"] });
     setServerUser({ id: "u-1", email: "u@test.com" });

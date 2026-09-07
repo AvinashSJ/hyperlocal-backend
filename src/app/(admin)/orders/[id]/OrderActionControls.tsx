@@ -47,12 +47,14 @@ export default function OrderActionControls({
   currentPaymentStatus,
   currentInvoiceId,
   canCreateInvoice,
+  canUpdatePayment = true,
 }: {
   orderId: string;
   currentStatus: OrderStatus;
   currentPaymentStatus: PaymentStatus;
   currentInvoiceId: string | null;
   canCreateInvoice: boolean;
+  canUpdatePayment?: boolean;
 }) {
   const router = useRouter();
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -116,8 +118,8 @@ export default function OrderActionControls({
   // P57: manual retry. Only visible when the order is delivered
   // but has no invoice (the auto-invoice failed, or the order
   // was marked delivered before the P44 fix shipped). The button
-  // is hidden for callers without `invoices:create` (Staff role)
-  // because the underlying server action would reject them.
+  // is hidden for callers without `invoices:create` because the
+  // underlying server action would reject them.
   const handleGenerateInvoice = async () => {
     setGeneratingInvoice(true);
     try {
@@ -246,7 +248,7 @@ export default function OrderActionControls({
             )}
           </>
         ))}
-        {isDelivered && currentPaymentStatus !== "paid" && (
+        {isDelivered && currentPaymentStatus !== "paid" && canUpdatePayment && (
           <button
             className="btn btn-success btn-sm"
             onClick={handleMarkAsPaid}
@@ -335,21 +337,23 @@ export default function OrderActionControls({
                   data-testid="status-notes"
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label">Payment</label>
-                <select
-                  className="form-select"
-                  value={statusModalPayment}
-                  onChange={(e) => setStatusModalPayment(e.target.value as PaymentStatus)}
-                  data-testid="status-payment-select"
-                >
-                  {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {canUpdatePayment && (
+                <div className="mb-3">
+                  <label className="form-label">Payment</label>
+                  <select
+                    className="form-select"
+                    value={statusModalPayment}
+                    onChange={(e) => setStatusModalPayment(e.target.value as PaymentStatus)}
+                    data-testid="status-payment-select"
+                  >
+                    {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
+                      <option key={s} value={s}>
+                        {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <button
                 className="btn btn-primary w-100"
                 onClick={handleStatusUpdate}
@@ -473,21 +477,23 @@ export default function OrderActionControls({
                   data-testid="return-notes"
                 />
               </div>
-              <div className="mb-3">
-                <label className="form-label">Payment</label>
-                <select
-                  className="form-select"
-                  value={returnPaymentStatus}
-                  onChange={(e) => setReturnPaymentStatus(e.target.value as PaymentStatus)}
-                  data-testid="return-payment-select"
-                >
-                  {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
-                    <option key={s} value={s}>
-                      {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {canUpdatePayment && (
+                <div className="mb-3">
+                  <label className="form-label">Payment</label>
+                  <select
+                    className="form-select"
+                    value={returnPaymentStatus}
+                    onChange={(e) => setReturnPaymentStatus(e.target.value as PaymentStatus)}
+                    data-testid="return-payment-select"
+                  >
+                    {(["unpaid", "paid", "refunded", "partially_refunded"] as PaymentStatus[]).map((s) => (
+                      <option key={s} value={s}>
+                        {s.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <button
                 className={`btn w-100 ${RETURN_TRANSITION_BTN_CLASS[selectedTransition] ?? "btn-primary"}`}
                 onClick={handleReturnSubmit}

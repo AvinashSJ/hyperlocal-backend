@@ -6,7 +6,7 @@ import OrderDetailClient from "./OrderDetailClient";
 
 export default async function OrderDetailPage(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
-  const { permissions } = await requirePermission("orders", "view");
+  const { permissions, role } = await requirePermission("orders", "view");
   // P57: pass invoiceActionPerms to the client so the [Generate Invoice]
   // retry button is only shown to callers with `invoices:create`.
   // The button is hidden for Staff (who has invoices:view only) —
@@ -17,6 +17,8 @@ export default async function OrderDetailPage(props: { params: Promise<{ id: str
   // and the raise-button gated by `returns:create`.
   const invoicesActionPerms = getActionPermissions(permissions, "invoices");
   const returnsActionPerms = getActionPermissions(permissions, "returns");
+  // Staff may update order status but must NOT edit payment status.
+  const canUpdatePayment = role !== "Staff";
   const [order, activityLog] = await Promise.all([
     getOrder(id),
     getEntityActivityLog("order", id),
@@ -27,6 +29,7 @@ export default async function OrderDetailPage(props: { params: Promise<{ id: str
       <OrderDetailClient
         order={order}
         canCreateInvoice={invoicesActionPerms.canCreate}
+        canUpdatePayment={canUpdatePayment}
         returnsActionPerms={returnsActionPerms}
         returnsEnabled={returnsConfig.enabled}
         activityLog={activityLog}
