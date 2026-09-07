@@ -1,8 +1,6 @@
-name: Replicate prod -> test (nightly)
+name: Replicate prod -> test (manual)
 
 on:
-  schedule:
-    - cron: "0 2 * * *"
   workflow_dispatch:
 
 jobs:
