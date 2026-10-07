@@ -22,10 +22,11 @@ export default async function CartGroupPage(props: {
   // P57: combine orders + invoices action perms so each sub-order
   // card's [Generate Invoice] retry button shows only for callers
   // who can actually use it.
-  const { permissions } = await requirePermission("orders", "view");
+  const { permissions, role } = await requirePermission("orders", "view");
   const ordersActionPerms = getActionPermissions(permissions, "orders");
   const invoicesActionPerms = getActionPermissions(permissions, "invoices");
   const actionPerms = { ...ordersActionPerms, ...invoicesActionPerms };
+  const canUpdatePayment = role !== "Staff";
   const cart = await getCartGroup(cart_id);
 
   if (!cart) {
@@ -58,7 +59,7 @@ export default async function CartGroupPage(props: {
           {cart.orders.length} order{cart.orders.length === 1 ? "" : "s"}
         </span>
       </div>
-      <CartGroupClient cart={cart} actionPerms={actionPerms} />
+      <CartGroupClient cart={cart} actionPerms={actionPerms} canUpdatePayment={canUpdatePayment} />
     </div>
   );
 }

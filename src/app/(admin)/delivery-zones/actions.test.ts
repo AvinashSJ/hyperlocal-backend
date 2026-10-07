@@ -23,6 +23,7 @@ import {
   createDeliveryZone,
   updateDeliveryZone,
   deleteDeliveryZone,
+  getZoneForEdit,
 } from "./actions";
 
 beforeEach(() => {
@@ -97,8 +98,67 @@ describe("createDeliveryZone", () => {
 
   it("throws when store_id is empty", async () => {
     asAdmin({ delivery_zones: ["create"] });
-    const fd = buildFormData({ name: "Z", store_id: "", pincodes: "560001" });
+    const fd = buildFormData({ name: "Z", store_id: "", pincodes: "560001", radius_km: 5 });
     await expect(createDeliveryZone(fd)).rejects.toThrow(/Store ID is required/);
+  });
+
+  it("throws when no coverage is set (radius 0 and no boundary)", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 0 });
+    await expect(createDeliveryZone(fd)).rejects.toThrow(/Set a delivery radius/);
+  });
+
+  it("throws when radius is negative", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: -1 });
+    await expect(createDeliveryZone(fd)).rejects.toThrow(/Radius cannot be negative/);
+  });
+
+  it("throws when delivery charges are negative", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5, delivery_charge: -1 });
+    await expect(createDeliveryZone(fd)).rejects.toThrow(/Charges cannot be negative/);
+  });
+
+  it("throws when max distance is below min distance", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5, min_distance_km: 10, max_distance_km: 2 });
+    await expect(createDeliveryZone(fd)).rejects.toThrow(/Max distance cannot be less than min distance/);
+  });
+
+  it("throws when max order value is below min order value", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5, min_order_value: 500, max_order_value: 100 });
+    await expect(createDeliveryZone(fd)).rejects.toThrow(/Max order value cannot be less than min order value/);
+  });
+
+  it("inserts a polygon zone (radius 0 + boundary) and sets boundary via RPC", async () => {
+    asAdmin({ delivery_zones: ["create"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: { id: "z-new" }, error: null });
+
+    const fd = buildFormData({
+      name: "Downtown",
+      store_id: "s-1",
+      pincodes: "560001",
+      radius_km: 0,
+      boundary: "[[12.97, 77.59], [12.98, 77.60], [12.96, 77.61]]",
+    });
+    await runAction(createDeliveryZone, fd);
+
+    const insertArg = admin.chainsForTable("delivery_zones")[0].find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.radius_km).toBe(0);
+
+    const rpcCalls = admin.calls.filter((c) => c.method === "rpc");
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0].args[0]).toBe("set_zone_boundary");
+    const rpcArgs = rpcCalls[0].args[1] as { p_zone_id: string; p_geojson: { coordinates: number[][][] } };
+    expect(rpcArgs.p_zone_id).toBe("z-new");
+    // [lat,lng] input is swapped to [lng,lat] and the ring is closed.
+    expect(rpcArgs.p_geojson.coordinates[0][0]).toEqual([77.59, 12.97]);
+    expect(rpcArgs.p_geojson.coordinates[0].slice(-1)[0]).toEqual([77.59, 12.97]);
   });
 
   it("inserts a zone with parsed pincodes (comma-separated, trimmed, non-empty)", async () => {
@@ -143,7 +203,7 @@ describe("createDeliveryZone", () => {
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: null });
 
-    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "" });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "", radius_km: 5 });
     await runAction(createDeliveryZone, fd);
 
     const insertArg = admin.chainsForTable("delivery_zones")[0].find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
@@ -159,6 +219,7 @@ describe("createDeliveryZone", () => {
       name: "Z",
       store_id: "s-1",
       pincodes: "560001",
+      radius_km: 5,
       is_active: "true",
       is_express: "on",
     });
@@ -178,6 +239,7 @@ describe("createDeliveryZone", () => {
       name: "Z",
       store_id: "s-1",
       pincodes: "560001",
+      radius_km: 5,
       is_active: "off",
     });
     await runAction(createDeliveryZone, fd);
@@ -187,16 +249,16 @@ describe("createDeliveryZone", () => {
     expect(insertArg.is_express).toBe(false);
   });
 
-  it("defaults numeric fields to 0 when missing", async () => {
+  it("defaults charge fields to 0 when missing", async () => {
     asAdmin({ delivery_zones: ["create"] });
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: null });
 
-    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001" });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5 });
     await runAction(createDeliveryZone, fd);
 
     const insertArg = admin.chainsForTable("delivery_zones")[0].find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
-    expect(insertArg.radius_km).toBe(0);
+    expect(insertArg.radius_km).toBe(5);
     expect(insertArg.delivery_charge).toBe(0);
     expect(insertArg.free_delivery_min_order).toBe(0);
   });
@@ -210,6 +272,7 @@ describe("createDeliveryZone", () => {
       name: "Z",
       store_id: "s-1",
       pincodes: "560001",
+      radius_km: 5,
       min_order_value: "100",
       max_order_value: "500",
       min_distance_km: "1.5",
@@ -229,7 +292,7 @@ describe("createDeliveryZone", () => {
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: null });
 
-    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001" });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5 });
     await runAction(createDeliveryZone, fd);
 
     const insertArg = admin.chainsForTable("delivery_zones")[0].find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
@@ -243,7 +306,7 @@ describe("createDeliveryZone", () => {
     asAdmin({ delivery_zones: ["create"] });
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: { message: "constraint" } });
-    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001" });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5 });
     const result = await runAction(createDeliveryZone, fd);
     expect(result.ok).toBe(false);
     expect(result.error?.message).toMatch(/constraint/);
@@ -263,18 +326,10 @@ describe("updateDeliveryZone", () => {
     await expect(updateDeliveryZone("z-1", fd)).rejects.toThrow(/Zone name is required/);
   });
 
-  it("does NOT require store_id on update", async () => {
+  it("throws when store_id is empty on update", async () => {
     asAdmin({ delivery_zones: ["edit"] });
-    const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
-
-    const fd = buildFormData({ name: "Z", store_id: "", pincodes: "560001" });
-    await runAction((f) => updateDeliveryZone("z-1", f), fd);
-
-    const chains = admin.chainsForTable("delivery_zones");
-    const updateCall = chains[0].find((c) => c.method === "update")!;
-    const updateArg = updateCall.args[0] as Record<string, unknown>;
-    expect(updateArg.store_id).toBe("");
+    const fd = buildFormData({ name: "Z", store_id: "", pincodes: "560001", radius_km: 5 });
+    await expect(updateDeliveryZone("z-1", fd)).rejects.toThrow(/Store ID is required/);
   });
 
   it("updates the zone by id and revalidates", async () => {
@@ -319,11 +374,63 @@ describe("updateDeliveryZone", () => {
     expect(revalidatePathMock).toHaveBeenCalledWith("/delivery-zones");
   });
 
+  it("clears a stored polygon when saving blank boundary in radius mode", async () => {
+    asAdmin({ delivery_zones: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+
+    const fd = buildFormData({
+      name: "Radius Zone",
+      store_id: "s-1",
+      pincodes: "560001",
+      radius_km: 10,
+      boundary: "",
+    });
+    await runAction((f) => updateDeliveryZone("z-1", f), fd);
+
+    const rpcCalls = admin.calls.filter((c) => c.method === "rpc");
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0].args[0]).toBe("set_zone_boundary");
+    const rpcArgs = rpcCalls[0].args[1] as { p_zone_id: string; p_geojson: unknown };
+    expect(rpcArgs.p_zone_id).toBe("z-1");
+    expect(rpcArgs.p_geojson).toBeNull();
+  });
+
+  it("sets a boundary on update when provided", async () => {
+    asAdmin({ delivery_zones: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: null });
+
+    const fd = buildFormData({
+      name: "Polygon Zone",
+      store_id: "s-1",
+      pincodes: "560001",
+      radius_km: 0,
+      boundary: "[[12.97, 77.59], [12.98, 77.60], [12.96, 77.61]]",
+    });
+    await runAction((f) => updateDeliveryZone("z-1", f), fd);
+
+    const rpcCalls = admin.calls.filter((c) => c.method === "rpc");
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0].args[0]).toBe("set_zone_boundary");
+    const rpcArgs = rpcCalls[0].args[1] as { p_zone_id: string; p_geojson: unknown };
+    expect(rpcArgs.p_geojson).not.toBeNull();
+  });
+
+  it("throws when max distance is below min distance on update", async () => {
+    asAdmin({ delivery_zones: ["edit"] });
+    const fd = buildFormData({
+      name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5,
+      min_distance_km: 10, max_distance_km: 2,
+    });
+    await expect(updateDeliveryZone("z-1", fd)).rejects.toThrow(/Max distance cannot be less than min distance/);
+  });
+
   it("throws when update returns an error", async () => {
     asAdmin({ delivery_zones: ["edit"] });
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: { message: "constraint" } });
-    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001" });
+    const fd = buildFormData({ name: "Z", store_id: "s-1", pincodes: "560001", radius_km: 5 });
     const result = await runAction((f) => updateDeliveryZone("z-1", f), fd);
     expect(result.ok).toBe(false);
     expect(result.error?.message).toMatch(/constraint/);
@@ -354,5 +461,48 @@ describe("deleteDeliveryZone", () => {
     const admin = getAdminClient();
     admin.setResponses({ data: null, error: { message: "fk violation" } });
     await expect(deleteDeliveryZone("z-1")).rejects.toThrow(/fk violation/);
+  });
+});
+
+describe("getZoneForEdit", () => {
+  it("returns the full row with a boundary swapped from lng,lat to lat,lng", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: makeDeliveryZone({ id: "z-1", store_id: "s-1", radius_km: 0 }), error: null });
+    admin.setRpcResult("get_zone_boundary", {
+      data: { type: "Polygon", coordinates: [[[77.59, 12.97], [77.60, 12.98], [77.59, 12.97]]] },
+      error: null,
+    });
+
+    const zone = await getZoneForEdit("z-1");
+    expect(zone.id).toBe("z-1");
+    expect(zone.store_id).toBe("s-1");
+    expect(zone.boundary).toEqual([[12.97, 77.59], [12.98, 77.60]]);
+
+    const chains = admin.chainsForTable("delivery_zones");
+    const eqCall = chains[0].find((c) => c.method === "eq")!;
+    expect(eqCall.args).toEqual(["id", "z-1"]);
+  });
+
+  it("returns boundary null when get_zone_boundary returns null", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: makeDeliveryZone({ id: "z-1", store_id: "s-1", radius_km: 10 }), error: null });
+    admin.setRpcResult("get_zone_boundary", { data: null, error: null });
+
+    const zone = await getZoneForEdit("z-1");
+    expect(zone.boundary).toBeNull();
+    expect(zone.radius_km).toBe(10);
+  });
+
+  it("throws when the row select returns an error", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: { message: "not found" } });
+    await expect(getZoneForEdit("z-1")).rejects.toThrow(/not found/);
+  });
+
+  it("throws when the boundary rpc returns an error", async () => {
+    const admin = getAdminClient();
+    admin.setResponses({ data: makeDeliveryZone({ id: "z-1", store_id: "s-1" }), error: null });
+    admin.setRpcResult("get_zone_boundary", { data: null, error: { message: "rpc down" } });
+    await expect(getZoneForEdit("z-1")).rejects.toThrow(/rpc down/);
   });
 });

@@ -42,6 +42,7 @@ supabase_logs*.json
 /backups/
 /backups.zip
 .backup.env
+scripts/.sync.env
 
 # vercel
 .vercel

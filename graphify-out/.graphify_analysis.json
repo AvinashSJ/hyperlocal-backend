@@ -54,13 +54,14 @@
       "getCommissionPeriodsForStore",
       "getCommissionById",
       "getCommissionPayments",
-      "recordPayment",
+      "generateCommissionForPeriod",
       "Root",
       "CommissionsClient",
       "async"
     ],
     "6": [
       "async",
+      "Root",
       "StoreCommissionsClient"
     ],
     "7": [
@@ -101,14 +102,16 @@
       "getDeliveryZones",
       "createDeliveryZone",
       "updateDeliveryZone",
-      "getZoneWithBoundary",
+      "getZoneForEdit",
       "deleteDeliveryZone",
       "ZoneInput",
       "async",
+      "StoreOption",
       "ZoneForm",
-      "Zone",
+      "ZoneForEdit",
       "ZoneMode",
       "ZonesClient",
+      "Zone",
       "ActionPermissions"
     ],
     "11": [
@@ -455,8 +458,10 @@
       "in",
       "resolveItemCategory",
       "groupOrderItems",
+      "enrichParentCategories",
       "ResolvedCategory",
       "RawCategoryJoin",
+      "EnrichCategory",
       "LatLng",
       "OlaDistanceMatrixRow",
       "OlaDistanceMatrixResponse",

@@ -40,7 +40,6 @@ export default function UsersClient({
   const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
   const [deleteError, setDeleteError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
-  const resetFormRef = useRef<HTMLFormElement>(null);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -554,41 +553,47 @@ export default function UsersClient({
                       {resetSuccess && (
                         <div className="alert alert-success py-2">{resetSuccess}</div>
                       )}
-                      <form
-                        ref={resetFormRef}
-                        action={async (fd) => {
-                          try {
-                            setResetError("");
-                            setResetSuccess("");
-                            await resetUserPassword(fd);
-                            setResetSuccess(
-                              "Password reset. The user will be asked to set a new password on their next login.",
-                            );
-                            resetFormRef.current?.reset();
-                            router.refresh();
-                          } catch (e: unknown) {
-                            setResetError(e instanceof Error ? e.message : "Failed to reset password");
-                          }
-                        }}
-                      >
+                      <div>
                         <input type="hidden" name="id" value={editingUser.id} />
                         <div className="d-flex gap-2">
                           <input
                             type="password"
                             name="new_password"
+                            id="reset-password-input"
                             className="form-control"
                             placeholder="New temporary password (min 6 chars)"
                             minLength={6}
-                            required
                           />
-                          <button type="submit" className="btn btn-warning text-nowrap">
+                          <button
+                            type="button"
+                            className="btn btn-warning text-nowrap"
+                            onClick={async (e) => {
+                              const container = e.currentTarget.closest("div")?.parentElement;
+                              const input = container?.querySelector<HTMLInputElement>("#reset-password-input");
+                              try {
+                                setResetError("");
+                                setResetSuccess("");
+                                const fd = new FormData();
+                                fd.set("id", editingUser.id);
+                                fd.set("new_password", input?.value ?? "");
+                                await resetUserPassword(fd);
+                                setResetSuccess(
+                                  "Password reset. The user will be asked to set a new password on their next login.",
+                                );
+                                if (input) input.value = "";
+                                router.refresh();
+                              } catch (err: unknown) {
+                                setResetError(err instanceof Error ? err.message : "Failed to reset password");
+                              }
+                            }}
+                          >
                             Reset Password
                           </button>
                         </div>
                         <small className="text-muted d-block mt-1">
                           The user will be forced to set a permanent password on their next login.
                         </small>
-                      </form>
+                      </div>
                     </div>
                   )}
                 </div>

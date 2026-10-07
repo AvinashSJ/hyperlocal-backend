@@ -1,21 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
 import { runServerAction } from "@/lib/run-server-action";
-import {
-  createDeliveryZone,
-  updateDeliveryZone,
-  getZoneWithBoundary,
-} from "./actions";
+import { createDeliveryZone, updateDeliveryZone, type ZoneForEdit } from "./actions";
 
-type Zone = {
-  id: string; name: string; store_id: string; pincodes: string[];
-  radius_km: number; delivery_charge: number; free_delivery_min_order: number;
-  min_order_value: number | null; max_order_value: number | null;
-  min_distance_km: number | null; max_distance_km: number | null;
-  is_active: boolean; is_express: boolean;
-  boundary?: number[][] | null;
+export type StoreOption = {
+  id: string;
+  name: string;
+  delivery_radius_km: number | null;
 };
 
 type ZoneMode = "polygon" | "radius";
@@ -36,28 +28,27 @@ function Section({ title, icon, children, defaultOpen = true }: {
   );
 }
 
-export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null; onClose: () => void; storeId?: string | null }) {
-  const [boundary, setBoundary] = useState<number[][] | null>(null);
-  const boundaryFetched = useRef(false);
-  const hasBoundary = useRef(false);
-
+export default function ZoneForm({ zone, onClose, storeId, stores }: {
+  zone: ZoneForEdit | null;
+  onClose: () => void;
+  storeId?: string | null;
+  stores: StoreOption[];
+}) {
+  const isSuperAdmin = storeId == null;
+  const [selectedStoreId, setSelectedStoreId] = useState(zone?.store_id ?? "");
   const [mode, setMode] = useState<ZoneMode>(() => {
-    if (zone && zone.radius_km > 0 && !zone.boundary) return "radius";
-    return "polygon";
+    // Radius is the default for new zones. Existing polygon zones keep polygon.
+    if (zone && zone.boundary && zone.boundary.length > 0) return "polygon";
+    return "radius";
   });
 
-  useEffect(() => {
-    if (zone?.id && !boundaryFetched.current) {
-      boundaryFetched.current = true;
-      getZoneWithBoundary(zone.id)
-        .then((z) => {
-          setBoundary(z.boundary);
-          hasBoundary.current = z.boundary != null && z.boundary.length > 0;
-          if (z.boundary && z.boundary.length > 0) setMode("polygon");
-        })
-        .catch(() => setBoundary(null));
-    }
-  }, [zone?.id]);
+  const prefillStore = stores.find((s) => s.id === (zone ? zone.store_id : selectedStoreId));
+  // On edit, honor the zone's saved radius (never clobber it with store metadata).
+  const radiusDefault = zone
+    ? zone.radius_km
+    : prefillStore?.delivery_radius_km != null
+      ? Math.round(prefillStore.delivery_radius_km)
+      : "";
 
   const [state, formAction, pending] = useActionState(async (_prev: { error: string | null }, formData: FormData) => {
     const action = zone
@@ -88,13 +79,24 @@ export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null
           <div className="card-body px-4 py-3">
             {state.error && <div className="alert alert-danger py-2 mb-3"><i className="bi bi-exclamation-triangle me-1" />{state.error}</div>}
 
-            {(storeId != null) ? (
-              <input type="hidden" name="store_id" value={storeId} />
-            ) : (
+            {isSuperAdmin ? (
               <div className="mb-3">
-                <label className="form-label small text-muted">Store ID <span className="text-danger">*</span></label>
-                <input type="text" name="store_id" className="form-control form-control-sm" defaultValue={zone?.store_id ?? ""} required placeholder="UUID" />
+                <label className="form-label small text-muted">Store <span className="text-danger">*</span></label>
+                <select
+                  name="store_id"
+                  className="form-control form-control-sm"
+                  required
+                  value={selectedStoreId}
+                  onChange={(e) => setSelectedStoreId(e.target.value)}
+                >
+                  <option value="" disabled>Select store</option>
+                  {stores.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
               </div>
+            ) : (
+              <input type="hidden" name="store_id" value={storeId} />
             )}
 
             <div className="mb-3">
@@ -131,7 +133,7 @@ export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null
                 <button type="button" className={`btn btn-sm flex-fill ${mode === "radius" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => setMode("radius")}>
                   <i className="bi bi-circle me-1" />Radius
                 </button>
-                <button type="button" className={`btn btn-sm flex-fill ${mode === "polygon" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => { setMode("polygon"); setBoundary(boundary); }}>
+                <button type="button" className={`btn btn-sm flex-fill ${mode === "polygon" ? "btn-primary" : "btn-outline-secondary"}`} onClick={() => setMode("polygon")}>
                   <i className="bi bi-hexagon me-1" />Polygon
                 </button>
               </div>
@@ -139,7 +141,17 @@ export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null
               {mode === "radius" && (
                 <>
                   <div className="input-group input-group-sm mb-1">
-                    <input type="number" name="radius_km" className="form-control" defaultValue={zone?.radius_km ?? 0} min={0} step="0.1" required placeholder="5" />
+                    <input
+                      key={`radius-${selectedStoreId}`}
+                      type="number"
+                      name="radius_km"
+                      className="form-control form-control-sm"
+                      defaultValue={radiusDefault}
+                      min={0}
+                      step={1}
+                      required
+                      placeholder="5"
+                    />
                     <span className="input-group-text">km</span>
                   </div>
                   <input type="hidden" name="boundary" value="" />
@@ -153,7 +165,7 @@ export default function ZoneForm({ zone, onClose, storeId }: { zone: Zone | null
                     name="boundary"
                     className="form-control form-control-sm font-monospace"
                     rows={2}
-                    defaultValue={boundary ? JSON.stringify(boundary) : ""}
+                    defaultValue={zone?.boundary && zone.boundary.length > 0 ? JSON.stringify(zone.boundary) : ""}
                     placeholder="[[12.97, 77.59], [12.98, 77.60], ...]"
                     style={{ fontSize: "0.75rem" }}
                   />

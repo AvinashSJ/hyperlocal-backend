@@ -27,9 +27,11 @@ const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 function SubOrderCard({
   order,
   canCreateInvoice,
+  canUpdatePayment,
 }: {
   order: CartGroupOrder;
   canCreateInvoice: boolean;
+  canUpdatePayment?: boolean;
 }) {
   return (
     <div className="card mb-3" data-testid={`cart-sub-order-${order.id}`}>
@@ -87,6 +89,7 @@ function SubOrderCard({
             currentPaymentStatus={order.payment_status}
             currentInvoiceId={order.invoice_id}
             canCreateInvoice={canCreateInvoice}
+            canUpdatePayment={canUpdatePayment}
           />
           <Link
             href={`/orders/${order.id}`}
@@ -122,9 +125,11 @@ type ActionPermissions = {
 export default function CartGroupClient({
   cart,
   actionPerms,
+  canUpdatePayment = true,
 }: {
   cart: CartGroup;
   actionPerms?: ActionPermissions;
+  canUpdatePayment?: boolean;
 }) {
   const addr = cart.delivery_address;
 
@@ -191,6 +196,7 @@ export default function CartGroupClient({
           key={order.id}
           order={order}
           canCreateInvoice={actionPerms?.canCreate ?? false}
+          canUpdatePayment={canUpdatePayment}
         />
       ))}
 

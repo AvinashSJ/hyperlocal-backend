@@ -103,3 +103,12 @@ Current actual coverage: ~93% statements, 86% branches, 93% functions, 94% lines
 - `graphify-out/` and `coverage/` are excluded — these are generated and not source code.
 - `test/**` and `*.test.ts(x)` files disable `@typescript-eslint/no-explicit-any` (legitimate escape hatch for mock patterns).
 - Run `npm run lint` to check. Fix errors with the patterns in `TEST_REPORT.md` § Source Bugs Surfaced.
+
+## Release workflow
+
+**All feature/fix work commits to `test` (never directly to `production` or `main`).**
+
+1. Commit small, conventional units (`feat:`, `fix:`, `docs:`) on the local `test` branch.
+2. `git push origin test` — CI (`test.yml`) runs lint, typecheck, test, and build. Gate: all green.
+3. After CI green + manual trials on the test environment, merge `test` → `production`.
+4. Production is live once the merge lands on `production`.

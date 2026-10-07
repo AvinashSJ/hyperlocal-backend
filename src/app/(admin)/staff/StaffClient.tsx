@@ -35,7 +35,7 @@ export default function StaffClient({
   const [resetSuccess, setResetSuccess] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
   const editFormRef = useRef<HTMLFormElement>(null);
-  const resetFormRef = useRef<HTMLFormElement>(null);
+
 
   const filtered = useMemo(() => {
     return staff.filter((s) => {
@@ -326,41 +326,47 @@ export default function StaffClient({
                     {resetSuccess && (
                       <div className="alert alert-success py-2">{resetSuccess}</div>
                     )}
-                    <form
-                      ref={resetFormRef}
-                      action={async (fd) => {
-                        try {
-                          setResetError("");
-                          setResetSuccess("");
-                          await resetStaffPassword(fd);
-                          setResetSuccess(
-                            "Password reset. The staff member will be asked to set a new password on their next login.",
-                          );
-                          resetFormRef.current?.reset();
-                          router.refresh();
-                        } catch (e: unknown) {
-                          setResetError(e instanceof Error ? e.message : "Failed to reset password");
-                        }
-                      }}
-                    >
+                    <div>
                       <input type="hidden" name="id" value={editItem.id} />
                       <div className="d-flex gap-2">
                         <input
                           type="password"
                           name="new_password"
+                          id="reset-password-input"
                           className="form-control"
                           placeholder="New temporary password (min 6 chars)"
                           minLength={6}
-                          required
                         />
-                        <button type="submit" className="btn btn-warning text-nowrap">
+                        <button
+                          type="button"
+                          className="btn btn-warning text-nowrap"
+                          onClick={async (e) => {
+                            const container = e.currentTarget.closest("div")?.parentElement;
+                            const input = container?.querySelector<HTMLInputElement>("#reset-password-input");
+                            try {
+                              setResetError("");
+                              setResetSuccess("");
+                              const fd = new FormData();
+                              fd.set("id", editItem.id);
+                              fd.set("new_password", input?.value ?? "");
+                              await resetStaffPassword(fd);
+                              setResetSuccess(
+                                "Password reset. The staff member will be asked to set a new password on their next login.",
+                              );
+                              if (input) input.value = "";
+                              router.refresh();
+                            } catch (err: unknown) {
+                              setResetError(err instanceof Error ? err.message : "Failed to reset password");
+                            }
+                          }}
+                        >
                           Reset Password
                         </button>
                       </div>
                       <small className="text-muted d-block mt-1">
                         The staff member will be forced to set a permanent password on their next login.
                       </small>
-                    </form>
+                    </div>
                   </div>
                 </div>
                 <div className="modal-footer">

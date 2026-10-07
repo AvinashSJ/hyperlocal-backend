@@ -47,6 +47,15 @@ vi.mock("../actions", () => ({
   generateInvoiceForOrder: (...args: unknown[]) => generateInvoiceForOrderMock(...args),
 }));
 
+const { listReturnRequestsForOrderMock } = vi.hoisted(() => ({
+  listReturnRequestsForOrderMock: vi.fn(),
+}));
+
+vi.mock("@/app/(admin)/returns/actions", () => ({
+  listReturnRequestsForOrder: (...args: unknown[]) => listReturnRequestsForOrderMock(...args),
+  updateReturnRequestState: vi.fn(),
+}));
+
 import OrderActionControls from "./OrderActionControls";
 
 function render(props: {
@@ -58,6 +67,7 @@ function render(props: {
   // Tests that exercise the retry flow override these.
   currentInvoiceId?: string | null;
   canCreateInvoice?: boolean;
+  canUpdatePayment?: boolean;
 }) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -71,6 +81,7 @@ function render(props: {
         currentPaymentStatus={props.currentPaymentStatus}
         currentInvoiceId={props.currentInvoiceId ?? null}
         canCreateInvoice={props.canCreateInvoice ?? false}
+        canUpdatePayment={props.canUpdatePayment ?? true}
       />,
     );
   });
@@ -94,6 +105,7 @@ beforeEach(() => {
   updateOrderStatusMock.mockReset();
   updatePaymentStatusMock.mockReset();
   generateInvoiceForOrderMock.mockReset();
+  listReturnRequestsForOrderMock.mockReset();
 });
 
 describe("OrderActionControls (P54 — shared status + payment controls)", () => {
@@ -145,6 +157,49 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     expect(statusBtn.disabled).toBe(true);
     expect(container.querySelector('[data-testid="mark-as-paid"]')).toBeNull();
     expect(container.querySelector('[data-testid="open-return-modal"]')).not.toBeNull();
+    cleanup();
+  });
+
+  it("hides Mark as Paid when canUpdatePayment is false (Staff)", () => {
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "delivered",
+      currentPaymentStatus: "unpaid",
+      canUpdatePayment: false,
+    });
+    expect(container.querySelector('[data-testid="mark-as-paid"]')).toBeNull();
+    expect(container.querySelector('[data-testid="open-return-modal"]')).not.toBeNull();
+    cleanup();
+  });
+
+  it("hides the status-modal payment dropdown when canUpdatePayment is false (Staff)", () => {
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "pending",
+      currentPaymentStatus: "unpaid",
+      canUpdatePayment: false,
+    });
+    const openBtn = container.querySelector('[data-testid="open-status-modal"]') as HTMLButtonElement;
+    act(() => { openBtn.click(); });
+    expect(container.querySelector('[data-testid="status-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="status-payment-select"]')).toBeNull();
+    cleanup();
+  });
+
+  it("hides the return-modal payment dropdown when canUpdatePayment is false (Staff)", async () => {
+    listReturnRequestsForOrderMock.mockResolvedValue([
+      { id: "r-1", state: "received", reason: "Wrong item" },
+    ]);
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "delivered",
+      currentPaymentStatus: "unpaid",
+      canUpdatePayment: false,
+    });
+    const btn = container.querySelector('[data-testid="open-return-modal"]') as HTMLButtonElement;
+    await act(async () => { btn.click(); });
+    expect(container.querySelector('[data-testid="return-modal"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="return-payment-select"]')).toBeNull();
     cleanup();
   });
 
@@ -336,7 +391,7 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     cleanup();
   });
 
-  it("P57: hides [Generate Invoice] when canCreateInvoice is false (Staff role)", () => {
+  it("P57: hides [Generate Invoice] when canCreateInvoice is false", () => {
     const { container, cleanup } = render({
       orderId: "o-1",
       currentStatus: "delivered",

@@ -37,12 +37,14 @@ type ActionPermissions = {
 export default function OrderDetailClient({
   order,
   canCreateInvoice,
+  canUpdatePayment = true,
   returnsActionPerms,
   returnsEnabled = true,
   activityLog,
 }: {
   order: OrderDetail;
   canCreateInvoice: boolean;
+  canUpdatePayment?: boolean;
   returnsActionPerms: ActionPermissions;
   returnsEnabled?: boolean;
   activityLog?: ActivityLogWithUser[];
@@ -67,6 +69,7 @@ export default function OrderDetailClient({
           currentPaymentStatus={order.payment_status}
           currentInvoiceId={order.invoice_id}
           canCreateInvoice={canCreateInvoice ?? false}
+          canUpdatePayment={canUpdatePayment}
         />
       </div>
 
