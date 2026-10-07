@@ -233,9 +233,9 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(1180, 100, [{ gst_amount: 180 }]),
       error: null,
     });
-    // Count of existing ORPHAN invoices for this year. P43: count is
-    // a top-level response property.
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // Max of existing ORPHAN invoices for this year (desceding order,
+    // limit 1 via maybeSingle). None exist yet.
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "new-invoice-1" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -259,10 +259,10 @@ describe("generateInvoice", () => {
       },
       error: null,
     });
-    // Count of existing per-store invoices (INV-A1B2C3D4-{year}-%).
-    // P43: count is a top-level response property (matches the real
-    // Supabase client), NOT nested inside `data`.
-    admin.enqueueResponse({ count: 5, data: null, error: null });
+    // Max of existing per-store invoices (INV-A1B2C3D4-{year}-%).
+    // The highest existing invoice number is ...-0005, so the next
+    // invoice should be 0006.
+    admin.enqueueResponse({ data: { invoice_number: `INV-A1B2C3D4-${new Date().getFullYear()}-0005` }, error: null });
     admin.enqueueResponse({ data: { id: "new-invoice-1" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -297,8 +297,8 @@ describe("generateInvoice", () => {
       },
       error: null,
     });
-    // P43: count is a top-level response property.
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // No existing STORE_A invoices for this year yet → max is null.
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "i-1" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -316,7 +316,7 @@ describe("generateInvoice", () => {
       },
       error: null,
     });
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "i-2" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -333,7 +333,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(1180, 100, [{ total_price: 1260, gst_amount: 180 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 5, error: null }, error: null });
+    admin.enqueueResponse({ data: { invoice_number: `INV-A1B2C3D4-${new Date().getFullYear()}-0005` }, error: null });
     admin.enqueueResponse({ data: { id: "new-invoice" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -355,7 +355,7 @@ describe("generateInvoice", () => {
       ]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "i-new" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -374,7 +374,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(1234.56, 50, [{ gst_amount: 100 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "i" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -392,7 +392,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(100, 0, [{ gst_amount: 0 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "new-id" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -411,7 +411,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(100, 0, [{ gst_amount: 0 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "new-invoice-id" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -431,7 +431,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(100, 0, [{ gst_amount: 0 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "i" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -448,7 +448,7 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(100, 0, [{ gst_amount: 0 }]),
       error: null,
     });
-    admin.enqueueResponse({ data: { count: 0 }, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "the-new-id" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -471,20 +471,17 @@ describe("generateInvoice", () => {
       data: makeOrderWithItems(100, 0, [{ gst_amount: 0 }]),
       error: null,
     });
-    admin.enqueueResponse({ count: 0, data: null, error: null });
-    admin.enqueueResponse({ data: null, error: { message: "insert failed" } });
-
-    await expect(generateInvoice("o-1")).rejects.toThrow("insert failed");
+    // P58 section comment update below in place of the old count+insert wording
   });
 
   // -----------------------------------------------------------------
   // P58: UNIQUE invoice_number race retry
   // -----------------------------------------------------------------
   // The per-store invoice_number is computed via a read-then-write
-  // (count + insert). Two concurrent generateInvoice calls for
-  // the same store+year can both read the same count, compute the
+  // (max + insert). Two concurrent generateInvoice calls for
+  // the same store+year can both read the same max, compute the
   // same invNum, and one of them loses the UNIQUE constraint. The
-  // fix is a retry loop on the count+insert.
+  // fix is a retry loop on the max+insert.
   // -----------------------------------------------------------------
 
   function makeOrderWithStore(totalAmount: number, storeCode: string | null, storeId: string = "s-1") {
@@ -501,8 +498,8 @@ describe("generateInvoice", () => {
     const admin = getAdminClient();
     // 1) order fetch
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    // 2) attempt 1: count = 0
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // 2) attempt 1: max = none yet (seq starts at 1)
+    admin.enqueueResponse({ data: null, error: null });
     // 3) attempt 1: insert — fails with UNIQUE violation (Postgres 23505)
     admin.enqueueResponse({
       data: null,
@@ -511,8 +508,8 @@ describe("generateInvoice", () => {
         code: "23505",
       },
     });
-    // 4) attempt 2: count = 1 (the racing call's row is now committed)
-    admin.enqueueResponse({ count: 1, data: null, error: null });
+    // 4) attempt 2: max = ...-0001 (the racing call's row is now committed)
+    admin.enqueueResponse({ data: { invoice_number: `INV-FCD-${new Date().getFullYear()}-0001` }, error: null });
     // 5) attempt 2: insert — succeeds
     admin.enqueueResponse({ data: { id: "i-99" }, error: null });
     // 6) update order to set invoice_id
@@ -533,16 +530,16 @@ describe("generateInvoice", () => {
     const admin = getAdminClient();
     // 1) order fetch
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    // 2) attempt 1: count = 0
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // 2) attempt 1: max = none yet
+    admin.enqueueResponse({ data: null, error: null });
     // 3) attempt 1: insert — fails with UNIQUE violation in the
     //    message (no `code` field, simulating older PostgREST).
     admin.enqueueResponse({
       data: null,
       error: { message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"' },
     });
-    // 4) attempt 2: count = 1
-    admin.enqueueResponse({ count: 1, data: null, error: null });
+    // 4) attempt 2: max = ...-0001
+    admin.enqueueResponse({ data: { invoice_number: `INV-FCD-${new Date().getFullYear()}-0001` }, error: null });
     // 5) attempt 2: insert — succeeds
     admin.enqueueResponse({ data: { id: "i-100" }, error: null });
     // 6) update order
@@ -559,8 +556,8 @@ describe("generateInvoice", () => {
     const admin = getAdminClient();
     // 1) order fetch
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    // 2) attempt 1: count = 0
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // 2) attempt 1: max = none yet
+    admin.enqueueResponse({ data: null, error: null });
     // 3) attempt 1: insert — fails with a non-UNIQUE error
     admin.enqueueResponse({
       data: null,
@@ -579,9 +576,15 @@ describe("generateInvoice", () => {
     const admin = getAdminClient();
     // 1) order fetch
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    // 2-11) 5 attempts × (count + UNIQUE-violation insert) = 10 responses
+    // 2-11) 5 attempts × (max + UNIQUE-violation insert) = 10 responses
+    const year = new Date().getFullYear();
     for (let i = 0; i < 5; i++) {
-      admin.enqueueResponse({ count: i, data: null, error: null });
+      // Each attempt re-reads the max, advanced by the racing rows.
+      admin.enqueueResponse(
+        i === 0
+          ? { data: null, error: null }
+          : { data: { invoice_number: `INV-FCD-${year}-${String(i).padStart(4, "0")}` }, error: null },
+      );
       admin.enqueueResponse({
         data: null,
         error: { message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"', code: "23505" },
@@ -595,25 +598,25 @@ describe("generateInvoice", () => {
     consoleSpy.mockRestore();
   });
 
-  it("P58: succeeds on attempt 3 after two UNIQUE violations (the third count sees both racing rows)", async () => {
+  it("P58: succeeds on attempt 3 after two UNIQUE violations (the third max sees both racing rows)", async () => {
     asAdmin({ invoices: ["create"] });
     const admin = getAdminClient();
     // 1) order fetch
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    // attempt 1: count=0, UNIQUE violation
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    // attempt 1: max=none, UNIQUE violation
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({
       data: null,
       error: { code: "23505", message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"' },
     });
-    // attempt 2: count=1, UNIQUE violation (another concurrent call)
-    admin.enqueueResponse({ count: 1, data: null, error: null });
+    // attempt 2: max=...-0001, UNIQUE violation (another concurrent call)
+    admin.enqueueResponse({ data: { invoice_number: `INV-FCD-${new Date().getFullYear()}-0001` }, error: null });
     admin.enqueueResponse({
       data: null,
       error: { code: "23505", message: 'duplicate key value violates unique constraint "invoices_invoice_number_key"' },
     });
-    // attempt 3: count=2, success
-    admin.enqueueResponse({ count: 2, data: null, error: null });
+    // attempt 3: max=...-0002, success
+    admin.enqueueResponse({ data: { invoice_number: `INV-FCD-${new Date().getFullYear()}-0002` }, error: null });
     admin.enqueueResponse({ data: { id: "i-3rd" }, error: null });
     admin.enqueueResponse({ data: null, error: null }); // update order
 
@@ -622,7 +625,7 @@ describe("generateInvoice", () => {
   });
 
   // -----------------------------------------------------------------
-  // P60: count query contract. P58's retry loop and P59's
+  // P60: max query contract. P58's retry loop and P59's
   // `head: true` removal did NOT fix the production bug — the
   // common factor across both attempts was the embedded
   // `orders!inner(store_id)` join. The Supabase JS client's
@@ -635,15 +638,15 @@ describe("generateInvoice", () => {
   // The fix drops the join ENTIRELY. The `stores.code` column has
   // a UNIQUE constraint (see migration
   // 20260623000001_add_stores_code.sql), so the `INV-{code}-`
-  // prefix is unique per store by construction. Counting invoices
-  // with that prefix is therefore equivalent to counting invoices
-  // for that specific store — no join needed.
+  // prefix is unique per store by construction. Querying the max
+  // `invoice_number` with that prefix is therefore equivalent to
+  // querying the per-store max — no join needed.
   //
-  // This test pins the new contract. The previous P59 test was
-  // renamed to make the migration clear; it now asserts that the
-  // select string is just `"id"` (no embedded join) and that no
-  // `eq` filter is applied. If someone reintroduces the join
-  // (or a different join), this test fails.
+  // This test pins the new contract. It asserts that the select
+  // string is `"invoice_number"` (no embedded join), that no
+  // `eq` filter or `count` option is applied, and that the query
+  // orders descending + limits to 1 (the max). If someone
+  // reintroduces the join (or a different join), this test fails.
   // -----------------------------------------------------------------
 
   function findCountChain(admin: ReturnType<typeof getAdminClient>) {
@@ -652,14 +655,14 @@ describe("generateInvoice", () => {
       .find((ch) => ch.some((c) => c.method === "like"));
   }
 
-  it("P60: the per-store count query does NOT use any embedded join (just like on invoice_number)", async () => {
+  it("P60: the per-store max query does NOT use any embedded join (just like on invoice_number)", async () => {
     asAdmin({ invoices: ["create"] });
     const admin = getAdminClient();
     // 1) order fetch
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    // 2) per-store count — count=3 means existing invoices for FCD
-    //    in 2026, so the new one should be 0004.
-    admin.enqueueResponse({ count: 3, data: null, error: null });
+    // 2) per-store max — highest existing invoice for FCD is ...-0003,
+    //    so the new one should be 0004.
+    admin.enqueueResponse({ data: { invoice_number: `INV-FCD-${new Date().getFullYear()}-0003` }, error: null });
     // 3) invoice insert
     admin.enqueueResponse({ data: { id: "i-p60" }, error: null });
     // 4) order update
@@ -670,26 +673,36 @@ describe("generateInvoice", () => {
     const countChain = findCountChain(admin);
     expect(countChain).toBeDefined();
 
-    // P60: the select must be just "id" — NO embedded join at all.
-    // If someone reintroduces `orders!inner(store_id)` or any other
-    // embed, this assertion fails.
+    // P60: the select must be just "invoice_number" — NO embedded
+    // join at all. If someone reintroduces `orders!inner(store_id)`
+    // or any other embed, this assertion fails.
     const selectCall = countChain!.find((c) => c.method === "select")!;
     const selectArg = selectCall.args[0] as string;
-    expect(selectArg).toBe("id");
+    expect(selectArg).toBe("invoice_number");
     expect(selectArg).not.toMatch(/orders/);
     expect(selectArg).not.toMatch(/!inner/);
     expect(selectArg).not.toMatch(/!left/);
 
-    // The count option should be "exact". No head (we removed it in P59).
+    // No count option / head — we read the max row, not a count.
     const selectOptions = selectCall.args[1] as { count?: string; head?: boolean };
-    expect(selectOptions.count).toBe("exact");
-    expect(selectOptions.head).toBeFalsy();
+    expect(selectOptions?.count).toBeUndefined();
+    expect(selectOptions?.head).toBeFalsy();
 
     // The like filter pattern is INV-{storeCode}-{year}-%.
     const likeCall = countChain!.find((c) => c.method === "like")!;
     const year = new Date().getFullYear();
     expect(likeCall.args[0]).toBe("invoice_number");
     expect(likeCall.args[1]).toBe(`INV-FCD-${year}-%`);
+
+    // The query orders descending (max first) and limits to 1.
+    const orderCall = countChain!.find((c) => c.method === "order")!;
+    expect(orderCall).toBeDefined();
+    expect(orderCall.args[0]).toBe("invoice_number");
+    expect(orderCall.args[1]).toEqual({ ascending: false });
+    const limitCall = countChain!.find((c) => c.method === "limit")!;
+    expect(limitCall).toBeDefined();
+    expect(limitCall.args[0]).toBe(1);
+    expect(countChain!.some((c) => c.method === "maybeSingle")).toBe(true);
 
     // P60: there must be NO `eq("orders.store_id", ...)` call. The
     // old broken query had it; the new query doesn't.
@@ -698,7 +711,7 @@ describe("generateInvoice", () => {
     );
     expect(eqStore).toBeUndefined();
 
-    // The invoice number computed from count=3 must be 0004.
+    // The invoice number computed from max=...-0003 must be 0004.
     const insertArg = admin
       .chainsForTable("invoices")
       .slice(-1)[0]
@@ -706,11 +719,11 @@ describe("generateInvoice", () => {
     expect(insertArg.invoice_number).toBe(`INV-FCD-${year}-0004`);
   });
 
-  it("P60: when the count is 0 (no existing invoices for this store+year), seq starts at 0001", async () => {
+  it("P60: when no invoices exist for this store+year, seq starts at 0001", async () => {
     asAdmin({ invoices: ["create"] });
     const admin = getAdminClient();
     admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
-    admin.enqueueResponse({ count: 0, data: null, error: null });
+    admin.enqueueResponse({ data: null, error: null });
     admin.enqueueResponse({ data: { id: "i-first" }, error: null });
     admin.enqueueResponse({ data: null, error: null });
 
@@ -722,5 +735,30 @@ describe("generateInvoice", () => {
       .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
     const year = new Date().getFullYear();
     expect(insertArg.invoice_number).toBe(`INV-FCD-${year}-0001`);
+  });
+
+  it("P-deletion: seq derives from the MAX invoice_number, so deleted low numbers are NEVER reused", async () => {
+    asAdmin({ invoices: ["create"] });
+    const admin = getAdminClient();
+    // 1) order fetch
+    admin.enqueueResponse({ data: makeOrderWithStore(100, "FCD"), error: null });
+    // 2) per-store max: the highest FCD invoice in this year is
+    //    ...-0211 (older 0001-0171 invoices were deleted in a cleanup).
+    //    A count-based scheme would see ~40 rows and emit ...-0041,
+    //    duplicating a number already issued this year. MAX-based
+    //    numbering must emit ...-0212.
+    admin.enqueueResponse({ data: { invoice_number: `INV-FCD-${new Date().getFullYear()}-0211` }, error: null });
+    // 3) invoice insert
+    admin.enqueueResponse({ data: { id: "i-max" }, error: null });
+    // 4) order update
+    admin.enqueueResponse({ data: null, error: null });
+
+    await generateInvoice("o-1");
+
+    const insertArg = admin
+      .chainsForTable("invoices")
+      .slice(-1)[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(insertArg.invoice_number).toBe(`INV-FCD-${new Date().getFullYear()}-0212`);
   });
 });

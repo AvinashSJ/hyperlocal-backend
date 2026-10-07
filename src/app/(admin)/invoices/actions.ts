@@ -267,9 +267,9 @@ export async function generateInvoice(orderId: string) {
   const sgst = gstTotal / 2;
 
   // P58: the per-store invoice_number is computed via a
-  // read-then-write (count + insert). Two concurrent
+  // read-then-write (max + insert). Two concurrent
   // generateInvoice calls for the same store+year can both read
-  // the same count, compute the same invNum, and one of them
+  // the same max, compute the same invNum, and one of them
   // loses the UNIQUE constraint. The error surfaces to the
   // operator as a generic "Status updated to delivered. Invoice
   // was not generated: duplicate key value violates unique
@@ -278,57 +278,71 @@ export async function generateInvoice(orderId: string) {
   //
   // We fix the race at the source by retrying up to
   // MAX_INVOICE_NUMBER_ATTEMPTS times. Each retry re-reads the
-  // count (now incremented by the racing call) and computes a
-  // new invNum. The racing call's row is committed BEFORE its
-  // UNIQUE violation is raised, so the next count query always
+  // max (now advanced by the racing call) and computes a new
+  // invNum. The racing call's row is committed BEFORE its
+  // UNIQUE violation is raised, so the next max query always
   // sees it. Almost all races resolve on the first retry.
+  //
+  // P-deletion: numbering is MAX-based (like order numbering),
+  // NOT count-based. A count-based sequence re-issues numbers
+  // after older invoices are deleted (count drops, so seq counts
+  // back down), producing duplicate GST invoice numbers within a
+  // financial year after a cleanup. Deriving seq from the highest
+  // existing number keeps the sequence monotonically increasing
+  // even when low-numbered invoices are removed from the table.
   let invoiceId: string | null = null;
   let lastError: Error | null = null;
   let lastInvNum: string | null = null;
 
+  const nextSeq = (prefix: string, maxInvoiceNumber: string | null | undefined): number => {
+    if (!maxInvoiceNumber) return 1;
+    const seq = Number(maxInvoiceNumber.slice(prefix.length));
+    return Number.isFinite(seq) && seq > 0 ? seq + 1 : 1;
+  };
+
   for (let attempt = 1; attempt <= MAX_INVOICE_NUMBER_ATTEMPTS; attempt++) {
     // 1) Compute the next invoice_number for this store+year
-    //    (or ORPHAN for legacy orders). The count query is racy
+    //    (or ORPHAN for legacy orders). The max query is racy
     //    by construction -- see the comment block above for why
     //    the retry loop is needed.
     //
-    //    P60: drop the embedded `orders!inner(store_id)` join ENTIRELY.
-    //    The previous attempts (P58's retry, P59's drop of
-    //    `head: true`) still failed in production because the join
+    //    P60: no embedded `orders!inner(store_id)` join. The
+    //    previous attempts (P58's retry, P59's drop of `head:
+    //    true`) still failed in production because the join
     //    itself was the source of the broken count -- the
     //    Supabase JS client's handling of embedded filters through
     //    `!inner` joins has been unreliable across multiple
-    //    Supabase versions, and our test mock returns a fixed
-    //    count value regardless, so the existing tests never caught
-    //    it.
+    //    Supabase versions.
     //
     //    The `stores.code` column has a UNIQUE constraint (see
     //    migration 20260623000001_add_stores_code.sql), so the
     //    `INV-{storeCode}-` prefix is unique per store by
-    //    construction. Counting invoices with that prefix is
-    //    therefore equivalent to counting invoices for that
-    //    specific store -- no join needed. This is simpler, faster
-    //    (single query, no embedded filter), and trivially correct
-    //    in production.
-    //
-    //    The previous variants (head:true + !inner in P43; plain
-    //    !inner in P58; head-less !inner in P59) all returned
-    //    count=0 in production for the user's store. The common
-    //    factor was the embedded join. Dropping it fixes the
-    //    production bug for good.
+    //    construction. Querying invoice_number by that prefix
+    //    (ordering lexically descending, picking the top row) is
+    //    therefore equivalent to the per-store max -- no join
+    //    needed. This is simpler, faster (single query, no
+    //    embedded filter), and trivially correct in production.
     let invNum: string;
     if (storeCode) {
-      const { count: storeCount } = await supabase
+      const prefix = `INV-${storeCode}-${year}-`;
+      const { data: maxInvoice } = await supabase
         .from("invoices")
-        .select("id", { count: "exact" })
-        .like("invoice_number", `INV-${storeCode}-${year}-%`);
-      invNum = `INV-${storeCode}-${year}-${String((storeCount ?? 0) + 1).padStart(4, "0")}`;
+        .select("invoice_number")
+        .like("invoice_number", `${prefix}%`)
+        .order("invoice_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      invNum = `${prefix}${String(nextSeq(prefix, (maxInvoice as { invoice_number?: string } | null)?.invoice_number)).padStart(4, "0")}`;
     } else {
-      const { count: orphanCount } = await supabase
+      const prefix = `INV-ORPHAN-${year}-`;
+      const { data: maxInvoice } = await supabase
         .from("invoices")
-        .select("id", { count: "exact" })
-        .like("invoice_number", `INV-ORPHAN-${year}-%`);
-      invNum = `INV-ORPHAN-${year}-${String((orphanCount ?? 0) + 1).padStart(4, "0")}`;
+        .select("invoice_number")
+        .like("invoice_number", `${prefix}%`)
+        .order("invoice_number", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      invNum = `${prefix}${String(nextSeq(prefix, (maxInvoice as { invoice_number?: string } | null)?.invoice_number)).padStart(4, "0")}`;
     }
     lastInvNum = invNum;
 
