@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { selectByIn } from "@/lib/in-batch";
 
 export type CustomerAddress = {
   id: string;
@@ -33,34 +34,87 @@ export type CustomerUser = {
   orderCount: number;
 };
 
+type AuthUserRecord = {
+  id: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+  last_sign_in_at: string | null;
+};
+
+/** Auth pages of 1000; hard stop so a runaway listing cannot loop forever. */
+const AUTH_PAGE_SIZE = 1000;
+const MAX_AUTH_PAGES = 10;
+
+/**
+ * Lists every auth user via the admin API, following pagination.
+ * Returns null users when the listing fails (same contract as the original code).
+ */
+async function listAllAuthUsers(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<{ users: AuthUserRecord[] | null; error: unknown }> {
+  const users: AuthUserRecord[] = [];
+
+  for (let page = 1; page <= MAX_AUTH_PAGES; page++) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: AUTH_PAGE_SIZE,
+    });
+    if (error || !data?.users) return { users: null, error };
+
+    users.push(
+      ...data.users.map((u) => ({
+        id: u.id,
+        email: u.email ?? null,
+        phone: u.phone ?? null,
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+      })),
+    );
+    if (data.users.length < AUTH_PAGE_SIZE) break;
+  }
+
+  return { users, error: null };
+}
+
 export async function getCustomers(storeId?: string | null): Promise<CustomerUser[]> {
   const supabase = createAdminClient();
 
+  // One auth listing serves both branches: the global branch derives its
+  // candidate id set from it, and both branches use it for email/phone/dates.
+  // (This used to call listUsers twice in the global branch.)
+  const authUsers = await listAllAuthUsers(supabase);
+  if (!authUsers.users) {
+    console.error("Failed to list users:", authUsers.error);
+    return [];
+  }
+  const authById = new Map(authUsers.users.map((u) => [u.id, u]));
+
   let userIds: string[];
   if (storeId) {
-    const { data: orderUsers } = await supabase
+    const { data: orderUsers, error: probeError } = await supabase
       .from("orders")
       .select("user_id")
       .eq("store_id", storeId);
+    if (probeError) throw new Error(probeError.message);
     userIds = [...new Set((orderUsers ?? []).map((o) => o.user_id))];
     if (userIds.length === 0) return [];
   } else {
-    const { data: users, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    if (error || !users?.users) {
-      console.error("Failed to list users:", error);
-      return [];
-    }
-    userIds = users.users.map((u) => u.id);
+    userIds = [...new Set(authUsers.users.map((u) => u.id))];
   }
 
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, full_name, avatar_url, phone, role")
-    .in("id", userIds)
-    .eq("role", "customer");
+  // Batched `.in()` filters: shipping all ids in one request exceeded the
+  // 16 KB header cap, which stalled each query until Amplify timed out (504).
+  const profiles = await selectByIn(userIds, (batch) =>
+    supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, phone, role")
+      .in("id", batch)
+      .eq("role", "customer"),
+  );
 
   const profileMap = new Map(
-    (profiles ?? []).map((p) => [
+    profiles.map((p) => [
       p.id,
       { full_name: p.full_name, avatar_url: p.avatar_url, phone: p.phone },
     ]),
@@ -68,13 +122,12 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
 
   const addressColumns = "id, user_id, type, full_name, phone, pincode, address_line1, address_line2, landmark, city, state, is_default, is_deliverable";
 
-  const { data: addresses } = await supabase
-    .from("addresses")
-    .select(addressColumns)
-    .in("user_id", userIds);
+  const addresses = await selectByIn(userIds, (batch) =>
+    supabase.from("addresses").select(addressColumns).in("user_id", batch),
+  );
 
   const addressesByUser = new Map<string, CustomerAddress[]>();
-  for (const row of addresses ?? []) {
+  for (const row of addresses) {
     const list = addressesByUser.get(row.user_id) ?? [];
     list.push({
       id: row.id,
@@ -93,32 +146,29 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
     addressesByUser.set(row.user_id, list);
   }
 
-  const orderQ = supabase.from("orders").select("user_id").in("user_id", userIds);
-  if (storeId) orderQ.eq("store_id", storeId);
-
-  const { data: orderCounts } = await orderQ;
+  const orderCounts = await selectByIn(userIds, (batch) => {
+    const orderQ = supabase.from("orders").select("user_id").in("user_id", batch);
+    if (storeId) orderQ.eq("store_id", storeId);
+    return orderQ;
+  });
 
   const orderCountMap = new Map<string, number>();
-  for (const row of orderCounts ?? []) {
+  for (const row of orderCounts) {
     orderCountMap.set(row.user_id, (orderCountMap.get(row.user_id) ?? 0) + 1);
   }
 
-  let userRecords: { id: string; email: string | null; phone: string | null; created_at: string; last_sign_in_at: string | null }[];
-  if (storeId) {
-    const { data: users } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const userMap = new Map((users?.users ?? []).map((u) => [u.id, u]));
-    userRecords = userIds.map((id) => {
-      const u = userMap.get(id);
-      return { id, email: u?.email ?? null, phone: u?.phone ?? null, created_at: u?.created_at ?? "", last_sign_in_at: u?.last_sign_in_at ?? null };
-    });
-  } else {
-    const { data: users, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    if (error || !users?.users) return [];
-    userRecords = users.users.map((u) => ({
-      id: u.id, email: u.email ?? null, phone: u.phone ?? null,
-      created_at: u.created_at, last_sign_in_at: u.last_sign_in_at ?? null,
-    }));
-  }
+  const userRecords: AuthUserRecord[] = storeId
+    ? userIds.map((id) => {
+        const u = authById.get(id);
+        return {
+          id,
+          email: u?.email ?? null,
+          phone: u?.phone ?? null,
+          created_at: u?.created_at ?? "",
+          last_sign_in_at: u?.last_sign_in_at ?? null,
+        };
+      })
+    : authUsers.users;
 
   return userRecords
     .filter((u) => profileMap.has(u.id))
@@ -135,5 +185,5 @@ export async function getCustomers(storeId?: string | null): Promise<CustomerUse
         addressCount: addrs.length,
         orderCount: orderCountMap.get(u.id) ?? 0,
       };
-    });;
+    });
 }

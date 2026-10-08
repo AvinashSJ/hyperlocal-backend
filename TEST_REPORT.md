@@ -3439,6 +3439,57 @@ The commissions feature was redesigned from a "generate then store" model to a "
 | `npm run typecheck` | clean |
 | `npm run lint` | 0 errors, 59 warnings (3 new — the now-removed `resolveRatesByStore` helper that I left in initially, and 2 `next/link` warnings from the route conflict that I fixed) |
 
+## P69 - Bug fix: `/customers` returned HTTP 504 (unbounded `.in()` header overflow) (DONE)
+
+**Origin:** `https://admin.aruundoorstep.com/customers` began returning HTTP 504 on 2026-10-08 (first hit 10:45 UTC). It coincided with the `648bec9` deploy, but the deploy was **not** the cause.
+
+### Evidence
+
+| Signal | Finding |
+|---|---|
+| CloudWatch `/aws/amplify/d33f757kz8ncb9` | 22 x `Duration: 30000.00 ms ... Status: timeout` on Oct 8 (10:00->7, 12:00->10, 18:00->5); **0 in Oct 1-7** |
+| Deploy delta `4f73f5b..648bec9` | byte-identical for `customers/`, `lib/*`, `middleware`, `package.json`, `amplify.yml` |
+| Replay of the exact sequence against prod (`xjmngvxbaxlutupqavdr`) | **28 182 ms** before the fix (Amplify compute limit is 30 000 ms) |
+| Header-size sweep (real fetches, same query shapes) | n=250/300/330/350/370 -> 207-535 ms; **n=400 -> 8 060 ms `TypeError: fetch failed`** |
+| `auth.users` growth | 258 (Sep 30) -> 368 (Oct 6, **+94 signup spike**) -> 394 (Oct 7) -> 400 (Oct 8) |
+
+The 400-id threshold was crossed on **Oct 7**, a day before the deploy. The timing made the deploy look guilty; it was user growth.
+
+### Root cause
+
+`getCustomers()` passed **every** user id into three `.in()` filters (`profiles.id`, `addresses.user_id`, `orders.user_id`). PostgREST filters travel in the request line and headers, so 400 UUIDs (~14.9 KB per request) pushed the combined request headers past Node/undici's 16 KB cap. Each of the three queries then stalled **~8 s** before failing with `UND_ERR_HEADERS_OVERFLOW`. Two `auth.admin.listUsers` calls (the global branch called it twice - once for the id set, once for the records) took the total to ~28 s, i.e. past Amplify's 30 s compute limit -> `Status: timeout` -> HTTP 504.
+
+Secondary defect: all three queries discarded `.error` (`const { data } = await ...`), so a failed query would have rendered a silently empty list even without the timeout.
+
+Only `/customers` was affected: `listUsers` is used nowhere else, and every other `.in()` call in the app is bounded (e.g. `/users` builds ids from `role != customer`, `/stores` slices to the top 10).
+
+### Fix
+
+- **Batch the filters** (`IN_BATCH_SIZE = 200`, well under the measured 370-id threshold) and run the batches concurrently. 400 ids become 2 requests of ~7.5 KB.
+- **One `listUsers` call per branch** instead of two, with pagination (`perPage: 1000`, hard stop after 10 pages) so the listing cannot truncate silently or loop forever.
+- **Propagate errors**: the batched helper throws on the first failed batch, and the store orders probe checks its own `{ error }`. A failure now surfaces as a visible error instead of an empty table.
+- Empty id sets short-circuit (an `in.(...)` filter matches nothing anyway).
+
+### Files changed
+
+| File | Change |
+|---|---|
+| `src/lib/in-batch.ts` (NEW) | `IN_BATCH_SIZE = 200`, `chunkIds()`, `selectByIn()` - chunks an id list, runs one query per chunk via `Promise.all`, concatenates rows in chunk order, throws on the first batch error. |
+| `src/lib/in-batch.test.ts` (NEW) | 15 tests: chunk boundaries (0/1/200/201/400), custom size, invalid size, empty short-circuit, per-request size cap, concurrency + order preservation, error message propagation, generic fallback, null data, rejected query. |
+| `src/app/(admin)/customers/actions.ts` | The three `.in()` queries now go through `selectByIn`. `listAllAuthUsers()` replaces the two inline `listUsers` calls (paginated, one per run). The orders probe destructures `{ error }` and throws. Deduped the global id set. |
+| `src/app/(admin)/customers/actions.test.ts` | +6 tests: 250 ids -> 2 batches of `[200, 50]` with no `.in()` call over `IN_BATCH_SIZE`; exactly one `listUsers` in the global branch; profiles error -> rejects; orders probe error -> rejects; store-scoped orders count error -> rejects; pagination guard stops after 10 pages. |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Prod replay with the new code (`npx tsx`, exact prod credentials) | **1 127 ms** / 2 391 ms on two runs (was 28 182 ms) - 396 profiles in 2 batches, 218 addresses, 61 orders |
+| `npm test` | **1238 / 1238** passing across 66 files (was 1217 across 65; +15 in-batch, +6 customers) |
+| `npm run typecheck` | clean (exit 0) |
+| `npx eslint <changed files>` | 0 errors, 0 warnings (exit 0) |
+
+Pre-deploy gate: the page must load in ~1-2 s and CloudWatch must show zero new `Status: timeout` rows after the Amplify build goes green.
+
 ## Next Step
 
 All 46 phases complete (P1–P68 + P63 hydration fix + P64 follow-up). **Test suite is production-ready.**
