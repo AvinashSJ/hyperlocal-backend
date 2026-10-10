@@ -171,6 +171,57 @@ describe("updateOrderStatus", () => {
     await expect(updateOrderStatus("o-1", "confirmed")).rejects.toBeInstanceOf(PermissionError);
   });
 
+  it("revert cancelled -> processing: rejected for a plain Admin", async () => {
+    asAdmin({ orders: ["edit"] }, { role: "Admin" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "cancelled" }, error: null }); // guard select
+
+    await expect(updateOrderStatus("o-1", "processing")).rejects.toThrow(
+      /Only a Store Manager or Super Admin can revert a cancelled order to processing/,
+    );
+    expect(admin.chainsForTable("orders")[0].find((c) => c.method === "update")).toBeUndefined();
+  });
+
+  it("revert cancelled -> processing: allowed for a Store Manager", async () => {
+    asAdmin({ orders: ["edit"] }, { role: "Store Manager" });
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "cancelled" }, error: null }); // guard select
+    admin.enqueueResponse({ data: { status: "cancelled" }, error: null }); // pre-select previous_status
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
+    admin.enqueueResponse({ data: { invoice_id: null }, error: null }); // invoice re-fetch
+
+    await updateOrderStatus("o-1", "processing", "Reverted by mistake");
+
+    const updateArg = admin.chainsForTable("orders")[2]
+      .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
+    expect(updateArg.status).toBe("processing");
+
+    const trackInsert = admin.chainsForTable("order_tracks")[0]
+      .find((c) => c.method === "insert")!.args[0] as Record<string, unknown>;
+    expect(trackInsert.notes).toBe("Reverted by mistake");
+  });
+
+  it("revert cancelled -> processing: allowed for a Super Admin", async () => {
+    asSuperAdmin();
+    setServerUser({ id: "u-1", email: "u@test.com" });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { status: "cancelled" }, error: null }); // guard select
+    admin.enqueueResponse({ data: { status: "cancelled" }, error: null }); // pre-select
+    admin.enqueueResponse({ data: null, error: null }); // orders.update
+    admin.enqueueResponse({ data: null, error: null }); // order_tracks.insert
+    admin.enqueueResponse({ data: null, error: null }); // activity_logs.insert
+    admin.enqueueResponse({ data: { invoice_id: null }, error: null }); // invoice re-fetch
+
+    await updateOrderStatus("o-1", "processing");
+
+    const updateArg = admin.chainsForTable("orders")[2]
+      .find((c) => c.method === "update")!.args[0] as Record<string, unknown>;
+    expect(updateArg.status).toBe("processing");
+  });
+
   it("updates status, inserts a track row, and revalidates the list + detail", async () => {
     asAdmin({ orders: ["edit"] });
     setServerUser({ id: "u-1", email: "u@test.com" });

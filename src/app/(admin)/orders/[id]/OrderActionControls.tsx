@@ -75,7 +75,19 @@ export default function OrderActionControls({
   const [savingReturn, setSavingReturn] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
 
-  const STATUS_FLOW: OrderStatus[] = ["pending", "confirmed", "processing", "out_for_delivery", "delivered"];
+  const ALL_STATUSES: OrderStatus[] = [
+    "pending",
+    "confirmed",
+    "processing",
+    "out_for_delivery",
+    "delivered",
+    "cancelled",
+    "returned",
+    "return_requested",
+    "return_processing",
+    "return_approved",
+    "return_rejected",
+  ];
 
   const handleStatusUpdate = async () => {
     if (newStatus === currentStatus && statusModalPayment === currentPaymentStatus) return;
@@ -201,7 +213,10 @@ export default function OrderActionControls({
     }
   };
 
-  const isTerminal = currentStatus === "cancelled" || currentStatus === "returned";
+  // Only "returned" is truly terminal in the UI. A cancelled order may be
+  // reverted to processing (Store Manager / Super Admin) via the status
+  // dropdown. The server enforces that role restriction.
+  const isTerminal = currentStatus === "returned";
   const isDelivered = currentStatus === "delivered";
   const isReturnWorkflow = currentStatus.startsWith("return_");
   const needsInvoice = currentStatus === "delivered" && !currentInvoiceId;
@@ -309,21 +324,13 @@ export default function OrderActionControls({
                   onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
                   data-testid="status-select"
                 >
-                  {STATUS_FLOW.map((s) => {
-                    const idx = STATUS_FLOW.indexOf(currentStatus as OrderStatus);
-                    const newIdx = STATUS_FLOW.indexOf(s);
-                    if (s === currentStatus) return null;
-                    if (newIdx < idx && s !== "cancelled") return null;
-                    return (
-                      <option key={s} value={s}>
-                        {s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </option>
-                    );
-                  })}
-                  {currentStatus !== "cancelled" && currentStatus !== "returned" && (
-                    <option value="cancelled">Cancel Order</option>
-                  )}
-                  {currentStatus === "delivered" && <option value="returned">Return</option>}
+                  {ALL_STATUSES.filter(
+                    (s) => s !== currentStatus && !s.startsWith("return_"),
+                  ).map((s) => (
+                    <option key={s} value={s}>
+                      {s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="mb-3">
