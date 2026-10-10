@@ -19,7 +19,7 @@ export function getTransformedImageUrl(
 
     // Replace /object/ with /object/public/transform/ for public buckets
     if (url.pathname.includes("/storage/v1/object/public/")) {
-      let transformPath = url.pathname.replace(
+      const transformPath = url.pathname.replace(
         "/storage/v1/object/public/",
         "/storage/v1/object/public/transform/",
       );
