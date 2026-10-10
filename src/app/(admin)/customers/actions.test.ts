@@ -10,6 +10,7 @@ import {
 import { resetPermissionMock } from "../../../../test/mocks/require-permission";
 
 import { getCustomers } from "./actions";
+import { IN_BATCH_SIZE } from "@/lib/in-batch";
 import type { MockSupabaseUser } from "../../../../test/mocks/supabase";
 
 beforeEach(() => {
@@ -257,6 +258,87 @@ describe("getCustomers (no storeId — all customers)", () => {
     const customers = await getCustomers();
     expect(customers).toEqual([]);
   });
+
+  it("batches .in() ids so no request carries more than IN_BATCH_SIZE ids", async () => {
+    seedAuthUsers(
+      Array.from({ length: 250 }, (_, i) => ({
+        id: `u-${i}`,
+        email: `u${i}@example.com`,
+        created_at: "2025-01-01T00:00:00Z",
+      })),
+    );
+
+    const admin = getAdminClient();
+    // 250 ids → 2 batches per table, consumed in construction order:
+    // profiles (2), addresses (2), orders (2).
+    admin.setResponses(
+      { data: [{ id: "u-0", full_name: "First", avatar_url: null, role: "customer" }], error: null },
+      { data: [{ id: "u-249", full_name: "Last", avatar_url: null, role: "customer" }], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    );
+
+    const customers = await getCustomers();
+
+    const inCalls = admin.calls.filter((c) => c.method === "in");
+    expect(inCalls).toHaveLength(6);
+    for (const call of inCalls) {
+      expect((call.args[1] as string[]).length).toBeLessThanOrEqual(IN_BATCH_SIZE);
+    }
+
+    const profileChunks = admin
+      .chainsForTable("profiles")
+      .map((chain) => chain.find((c) => c.method === "in")!.args[1] as string[]);
+    expect(profileChunks.map((c) => c.length)).toEqual([IN_BATCH_SIZE, 50]);
+    // The ids are split, not repeated.
+    expect(new Set(profileChunks.flat()).size).toBe(250);
+
+    expect(customers.map((c) => c.id)).toEqual(["u-0", "u-249"]);
+  });
+
+  it("calls auth.admin.listUsers exactly once in the global branch", async () => {
+    seedAuthUsers([{ id: "u-1", email: "a@x.com", created_at: "2025-01-01T00:00:00Z" }]);
+
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "u-1", full_name: "A", avatar_url: null, role: "customer" }], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    );
+
+    await getCustomers();
+    expect(admin.calls.filter((c) => c.method === "auth.admin.listUsers")).toHaveLength(1);
+  });
+
+  it("throws when the profiles query fails instead of returning a silently empty list", async () => {
+    seedAuthUsers([{ id: "u-1", email: "a@x.com", created_at: "2025-01-01T00:00:00Z" }]);
+
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: { message: "permission denied for table profiles" } });
+
+    await expect(getCustomers()).rejects.toThrow("permission denied for table profiles");
+  });
+
+  it("stops paging the auth listing after MAX_AUTH_PAGES full pages", async () => {
+    // The mock ignores `page` and always returns the whole list, so a missing
+    // guard would loop forever. One full page is enough to prove termination.
+    seedAuthUsers(
+      Array.from({ length: 1000 }, (_, i) => ({
+        id: `u-${i}`,
+        email: `u${i}@example.com`,
+        created_at: "2025-01-01T00:00:00Z",
+      })),
+    );
+
+    const admin = getAdminClient();
+    const customers = await getCustomers();
+
+    // 10 pages × 1000 users, deduped back to 1000 ids for the batched queries.
+    expect(admin.calls.filter((c) => c.method === "auth.admin.listUsers")).toHaveLength(10);
+    expect(customers).toEqual([]);
+  });
 });
 
 describe("getCustomers (storeId provided — store-scoped)", () => {
@@ -402,5 +484,30 @@ describe("getCustomers (storeId provided — store-scoped)", () => {
     const customers = await getCustomers("s-1");
     expect(customers).toHaveLength(1);
     expect(customers[0].id).toBe("u-1");
+  });
+
+  it("throws when the store orders probe fails", async () => {
+    seedAuthUsers([{ id: "u-1", email: "a@x.com", created_at: "2025-01-01T00:00:00Z" }]);
+
+    const admin = getAdminClient();
+    admin.setResponses({ data: null, error: { message: "canceling statement due to statement timeout" } });
+
+    await expect(getCustomers("s-1")).rejects.toThrow(
+      "canceling statement due to statement timeout",
+    );
+  });
+
+  it("throws when the store-scoped orders count query fails", async () => {
+    seedAuthUsers([{ id: "u-1", email: "a@x.com", created_at: "2025-01-01T00:00:00Z" }]);
+
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ user_id: "u-1" }], error: null },
+      { data: [{ id: "u-1", full_name: "A", avatar_url: null, role: "customer" }], error: null },
+      { data: [], error: null },
+      { data: null, error: { message: "connection reset" } },
+    );
+
+    await expect(getCustomers("s-1")).rejects.toThrow("connection reset");
   });
 });

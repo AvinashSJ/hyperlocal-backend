@@ -119,17 +119,60 @@ describe("OrderActionControls (P54 — shared status + payment controls)", () =>
     cleanup();
   });
 
-  it("hides action buttons when the status is terminal (cancelled/returned)", () => {
-    for (const status of ["cancelled", "returned"] as const) {
-      const { container, cleanup } = render({
-        orderId: "o-1",
-        currentStatus: status,
-        currentPaymentStatus: "paid",
-      });
-      expect(container.querySelector('[data-testid="open-status-modal"]')).toBeNull();
-      expect(container.querySelector('[data-testid="open-return-modal"]')).toBeNull();
-      cleanup();
-    }
+  it("hides action buttons when the status is terminal (returned)", () => {
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "returned",
+      currentPaymentStatus: "paid",
+    });
+    expect(container.querySelector('[data-testid="open-status-modal"]')).toBeNull();
+    expect(container.querySelector('[data-testid="open-return-modal"]')).toBeNull();
+    cleanup();
+  });
+
+  it("cancelled: shows an enabled Update Status so the order can be reverted", () => {
+    const { container, cleanup } = render({
+      orderId: "o-1",
+      currentStatus: "cancelled",
+      currentPaymentStatus: "paid",
+    });
+    const statusBtn = container.querySelector('[data-testid="open-status-modal"]') as HTMLButtonElement;
+    expect(statusBtn).not.toBeNull();
+    expect(statusBtn.disabled).toBe(false);
+    cleanup();
+  });
+
+  it("cancelled: dropdown offers processing and reverting calls updateOrderStatus", async () => {
+    updateOrderStatusMock.mockResolvedValue({ invoiceId: "i-revert" });
+    const { container, cleanup } = render({
+      orderId: "o-9",
+      currentStatus: "cancelled",
+      currentPaymentStatus: "unpaid",
+    });
+
+    await act(async () => {
+      (container.querySelector('[data-testid="open-status-modal"]') as HTMLButtonElement).click();
+    });
+
+    const select = container.querySelector('[data-testid="status-select"]') as HTMLSelectElement;
+    const optionValues = Array.from(select.querySelectorAll("option")).map((o) => o.value);
+    expect(optionValues).toContain("processing");
+    expect(optionValues).not.toContain("cancelled");
+    expect(optionValues.some((v) => v.startsWith("return_"))).toBe(false);
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!;
+      setter.call(select, "processing");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await act(async () => {
+      (container.querySelector('[data-testid="confirm-status-update"]') as HTMLButtonElement).click();
+    });
+
+    expect(updateOrderStatusMock).toHaveBeenCalledWith("o-9", "processing", undefined);
+    expect(refreshMock).toHaveBeenCalled();
+    cleanup();
   });
 
   it("delivered + unpaid: shows disabled Update Status, Mark as Paid, and Manage Return", () => {

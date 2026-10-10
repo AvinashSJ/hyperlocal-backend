@@ -138,7 +138,7 @@ export async function updateOrderStatus(
   status: OrderStatus,
   notes?: string,
 ): Promise<{ invoiceId: string | null; invoiceError?: string }> {
-  await assertPermission("orders", "edit");
+  const perm = await assertPermission("orders", "edit");
   const supabase = createAdminClient();
 
   // Guard: prevent manual status updates when the order is in the
@@ -154,6 +154,17 @@ export async function updateOrderStatus(
       `Cannot update status manually: order ${id} is in the return workflow ` +
       `(current status: ${currentOrder.status}). Use the Returns panel to manage this order.`,
     );
+  }
+
+  // Reverting a cancelled order back to processing is restricted to
+  // Store Manager and Super Admin. This is the only status change with
+  // an extra role guard — everything else is allowed from the dropdown.
+  if (currentOrder?.status === "cancelled" && status === "processing") {
+    if (!(perm.isSuperAdmin || perm.role === "Store Manager")) {
+      throw new Error(
+        "Only a Store Manager or Super Admin can revert a cancelled order to processing.",
+      );
+    }
   }
 
   const updateFields: Record<string, string | null> = { status };
