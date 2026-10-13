@@ -729,7 +729,7 @@ describe("createUser", () => {
 
     const profileChains = admin.chainsForTable("profiles");
     const insertChain = profileChains[0];
-    const insertCall = insertChain.find((c) => c.method === "insert")!;
+    const insertCall = insertChain.find((c) => c.method === "upsert")!;
     const insertArg = insertCall.args[0] as Record<string, unknown>;
     expect(insertArg.role).toBe("superadmin");
     expect(insertArg.role_id).toBe(1);
@@ -740,7 +740,7 @@ describe("createUser", () => {
     expect(insertArg.is_active).toBe(true);
   });
 
-  it("creates a store-scoped Manager profile", async () => {
+  it("creates a store-scoped Manager profile (upsert on id, not insert)", async () => {
     asAdmin({ users: ["create"] });
     const admin = getAdminClient();
     admin.setResponses(
@@ -759,11 +759,14 @@ describe("createUser", () => {
 
     const profileChains = admin.chainsForTable("profiles");
     const insertChain = profileChains[0];
-    const insertCall = insertChain.find((c) => c.method === "insert")!;
+    const insertCall = insertChain.find((c) => c.method === "upsert")!;
     const insertArg = insertCall.args[0] as Record<string, unknown>;
     expect(insertArg.role).toBe("admin");
     expect(insertArg.role_id).toBe(7);
     expect(insertArg.store_id).toBe("s-1");
+    // Must upsert on id: `on_auth_user_created` already created the profile
+    // row, so a plain insert would fail with a duplicate-key error.
+    expect(insertCall.args[1]).toEqual({ onConflict: "id" });
   });
 
   it("allows multiple Manager profiles for the same store", async () => {
@@ -794,7 +797,7 @@ describe("createUser", () => {
 
     const inserts = admin
       .chainsForTable("profiles")
-      .flatMap((chain) => chain.filter((call) => call.method === "insert"));
+      .flatMap((chain) => chain.filter((call) => call.method === "upsert"));
     expect(inserts).toHaveLength(2);
     expect((inserts[0].args[0] as Record<string, unknown>).store_id).toBe("s-1");
     expect((inserts[1].args[0] as Record<string, unknown>).store_id).toBe("s-1");
@@ -819,7 +822,7 @@ describe("createUser", () => {
     expect(admin.calls.filter((c) => c.method === "auth.admin.createUser")).toHaveLength(1);
 
     const insertChain = admin.chainsForTable("profiles")[0];
-    const insertCall = insertChain.find((c) => c.method === "insert")!;
+    const insertCall = insertChain.find((c) => c.method === "upsert")!;
     const insertArg = insertCall.args[0] as Record<string, unknown>;
     expect(insertArg.role_id).toBe(7);
     expect(insertArg).not.toHaveProperty("store_id");
@@ -858,7 +861,7 @@ describe("createUser", () => {
 
     const profileChains = admin.chainsForTable("profiles");
     const insertChain = profileChains[0];
-    const insertCall = insertChain.find((c) => c.method === "insert")!;
+    const insertCall = insertChain.find((c) => c.method === "upsert")!;
     const insertArg = insertCall.args[0] as Record<string, unknown>;
     expect(insertArg).not.toHaveProperty("store_id");
   });

@@ -430,7 +430,7 @@ export async function createUser(formData: FormData) {
 
   const { error: profileError } = await supabase
     .from("profiles")
-    .insert(profileData);
+    .upsert(profileData, { onConflict: "id" });
 
   if (profileError) {
     await supabase.auth.admin.deleteUser(authUser.user.id);

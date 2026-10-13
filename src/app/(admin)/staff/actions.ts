@@ -144,7 +144,7 @@ export async function createStaff(formData: FormData) {
     throw new Error("Staff role not found");
   }
 
-  const { error } = await supabase.from("profiles").insert({
+  const { error } = await supabase.from("profiles").upsert({
     id: authUser.user.id,
     email,
     full_name: fullName,
@@ -154,7 +154,7 @@ export async function createStaff(formData: FormData) {
     role_id: staffRole.id,
     role: "admin",
     is_active: true,
-  });
+  }, { onConflict: "id" });
 
   if (error) {
     // Roll back the auth user so we don't leave an orphan auth account
