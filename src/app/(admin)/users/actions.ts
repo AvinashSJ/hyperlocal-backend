@@ -390,9 +390,6 @@ export async function createUser(formData: FormData) {
     .single();
 
   if (roleError || !roleData?.name) throw new Error("Selected role was not found");
-  if (roleData.name === "Manager" && !storeId) {
-    throw new Error("A store is required when creating a Manager");
-  }
 
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,

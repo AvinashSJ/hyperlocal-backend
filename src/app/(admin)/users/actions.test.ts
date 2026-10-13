@@ -800,10 +800,13 @@ describe("createUser", () => {
     expect((inserts[1].args[0] as Record<string, unknown>).store_id).toBe("s-1");
   });
 
-  it("rejects a Manager without a store before creating an auth user", async () => {
+  it("creates a Manager without a store (unassigned, eligible for a new store)", async () => {
     asAdmin({ users: ["create"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: { name: "Manager" }, error: null });
+    admin.setResponses(
+      { data: { name: "Manager" }, error: null },
+      { data: null, error: null },
+    );
 
     const fd = buildFormData({
       email: "unassigned-manager@example.com",
@@ -811,8 +814,15 @@ describe("createUser", () => {
       role_id: "7",
     });
 
-    await expect(createUser(fd)).rejects.toThrow(/store is required/i);
-    expect(admin.calls.filter((c) => c.method === "auth.admin.createUser")).toHaveLength(0);
+    await runAction(createUser, fd);
+
+    expect(admin.calls.filter((c) => c.method === "auth.admin.createUser")).toHaveLength(1);
+
+    const insertChain = admin.chainsForTable("profiles")[0];
+    const insertCall = insertChain.find((c) => c.method === "insert")!;
+    const insertArg = insertCall.args[0] as Record<string, unknown>;
+    expect(insertArg.role_id).toBe(7);
+    expect(insertArg).not.toHaveProperty("store_id");
   });
 
   it("rejects a missing role before creating an auth user", async () => {

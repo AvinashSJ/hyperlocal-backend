@@ -751,13 +751,14 @@ describe("setStoreCategories", () => {
 });
 
 describe("getEligibleManagers", () => {
-  it("returns managers (non-Super-Admin role) with a profile, no store", async () => {
+  it("returns only Manager-role users with no store (excludes Super Admin and Staff)", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
     admin.enqueueResponse({
       data: [
         { id: "u-1", full_name: "Alice", email: "alice@x.com", role_id: 2 },
         { id: "u-2", full_name: "Bob", email: "bob@x.com", role_id: 1 },
+        { id: "u-3", full_name: "Carol", email: "carol@x.com", role_id: 3 },
       ],
       error: null,
     });
@@ -765,6 +766,7 @@ describe("getEligibleManagers", () => {
       data: [
         { id: 1, name: "Super Admin" },
         { id: 2, name: "Manager" },
+        { id: 3, name: "Staff" },
       ],
       error: null,
     });

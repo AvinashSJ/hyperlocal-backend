@@ -468,7 +468,7 @@ export async function getEligibleManagers() {
     .in("id", roleIds);
 
   const managerRoleIds = new Set(
-    (roles ?? []).filter((r) => r.name !== "Super Admin").map((r) => r.id),
+    (roles ?? []).filter((r) => r.name === "Manager").map((r) => r.id),
   );
 
   return data
