@@ -1,12 +1,22 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useRef, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
+
+const HCAPTCHA_SITEKEY = process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY;
 
 export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
   const router = useRouter();
+
+  // CAPTCHA is only enforced when a sitekey is configured. While it is unset
+  // the widget is not rendered and no token is sent, so login behaves exactly
+  // as before (Supabase's CAPTCHA toggle is off until we opt in).
+  const captchaEnabled = Boolean(HCAPTCHA_SITEKEY);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -20,6 +30,7 @@ export default function LoginForm() {
       body: JSON.stringify({
         email: form.get("email"),
         password: form.get("password"),
+        captchaToken: captchaToken ?? undefined,
       }),
     });
 
@@ -33,6 +44,9 @@ export default function LoginForm() {
     } else {
       const data = await res.json();
       setError(data.error || "Invalid email or password.");
+      // Captcha tokens are single-use: reset and require a fresh one.
+      captchaRef.current?.resetCaptcha();
+      setCaptchaToken(null);
       setLoading(false);
     }
   }
@@ -64,7 +78,21 @@ export default function LoginForm() {
           className="form-control form-control-lg"
         />
       </div>
-      <button type="submit" className="btn btn-primary btn-lg w-100" disabled={loading}>
+      {captchaEnabled && HCAPTCHA_SITEKEY ? (
+        <div>
+          <HCaptcha
+            ref={captchaRef}
+            sitekey={HCAPTCHA_SITEKEY}
+            onVerify={(token) => setCaptchaToken(token)}
+            onExpire={() => setCaptchaToken(null)}
+          />
+        </div>
+      ) : null}
+      <button
+        type="submit"
+        className="btn btn-primary btn-lg w-100"
+        disabled={loading || (captchaEnabled && !captchaToken)}
+      >
         {loading ? "Signing in..." : "Sign in"}
       </button>
     </form>

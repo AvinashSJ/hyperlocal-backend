@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPostLoginRedirect } from "@/lib/store-scope";
 
 export async function POST(request: NextRequest) {
-  const { email, password } = await request.json();
+  const { email, password, captchaToken } = await request.json();
 
   if (!email || !password) {
     return NextResponse.json(
@@ -14,9 +14,22 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword(
+    typeof captchaToken === "string" && captchaToken
+      ? { email, password, options: { captchaToken } }
+      : { email, password },
+  );
 
   if (error) {
+    const isCaptchaError =
+      error.code === "captcha_failed" ||
+      error.message?.toLowerCase().includes("captcha");
+    if (isCaptchaError) {
+      return NextResponse.json(
+        { error: "Please complete the CAPTCHA and try again." },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       { error: "Invalid email or password." },
       { status: 401 },
