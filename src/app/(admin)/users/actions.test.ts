@@ -432,7 +432,10 @@ describe("updateUser", () => {
   it("updates full_name, phone, store_id, and email when present", async () => {
     asAdmin({ users: ["edit"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
+    admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup (not an owner)
+      { data: null, error: null }, // profiles update
+    );
 
     const fd = buildFormData({
       id: "u-1",
@@ -456,7 +459,10 @@ describe("updateUser", () => {
   it("trims whitespace and stores null for empty full_name/phone/store_id", async () => {
     asAdmin({ users: ["edit"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
+    admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
+      { data: null, error: null }, // profiles update
+    );
 
     const fd = buildFormData({
       id: "u-1",
@@ -479,7 +485,10 @@ describe("updateUser", () => {
   it("omits email key when email is empty", async () => {
     asAdmin({ users: ["edit"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
+    admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
+      { data: null, error: null }, // profiles update
+    );
 
     const fd = buildFormData({
       id: "u-1",
@@ -500,7 +509,10 @@ describe("updateUser", () => {
   it("throws when supabase returns an error", async () => {
     asAdmin({ users: ["edit"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: { message: "constraint failed" } });
+    admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
+      { data: null, error: { message: "constraint failed" } }, // profiles update
+    );
 
     const fd = buildFormData({
       id: "u-1",
@@ -526,6 +538,7 @@ describe("updateUser", () => {
     // 2) role name lookup
     // 3) profile update
     admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
       { data: { role_id: 2, roles: { name: "Manager" } }, error: null },
       { data: { name: "Manager" }, error: null },
       { data: null, error: null },
@@ -559,6 +572,7 @@ describe("updateUser", () => {
     // 1) target profile lookup
     // 2) profile update
     admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
       { data: { role_id: 2, roles: { name: "Manager" } }, error: null },
       { data: null, error: null },
     );
@@ -583,6 +597,7 @@ describe("updateUser", () => {
     const admin = getAdminClient();
     // target profile lookup returns Super Admin
     admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
       { data: { role_id: 1, roles: { name: "Super Admin" } }, error: null },
     );
 
@@ -616,7 +631,10 @@ describe("updateUser", () => {
   it("P30: omits role fields from update when role_id is empty (no change)", async () => {
     asAdmin({ users: ["edit"] });
     const admin = getAdminClient();
-    admin.setResponses({ data: null, error: null });
+    admin.setResponses(
+      { data: null, error: null }, // stores ownership lookup
+      { data: null, error: null }, // profiles update
+    );
 
     const fd = buildFormData({
       id: "u-other",
@@ -632,6 +650,56 @@ describe("updateUser", () => {
     const updateArg = updateCall.args[0] as Record<string, unknown>;
     expect(updateArg).not.toHaveProperty("role_id");
     expect(updateArg).not.toHaveProperty("role");
+  });
+
+  it("blocks reassigning a store's primary manager to another store", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    // stores ownership lookup → this user owns store s-owned
+    admin.setResponses({ data: { id: "s-owned" }, error: null });
+
+    const fd = buildFormData({
+      id: "u-owner",
+      full_name: "Owner",
+      store_id: "s-other",
+    });
+    const result = await runAction(updateUser, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/primary manager/);
+    // No profile update should have run.
+    expect(admin.calls.filter((c) => c.method === "update")).toHaveLength(0);
+  });
+
+  it("blocks unassigning a store's primary manager (empty store)", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses({ data: { id: "s-owned" }, error: null });
+
+    const fd = buildFormData({
+      id: "u-owner",
+      full_name: "Owner",
+      store_id: "",
+    });
+    const result = await runAction(updateUser, fd);
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/primary manager/);
+  });
+
+  it("allows a store's primary manager to keep the same store", async () => {
+    asAdmin({ users: ["edit"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: { id: "s-owned" }, error: null }, // ownership lookup (matches)
+      { data: null, error: null }, // profiles update
+    );
+
+    const fd = buildFormData({
+      id: "u-owner",
+      full_name: "Owner",
+      store_id: "s-owned",
+    });
+    const result = await runAction(updateUser, fd);
+    expect(result.ok).toBe(true);
   });
 });
 

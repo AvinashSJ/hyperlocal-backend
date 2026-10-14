@@ -20,8 +20,30 @@ vi.mock("@iconify/react", () => ({
   ),
 }));
 
+const routerRefresh = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: routerRefresh, push: vi.fn(), back: vi.fn() }),
+}));
+
+vi.mock("react-toastify", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+}));
+
+const mockAddStoreManager = vi.fn();
+const mockRemoveStoreManager = vi.fn();
+const mockSetStorePrimaryManager = vi.fn();
+vi.mock("../actions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../actions")>();
+  return {
+    ...actual,
+    addStoreManager: (...args: unknown[]) => mockAddStoreManager(...args),
+    removeStoreManager: (...args: unknown[]) => mockRemoveStoreManager(...args),
+    setStorePrimaryManager: (...args: unknown[]) => mockSetStorePrimaryManager(...args),
+  };
+});
+
 import StoreDetailClient from "./StoreDetailClient";
-import type { StoreRow, StoreRelations } from "../actions";
+import type { StoreRow, StoreRelations, StoreManagerRow } from "../actions";
 import type { Product } from "@/lib/types/supabase";
 
 const baseStore = (overrides: Partial<StoreRow> = {}): StoreRow => ({
@@ -41,6 +63,7 @@ const baseStore = (overrides: Partial<StoreRow> = {}): StoreRow => ({
   order_id_prefix: null,
   is_open: true,
   is_active: true,
+  owner_id: null,
   updated_at: "2025-02-01T00:00:00.000Z",
   created_at: "2024-01-01T00:00:00.000Z",
   ...overrides,
@@ -75,6 +98,8 @@ function render(
   relations: StoreRelations = baseRelations(),
   canEdit = true,
   primaryGstin?: { gstin: string; legal_name: string; state_code: string | null } | null,
+  managers: StoreManagerRow[] = [],
+  eligibleManagers: { id: string; full_name: string | null; email: string | null }[] = [],
 ) {
   const container = document.createElement("div");
   document.body.appendChild(container);
@@ -87,6 +112,8 @@ function render(
         relations={relations}
         actionPerms={{ canView: true, canCreate: true, canEdit, canDelete: true }}
         primaryGstin={primaryGstin}
+        managers={managers}
+        eligibleManagers={eligibleManagers}
       />,
     );
   });
@@ -103,7 +130,10 @@ function render(
 
 describe("StoreDetailClient (P49)", () => {
   beforeEach(() => {
-    // No-op: each render creates its own root.
+    routerRefresh.mockClear();
+    mockAddStoreManager.mockClear().mockResolvedValue(undefined);
+    mockRemoveStoreManager.mockClear().mockResolvedValue(undefined);
+    mockSetStorePrimaryManager.mockClear().mockResolvedValue(undefined);
   });
 
   it("renders the store name and code", () => {
@@ -278,6 +308,126 @@ describe("StoreDetailClient (P49)", () => {
     const empty = container.querySelector('[data-testid="store-detail-no-gstin"]');
     expect(empty).not.toBeNull();
     expect(empty?.textContent).toMatch(/No primary GSTIN configured/);
+    cleanup();
+  });
+
+  it("shows the Managers card with a Primary badge and no Remove on the primary", () => {
+    const { container, cleanup } = render(
+      baseStore({ owner_id: "m-1" }),
+      baseRelations(),
+      true,
+      null,
+      [
+        { id: "m-1", full_name: "Boss", email: "boss@x.test", isPrimary: true },
+        { id: "m-2", full_name: "Helper", email: "h@x.test", isPrimary: false },
+      ],
+      [{ id: "m-3", full_name: "Unassigned", email: "u@x.test" }],
+    );
+    const card = container.querySelector('[data-testid="store-detail-managers-card"]');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toMatch(/Boss/);
+    expect(container.querySelector('[data-testid="store-manager-primary-m-1"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="store-manager-remove-m-1"]')).toBeNull();
+    expect(container.querySelector('[data-testid="store-manager-remove-m-2"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="store-manager-add-btn"]')).not.toBeNull();
+    // No designate-primary control when a primary already exists.
+    expect(container.querySelector('[data-testid="store-manager-set-primary-btn"]')).toBeNull();
+    cleanup();
+  });
+
+  it("hides the Managers card when canEdit is false", () => {
+    const { container, cleanup } = render(baseStore(), baseRelations(), false, null);
+    expect(container.querySelector('[data-testid="store-detail-managers-card"]')).toBeNull();
+    cleanup();
+  });
+
+  it("offers one-time designate-primary when the store has no primary", () => {
+    const { container, cleanup } = render(
+      baseStore({ owner_id: null }),
+      baseRelations(),
+      true,
+      null,
+      [{ id: "m-9", full_name: "Only", email: "o@x.test", isPrimary: false }],
+      [],
+    );
+    expect(container.querySelector('[data-testid="store-manager-set-primary-btn"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="store-managers-no-eligible"]')).not.toBeNull();
+    cleanup();
+  });
+
+  it("calls addStoreManager when Add is clicked", async () => {
+    const { container, cleanup } = render(
+      baseStore(),
+      baseRelations(),
+      true,
+      null,
+      [{ id: "m-1", full_name: "Boss", email: "boss@x.test", isPrimary: true }],
+      [{ id: "m-2", full_name: "New", email: "new@x.test" }],
+    );
+    const select = container.querySelector(
+      '[data-testid="store-manager-add-select"]',
+    ) as HTMLSelectElement;
+    await act(async () => {
+      select.value = "m-2";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const addBtn = container.querySelector(
+      '[data-testid="store-manager-add-btn"]',
+    ) as HTMLButtonElement;
+    expect(addBtn.disabled).toBe(false);
+    await act(async () => {
+      addBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(mockAddStoreManager).toHaveBeenCalledWith("s-1", "m-2");
+    expect(routerRefresh).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("calls removeStoreManager when a non-primary manager's Remove is clicked", async () => {
+    const { container, cleanup } = render(
+      baseStore({ owner_id: "m-1" }),
+      baseRelations(),
+      true,
+      null,
+      [
+        { id: "m-1", full_name: "Boss", email: "b@x", isPrimary: true },
+        { id: "m-2", full_name: "Helper", email: "h@x", isPrimary: false },
+      ],
+      [],
+    );
+    const btn = container.querySelector(
+      '[data-testid="store-manager-remove-m-2"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(mockRemoveStoreManager).toHaveBeenCalledWith("s-1", "m-2");
+    cleanup();
+  });
+
+  it("calls setStorePrimaryManager from the one-time designate control", async () => {
+    const { container, cleanup } = render(
+      baseStore({ owner_id: null }),
+      baseRelations(),
+      true,
+      null,
+      [{ id: "m-9", full_name: "Only", email: "o@x.test", isPrimary: false }],
+      [],
+    );
+    const select = container.querySelector(
+      '[data-testid="store-manager-set-primary-select"]',
+    ) as HTMLSelectElement;
+    await act(async () => {
+      select.value = "m-9";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const btn = container.querySelector(
+      '[data-testid="store-manager-set-primary-btn"]',
+    ) as HTMLButtonElement;
+    await act(async () => {
+      btn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(mockSetStorePrimaryManager).toHaveBeenCalledWith("s-1", "m-9");
     cleanup();
   });
 });

@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "react-toastify";
 import { Icon } from "@iconify/react";
 import type { StoreRow } from "../actions";
-import type { StoreRelations } from "../actions";
+import type { StoreRelations, StoreManagerRow } from "../actions";
+import {
+  addStoreManager,
+  removeStoreManager,
+  setStorePrimaryManager,
+} from "../actions";
+import { runServerAction } from "@/lib/run-server-action";
 // P63: client-side date renderer. Avoids hydration mismatches caused
 // by server/client timezone divergence in toLocaleString.
 import ClientDate from "@/components/ClientDate";
@@ -13,11 +21,19 @@ type ActionPermissions = {
   canView: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean;
 };
 
+type AssignableManager = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+};
+
 export default function StoreDetailClient({
   store,
   relations,
   actionPerms,
   primaryGstin,
+  managers = [],
+  eligibleManagers = [],
 }: {
   store: StoreRow;
   relations: StoreRelations;
@@ -27,11 +43,39 @@ export default function StoreDetailClient({
     legal_name: string;
     state_code: string | null;
   } | null;
+  managers?: StoreManagerRow[];
+  eligibleManagers?: AssignableManager[];
 }) {
   const fmtMoney = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+  const router = useRouter();
+  const [managerBusy, setManagerBusy] = useState(false);
+  const [managerError, setManagerError] = useState<string | null>(null);
+  const [managerToAdd, setManagerToAdd] = useState("");
+  const [managerForPrimary, setManagerForPrimary] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(
     new Set(["orders", "customers", "invoices", "products"]),
   );
+
+  const hasPrimary = managers.some((m) => m.isPrimary);
+
+  async function runManagerAction(
+    action: () => Promise<unknown>,
+    successMessage: string,
+  ) {
+    setManagerError(null);
+    setManagerBusy(true);
+    const result = await runServerAction(action);
+    setManagerBusy(false);
+    if (result.ok) {
+      toast.success(successMessage);
+      setManagerToAdd("");
+      setManagerForPrimary("");
+      router.refresh();
+    } else {
+      setManagerError(result.error.message);
+      toast.error(result.error.message);
+    }
+  }
   const toggleSection = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -104,6 +148,147 @@ export default function StoreDetailClient({
           </div>
         </div>
       </div>
+
+      {/* Managers card: the primary manager (permanent) plus additional
+          managers that can be attached/detached. A manager belongs to a
+          single store, so only unassigned managers are offered to add.
+          The one-time "designate primary" control appears only for legacy
+          stores created before the primary rule existed (owner_id NULL). */}
+      {actionPerms?.canEdit && (
+        <div className="card mb-3" data-testid="store-detail-managers-card">
+          <div className="card-header">
+            <strong>
+              <Icon icon="ri:user-star-line" className="me-1" />
+              Managers
+            </strong>
+          </div>
+          <div className="card-body">
+            {managerError && (
+              <div className="alert alert-danger py-2" role="alert">
+                {managerError}
+              </div>
+            )}
+
+            {managers.length === 0 ? (
+              <div className="text-muted small mb-3" data-testid="store-managers-empty">
+                No managers assigned yet.
+              </div>
+            ) : (
+              <ul className="list-group list-group-flush mb-3">
+                {managers.map((m) => (
+                  <li
+                    key={m.id}
+                    className="list-group-item d-flex justify-content-between align-items-center px-0"
+                    data-testid={`store-manager-${m.id}`}
+                  >
+                    <span>
+                      {m.full_name ?? m.email ?? m.id}
+                      {m.isPrimary && (
+                        <span
+                          className="badge bg-primary ms-2"
+                          data-testid={`store-manager-primary-${m.id}`}
+                        >
+                          Primary
+                        </span>
+                      )}
+                    </span>
+                    {!m.isPrimary && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        disabled={managerBusy}
+                        data-testid={`store-manager-remove-${m.id}`}
+                        onClick={() =>
+                          runManagerAction(
+                            () => removeStoreManager(store.id, m.id),
+                            "Manager removed",
+                          )
+                        }
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {!hasPrimary && managers.length > 0 && (
+              <div className="border rounded p-2 mb-3 bg-light">
+                <div className="small text-muted mb-2">
+                  This store has no primary manager yet. Designate one — this
+                  cannot be changed later.
+                </div>
+                <div className="d-flex gap-2">
+                  <select
+                    className="form-select"
+                    value={managerForPrimary}
+                    onChange={(e) => setManagerForPrimary(e.target.value)}
+                    data-testid="store-manager-set-primary-select"
+                  >
+                    <option value="">-- Select a manager --</option>
+                    {managers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.full_name ? `${m.full_name} (${m.email ?? ""})` : m.email ?? m.id}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn btn-primary text-nowrap"
+                    disabled={!managerForPrimary || managerBusy}
+                    data-testid="store-manager-set-primary-btn"
+                    onClick={() =>
+                      runManagerAction(
+                        () => setStorePrimaryManager(store.id, managerForPrimary),
+                        "Primary manager set",
+                      )
+                    }
+                  >
+                    Set as primary
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {eligibleManagers.length > 0 ? (
+              <div className="d-flex gap-2">
+                <select
+                  className="form-select"
+                  value={managerToAdd}
+                  onChange={(e) => setManagerToAdd(e.target.value)}
+                  data-testid="store-manager-add-select"
+                >
+                  <option value="">-- Add a manager --</option>
+                  {eligibleManagers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.full_name ? `${m.full_name} (${m.email ?? ""})` : m.email ?? m.id}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary text-nowrap"
+                  disabled={!managerToAdd || managerBusy}
+                  data-testid="store-manager-add-btn"
+                  onClick={() =>
+                    runManagerAction(
+                      () => addStoreManager(store.id, managerToAdd),
+                      "Manager added",
+                    )
+                  }
+                >
+                  Add
+                </button>
+              </div>
+            ) : (
+              <div className="text-muted small" data-testid="store-managers-no-eligible">
+                No unassigned managers available.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* P65: GST Information card. Shows the primary GSTIN used for
           invoicing, with quick access to the full /gst-numbers

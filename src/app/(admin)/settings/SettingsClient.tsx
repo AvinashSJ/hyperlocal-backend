@@ -744,7 +744,7 @@ function StoreInfoSection({
 
             {createMode && (
               <div className="col-md-6">
-                <label className="form-label">Store Manager <span className="text-danger">*</span></label>
+                <label className="form-label">Primary Manager <span className="text-danger">*</span></label>
                 <select name="owner_id" className="form-select" required>
                   <option value="">-- Select a manager --</option>
                   {managers.map((m) => (
@@ -753,7 +753,10 @@ function StoreInfoSection({
                     </option>
                   ))}
                 </select>
-                <div className="form-text">Only users with no existing store assignment are listed.</div>
+                <div className="form-text">
+                  Only users with no existing store assignment are listed. The
+                  primary manager is chosen once and cannot be changed later.
+                </div>
               </div>
             )}
             <div className="col-md-6">

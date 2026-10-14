@@ -27,6 +27,7 @@ export type StoreRow = {
   order_id_prefix: string | null;
   is_open: boolean;
   is_active: boolean;
+  owner_id: string | null;
   updated_at: string;
   created_at: string;
 };
@@ -474,4 +475,185 @@ export async function getEligibleManagers() {
   return data
     .filter((p) => p.role_id && managerRoleIds.has(p.role_id))
     .map((p) => ({ id: p.id, full_name: p.full_name, email: p.email }));
+}
+
+export type StoreManagerRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  isPrimary: boolean;
+};
+
+/**
+ * Managers attached to a store. A "manager of a store" is any profile with
+ * `store_id = storeId` whose role is Manager. The primary manager is the one
+ * referenced by `stores.owner_id` and is flagged with `isPrimary`.
+ */
+export async function getStoreManagers(storeId: string): Promise<StoreManagerRow[]> {
+  const supabase = createAdminClient();
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("owner_id")
+    .eq("id", storeId)
+    .maybeSingle();
+
+  const ownerId = store?.owner_id ?? null;
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, full_name, email, role_id")
+    .eq("store_id", storeId);
+
+  if (!profiles || profiles.length === 0) return [];
+
+  const roleIds = [...new Set(profiles.map((p) => p.role_id).filter(Boolean))];
+  if (roleIds.length === 0) return [];
+
+  const { data: roles } = await supabase
+    .from("roles")
+    .select("id, name")
+    .in("id", roleIds);
+
+  const managerRoleIds = new Set(
+    (roles ?? []).filter((r) => r.name === "Manager").map((r) => r.id),
+  );
+
+  return profiles
+    .filter((p) => p.role_id && managerRoleIds.has(p.role_id))
+    .map((p) => ({
+      id: p.id,
+      full_name: p.full_name,
+      email: p.email,
+      isPrimary: p.id === ownerId,
+    }));
+}
+
+/**
+ * One-time designation of a store's primary manager. Only allowed while the
+ * store has no primary (`owner_id IS NULL`) — this heals stores created before
+ * the primary-manager rule existed. Once set, the primary is permanent.
+ */
+export async function setStorePrimaryManager(storeId: string, profileId: string) {
+  await assertPermission("stores", "edit");
+  const supabase = createAdminClient();
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("owner_id")
+    .eq("id", storeId)
+    .maybeSingle();
+
+  if (!store) throw new Error("Store not found");
+  if (store.owner_id) throw new Error("This store already has a primary manager.");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, store_id, role_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (!profile) throw new Error("Manager not found");
+  if (profile.store_id !== storeId) {
+    throw new Error("This manager is not assigned to this store.");
+  }
+
+  const { data: role } = await supabase
+    .from("roles")
+    .select("name")
+    .eq("id", profile.role_id)
+    .maybeSingle();
+
+  if (role?.name !== "Manager") throw new Error("Selected user is not a Manager.");
+
+  const { error } = await supabase
+    .from("stores")
+    .update({ owner_id: profileId })
+    .eq("id", storeId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/stores");
+  revalidatePath(`/stores/${storeId}`);
+}
+
+/**
+ * Attach an unassigned Manager to a store. A manager belongs to exactly one
+ * store, so the target must currently have `store_id IS NULL`.
+ */
+export async function addStoreManager(storeId: string, profileId: string) {
+  await assertPermission("stores", "edit");
+  const supabase = createAdminClient();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, store_id, role_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (!profile) throw new Error("Manager not found");
+  if (profile.store_id) throw new Error("This user is already assigned to a store.");
+  if (!profile.role_id) throw new Error("Selected user is not a Manager.");
+
+  const { data: role } = await supabase
+    .from("roles")
+    .select("name")
+    .eq("id", profile.role_id)
+    .maybeSingle();
+
+  if (role?.name !== "Manager") throw new Error("Selected user is not a Manager.");
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ store_id: storeId })
+    .eq("id", profileId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/stores");
+  revalidatePath(`/stores/${storeId}`);
+  revalidatePath("/users");
+  revalidatePath("/settings");
+}
+
+/**
+ * Detach an additional manager from a store. The primary manager (the store's
+ * `owner_id`) cannot be removed — the primary is permanent.
+ */
+export async function removeStoreManager(storeId: string, profileId: string) {
+  await assertPermission("stores", "edit");
+  const supabase = createAdminClient();
+
+  const { data: store } = await supabase
+    .from("stores")
+    .select("owner_id")
+    .eq("id", storeId)
+    .maybeSingle();
+
+  if (store?.owner_id === profileId) {
+    throw new Error("The primary manager cannot be removed.");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, store_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (!profile) throw new Error("Manager not found");
+  if (profile.store_id !== storeId) {
+    throw new Error("This manager is not assigned to this store.");
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ store_id: null })
+    .eq("id", profileId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/stores");
+  revalidatePath(`/stores/${storeId}`);
+  revalidatePath("/users");
+  revalidatePath("/settings");
 }
