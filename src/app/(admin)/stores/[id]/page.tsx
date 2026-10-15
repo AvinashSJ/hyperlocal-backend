@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { createClient, safeGetUser } from "@/lib/supabase/server";
-import { getStoreById, getStoreRelations } from "../actions";
+import {
+  getStoreById,
+  getStoreRelations,
+  getStoreManagers,
+  getEligibleManagers,
+} from "../actions";
 import { getPrimaryGstin } from "@/app/(admin)/gst-numbers/actions";
 import StoreDetailClient from "./StoreDetailClient";
 
@@ -55,10 +60,12 @@ export default async function StoreDetailPage({
 
   if (roleName !== "Super Admin") redirect("/dashboard");
 
-  const [store, relations, primaryGstin] = await Promise.all([
+  const [store, relations, primaryGstin, managers, eligibleManagers] = await Promise.all([
     getStoreById(id),
     getStoreRelations(id),
     getPrimaryGstin(id),
+    getStoreManagers(id),
+    getEligibleManagers(),
   ]);
 
   if (!store) {
@@ -89,6 +96,8 @@ export default async function StoreDetailPage({
         relations={relations}
         actionPerms={actionPerms}
         primaryGstin={primaryGstin}
+        managers={managers}
+        eligibleManagers={eligibleManagers}
       />
     </div>
   );

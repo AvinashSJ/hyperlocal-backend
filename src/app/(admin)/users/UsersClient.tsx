@@ -379,7 +379,6 @@ export default function UsersClient({
                       <select
                         name="store_id"
                         className="form-select"
-                        required={roles.find((r) => String(r.id) === selectedRoleId)?.name === "Manager"}
                       >
                         <option value="">No store</option>
                         {stores.map((s) => (

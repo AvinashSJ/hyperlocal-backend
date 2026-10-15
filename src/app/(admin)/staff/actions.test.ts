@@ -374,7 +374,7 @@ describe("createStaff", () => {
     );
     const profileChains = admin.chainsForTable("profiles");
     const insertCallIdx = profileChains[0].findIndex(
-      (c) => c.method === "insert",
+      (c) => c.method === "upsert",
     );
     expect(authCalls.length).toBe(1);
     expect(authCalls[0].args[0]).toMatchObject({
@@ -437,7 +437,7 @@ describe("createStaff", () => {
     await runAction(createStaff, fd);
 
     const profilesChains = admin.chainsForTable("profiles");
-    const insertCall = profilesChains[0].find((c) => c.method === "insert")!;
+    const insertCall = profilesChains[0].find((c) => c.method === "upsert")!;
     const insertArg = insertCall.args[0] as Record<string, unknown>;
     // P29 fix: profiles.id must equal auth.users.id (FK). The mock
     // generates a deterministic-ish id, so we just assert the type.
@@ -473,7 +473,7 @@ describe("createStaff", () => {
     await runAction(createStaff, fd);
 
     const profilesChains = admin.chainsForTable("profiles");
-    const insertCall = profilesChains[0].find((c) => c.method === "insert")!;
+    const insertCall = profilesChains[0].find((c) => c.method === "upsert")!;
     const insertArg = insertCall.args[0] as Record<string, unknown>;
     expect(insertArg.phone).toBeNull();
     expect(insertArg.staff_type).toBeNull();

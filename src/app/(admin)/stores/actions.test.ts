@@ -28,6 +28,10 @@ import {
   assertCategoriesRemovable,
   setStoreCategories,
   getEligibleManagers,
+  getStoreManagers,
+  setStorePrimaryManager,
+  addStoreManager,
+  removeStoreManager,
 } from "./actions";
 
 beforeEach(() => {
@@ -751,13 +755,14 @@ describe("setStoreCategories", () => {
 });
 
 describe("getEligibleManagers", () => {
-  it("returns managers (non-Super-Admin role) with a profile, no store", async () => {
+  it("returns only Manager-role users with no store (excludes Super Admin and Staff)", async () => {
     asSuperAdmin();
     const admin = getAdminClient();
     admin.enqueueResponse({
       data: [
         { id: "u-1", full_name: "Alice", email: "alice@x.com", role_id: 2 },
         { id: "u-2", full_name: "Bob", email: "bob@x.com", role_id: 1 },
+        { id: "u-3", full_name: "Carol", email: "carol@x.com", role_id: 3 },
       ],
       error: null,
     });
@@ -765,6 +770,7 @@ describe("getEligibleManagers", () => {
       data: [
         { id: 1, name: "Super Admin" },
         { id: 2, name: "Manager" },
+        { id: 3, name: "Staff" },
       ],
       error: null,
     });
@@ -790,5 +796,240 @@ describe("getEligibleManagers", () => {
     });
 
     expect(await getEligibleManagers()).toEqual([]);
+  });
+});
+
+describe("getStoreManagers", () => {
+  it("returns Manager-role profiles assigned to the store, flagging the owner as primary", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: "m-1" }, error: null }); // store
+    admin.enqueueResponse({
+      data: [
+        { id: "m-1", full_name: "Boss", email: "b@x.com", role_id: 2 },
+        { id: "m-2", full_name: "Helper", email: "h@x.com", role_id: 2 },
+        { id: "st-1", full_name: "Cashier", email: "c@x.com", role_id: 3 },
+      ],
+      error: null,
+    }); // profiles
+    admin.enqueueResponse({
+      data: [
+        { id: 2, name: "Manager" },
+        { id: 3, name: "Staff" },
+      ],
+      error: null,
+    }); // roles
+
+    const result = await getStoreManagers("s-1");
+    expect(result).toEqual([
+      { id: "m-1", full_name: "Boss", email: "b@x.com", isPrimary: true },
+      { id: "m-2", full_name: "Helper", email: "h@x.com", isPrimary: false },
+    ]);
+  });
+
+  it("returns empty array when the store has no profiles", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: null }, error: null });
+    admin.enqueueResponse({ data: [], error: null });
+
+    expect(await getStoreManagers("s-1")).toEqual([]);
+  });
+
+  it("returns empty array when no profile has a role_id", async () => {
+    asSuperAdmin();
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: null }, error: null });
+    admin.enqueueResponse({
+      data: [{ id: "u-1", full_name: "Alice", email: "a@x.com", role_id: null }],
+      error: null,
+    });
+
+    expect(await getStoreManagers("s-1")).toEqual([]);
+  });
+});
+
+describe("setStorePrimaryManager", () => {
+  it("rejects users without stores:edit permission", async () => {
+    asAdmin({ stores: ["view"] });
+    await expect(setStorePrimaryManager("s-1", "m-1")).rejects.toBeInstanceOf(
+      PermissionError,
+    );
+  });
+
+  it("sets owner_id and revalidates the store when it has no primary yet", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: null }, error: null }); // store
+    admin.enqueueResponse(
+      { data: { id: "m-1", store_id: "s-1", role_id: 2 }, error: null },
+    ); // profile
+    admin.enqueueResponse({ data: { name: "Manager" }, error: null }); // role
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    await setStorePrimaryManager("s-1", "m-1");
+
+    expect(revalidatePathMock).toHaveBeenCalledWith("/stores/s-1");
+    const updateChain = admin.chainsForTable("stores")[1];
+    const updateCall = updateChain.find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({ owner_id: "m-1" });
+  });
+
+  it("throws when the store already has a primary manager", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: "m-0" }, error: null });
+
+    await expect(setStorePrimaryManager("s-1", "m-1")).rejects.toThrow(
+      /already has a primary manager/,
+    );
+  });
+
+  it("throws when the selected manager is not assigned to this store", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: null }, error: null });
+    admin.enqueueResponse({
+      data: { id: "m-1", store_id: "s-other", role_id: 2 },
+      error: null,
+    });
+
+    await expect(setStorePrimaryManager("s-1", "m-1")).rejects.toThrow(
+      /not assigned to this store/,
+    );
+  });
+
+  it("throws when the selected user is not a Manager", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: null }, error: null });
+    admin.enqueueResponse({
+      data: { id: "m-1", store_id: "s-1", role_id: 3 },
+      error: null,
+    });
+    admin.enqueueResponse({ data: { name: "Staff" }, error: null });
+
+    await expect(setStorePrimaryManager("s-1", "m-1")).rejects.toThrow(
+      /not a Manager/,
+    );
+  });
+});
+
+describe("addStoreManager", () => {
+  it("rejects users without stores:edit permission", async () => {
+    asAdmin({ stores: ["view"] });
+    await expect(addStoreManager("s-1", "m-9")).rejects.toBeInstanceOf(PermissionError);
+  });
+
+  it("assigns an unassigned Manager to the store and revalidates", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse(
+      { data: { id: "m-9", store_id: null, role_id: 2 }, error: null },
+    ); // profile
+    admin.enqueueResponse({ data: { name: "Manager" }, error: null }); // role
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    await addStoreManager("s-1", "m-9");
+
+    const updateChain = admin.chainsForTable("profiles")[1];
+    const updateCall = updateChain.find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({ store_id: "s-1" });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/stores/s-1");
+    expect(revalidatePathMock).toHaveBeenCalledWith("/users");
+  });
+
+  it("throws when the user is already assigned to a store", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse(
+      { data: { id: "m-9", store_id: "s-2", role_id: 2 }, error: null },
+    );
+
+    await expect(addStoreManager("s-1", "m-9")).rejects.toThrow(
+      /already assigned to a store/,
+    );
+  });
+
+  it("throws when the selected user is not a Manager", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse(
+      { data: { id: "m-9", store_id: null, role_id: 3 }, error: null },
+    );
+    admin.enqueueResponse({ data: { name: "Staff" }, error: null });
+
+    await expect(addStoreManager("s-1", "m-9")).rejects.toThrow(/not a Manager/);
+  });
+
+  it("throws when the profile update fails", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse(
+      { data: { id: "m-9", store_id: null, role_id: 2 }, error: null },
+    );
+    admin.enqueueResponse({ data: { name: "Manager" }, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "update boom" } });
+
+    await expect(addStoreManager("s-1", "m-9")).rejects.toThrow("update boom");
+  });
+});
+
+describe("removeStoreManager", () => {
+  it("rejects users without stores:edit permission", async () => {
+    asAdmin({ stores: ["view"] });
+    await expect(removeStoreManager("s-1", "m-2")).rejects.toBeInstanceOf(
+      PermissionError,
+    );
+  });
+
+  it("unassigns a non-primary manager and revalidates", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: "m-1" }, error: null }); // store
+    admin.enqueueResponse({ data: { id: "m-2", store_id: "s-1" }, error: null }); // profile
+    admin.enqueueResponse({ data: null, error: null }); // update
+
+    await removeStoreManager("s-1", "m-2");
+
+    const updateChain = admin.chainsForTable("profiles")[1];
+    const updateCall = updateChain.find((c) => c.method === "update")!;
+    expect(updateCall.args[0]).toEqual({ store_id: null });
+    expect(revalidatePathMock).toHaveBeenCalledWith("/stores/s-1");
+  });
+
+  it("refuses to remove the store's primary manager", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: "m-1" }, error: null });
+
+    await expect(removeStoreManager("s-1", "m-1")).rejects.toThrow(
+      /primary manager cannot be removed/,
+    );
+    expect(admin.calls.filter((c) => c.method === "update")).toHaveLength(0);
+  });
+
+  it("throws when the manager is not assigned to this store", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: "m-1" }, error: null });
+    admin.enqueueResponse({
+      data: { id: "m-2", store_id: "s-other" },
+      error: null,
+    });
+
+    await expect(removeStoreManager("s-1", "m-2")).rejects.toThrow(
+      /not assigned to this store/,
+    );
+  });
+
+  it("throws when the profile update fails", async () => {
+    asAdmin({ stores: ["edit"] });
+    const admin = getAdminClient();
+    admin.enqueueResponse({ data: { owner_id: "m-1" }, error: null });
+    admin.enqueueResponse({ data: { id: "m-2", store_id: "s-1" }, error: null });
+    admin.enqueueResponse({ data: null, error: { message: "update boom" } });
+
+    await expect(removeStoreManager("s-1", "m-2")).rejects.toThrow("update boom");
   });
 });

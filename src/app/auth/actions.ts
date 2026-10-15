@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPostLoginRedirect } from "@/lib/store-scope";
 
 function sanitizeError(msg: string): string {
+  if (msg.toLowerCase().includes("captcha")) return "Please complete the CAPTCHA and try again.";
   if (msg.toLowerCase().includes("invalid login credentials")) return "Invalid email or password.";
   if (msg.toLowerCase().includes("email not confirmed")) return "Please confirm your email address first.";
   if (msg.toLowerCase().includes("user already registered")) return "An account with that email already exists.";
@@ -19,12 +20,21 @@ export async function signIn(formData: FormData) {
 
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  const captchaTokenRaw = formData.get("captchaToken");
+  const captchaToken =
+    typeof captchaTokenRaw === "string" && captchaTokenRaw.length > 0
+      ? captchaTokenRaw
+      : undefined;
 
   if (!email || !password) {
     redirect("/auth/login?error=Email%20and%20password%20are%20required");
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword(
+    captchaToken
+      ? { email, password, options: { captchaToken } }
+      : { email, password },
+  );
 
   if (error) {
     redirect(`/auth/login?error=${encodeURIComponent(sanitizeError(error.message))}`);

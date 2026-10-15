@@ -298,6 +298,21 @@ export async function updateUser(formData: FormData) {
   const storeId = (formData.get("store_id") as string | null)?.trim() ?? "";
   const roleIdRaw = (formData.get("role_id") as string | null) ?? "";
 
+  // A store's primary manager (stores.owner_id) is permanent — moving them
+  // to another store (or unassigning them) would leave the store without its
+  // designated owner. Block the change here rather than silently drifting.
+  const { data: ownedStore } = await supabase
+    .from("stores")
+    .select("id")
+    .eq("owner_id", id)
+    .maybeSingle();
+
+  if (ownedStore && ownedStore.id !== storeId) {
+    throw new Error(
+      "This user is a store's primary manager and cannot be reassigned to another store.",
+    );
+  }
+
   const update: Record<string, unknown> = {
     full_name: fullName || null,
     phone: phone || null,
@@ -390,9 +405,6 @@ export async function createUser(formData: FormData) {
     .single();
 
   if (roleError || !roleData?.name) throw new Error("Selected role was not found");
-  if (roleData.name === "Manager" && !storeId) {
-    throw new Error("A store is required when creating a Manager");
-  }
 
   const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
     email,
@@ -433,7 +445,7 @@ export async function createUser(formData: FormData) {
 
   const { error: profileError } = await supabase
     .from("profiles")
-    .insert(profileData);
+    .upsert(profileData, { onConflict: "id" });
 
   if (profileError) {
     await supabase.auth.admin.deleteUser(authUser.user.id);
