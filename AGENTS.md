@@ -86,6 +86,27 @@ Current actual coverage: ~93% statements, 86% branches, 93% functions, 94% lines
 - **`CREATE OR REPLACE FUNCTION` does not always invalidate PostgreSQL's cached PL/pgSQL plans.** After replacing a function that is called from a trigger, the trigger may continue executing the old function body from a stale cached plan. **Always DROP + CREATE (not just REPLACE) when changing a function that is called from triggers.** The DROP forces plan cache invalidation. Migration `20260825000001` demonstrates the correct pattern.
 - **RLS bypass: triggers called from authenticated sessions inherit the caller's RLS policies.** If a trigger function queries a table with RLS enabled, it only sees rows the caller has access to. For functions that need to see ALL rows (like `generate_order_number` which does `SELECT MAX(...) FROM orders`), use `SECURITY DEFINER` so the function runs as the owner and bypasses RLS. Without it, the authenticated user can only see their own orders, so MAX always returns 0 and the order number is always 000001.
 
+**Creating users directly in `auth.users` via SQL** (auth lesson):
+- The GoTrue admin API (`/auth/v1/admin/users`) is unreachable with the project's `sb_secret_…` key (it's not a JWT → `401`), so test logins are sometimes created by a direct SQL insert into `auth.users` + `auth.identities`.
+- GoTrue scans several `auth.users` text columns into Go `string`. The columns **without a DB default** (`confirmation_token`, `recovery_token`, `email_change`, `email_change_token_new`) become `NULL` when omitted, and GoTrue then 500s on every login: `sql: Scan error on column index 3, name "confirmation_token": converting NULL to string is unsupported`. The login route (`src/app/auth/login/api/route.ts:33`) maps any non-captcha error to `"Invalid email or password."`, masking the real cause.
+- **Always set those columns to `''`** (on insert, and for any pre-existing row):
+  ```sql
+  update auth.users
+  set confirmation_token       = coalesce(confirmation_token, ''),
+      recovery_token           = coalesce(recovery_token, ''),
+      email_change             = coalesce(email_change, ''),
+      email_change_token_new   = coalesce(email_change_token_new, ''),
+      email_change_token_current = coalesce(email_change_token_current, ''),
+      phone_change             = coalesce(phone_change, ''),
+      phone_change_token       = coalesce(phone_change_token, ''),
+      reauthentication_token   = coalesce(reauthentication_token, '')
+  where id = '<user-id>';
+  ```
+- `auth.identities.email` is a generated column — omit it on insert. Include `provider='email'`, `provider_id = <user-id>`, and `identity_data` with `email_verified: true`.
+- Don't trust the UI string — confirm the real error from the auth logs:
+  `select timestamp, log_attributes['error'], log_attributes['error_code'], log_attributes['status'] from logs where source='auth_logs' and log_attributes['path']='/token' order by timestamp desc limit 20`
+  The NULL-scan failure shows as `error_code='unexpected_failure'`, `status='500'`.
+
 **Mock-incompleteness (known limitations, not bugs):**
 - `storage.from(bucket).list` and `storage.remove` always return success — cannot test media error paths
 - `chainsForTable` groups by call-list boundaries, not by builder closure — see "Mock chainsForTable limitation" in `TEST_REPORT.md` P7 section
