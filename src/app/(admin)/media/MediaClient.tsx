@@ -5,6 +5,7 @@ import { Icon } from "@iconify/react";
 import { toast } from "react-toastify";
 import { useDropzone } from "react-dropzone";
 import { listMedia, deleteMedia, type MediaFile } from "./actions";
+import { uploadImages, MAX_UPLOAD_BYTES, formatBytesLimit } from "@/lib/supabase/upload-client";
 
 export default function MediaClient({ initialFiles, canUpload, canDelete }: { initialFiles: MediaFile[]; canUpload?: boolean; canDelete?: boolean }) {
   const [files, setFiles] = useState(initialFiles);
@@ -19,14 +20,13 @@ export default function MediaClient({ initialFiles, canUpload, canDelete }: { in
     if (accepted.length === 0) return;
     setUploading(true);
     try {
-      const fd = new FormData();
-      for (const f of accepted) fd.append("files", f);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok || (data.errors && data.errors.length > 0)) {
-        throw new Error(data.message || data.error || "Upload failed");
+      const { uploaded, errors } = await uploadImages(accepted);
+      if (uploaded.length > 0) {
+        toast.success(`${uploaded.length} file(s) uploaded`);
       }
-      toast.success(`${accepted.length} file(s) uploaded`);
+      if (errors.length > 0) {
+        toast.error(errors.join("; "));
+      }
       await refresh();
     } catch (err) {
       toast.error((err as Error).message);
@@ -75,7 +75,9 @@ export default function MediaClient({ initialFiles, canUpload, canDelete }: { in
             <p className="mb-1 fw-medium">
               {isDragActive ? "Drop images here" : "Drag & drop images here, or click to browse"}
             </p>
-            <p className="text-muted small mb-0">PNG, JPG, WebP up to 5MB each</p>
+            <p className="text-muted small mb-0">
+              PNG, JPG, WebP — resized automatically (max {formatBytesLimit(MAX_UPLOAD_BYTES)} each)
+            </p>
             {uploading && (
               <div className="mt-3 text-primary">
                 <Icon icon="ri:loader-4-line" className="spinner me-1" />

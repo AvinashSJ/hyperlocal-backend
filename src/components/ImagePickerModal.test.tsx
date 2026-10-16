@@ -14,20 +14,22 @@ vi.mock("@/app/(admin)/media/actions", () => ({
   listMedia: vi.fn(),
 }));
 
-// P32: stub global fetch so the upload handler can be exercised in
-// the jsdom test environment without touching the real network.
-const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+// The upload path now goes straight from the browser to Supabase Storage
+// via a signed URL, so we mock the client helper instead of fetch.
+vi.mock("@/lib/supabase/upload-client", () => ({
+  uploadImages: vi.fn(),
+}));
 
 import ImagePickerModal from "./ImagePickerModal";
 import { listMedia } from "@/app/(admin)/media/actions";
+import { uploadImages } from "@/lib/supabase/upload-client";
 
 const mockListMedia = listMedia as ReturnType<typeof vi.fn>;
-const mockFetchGlobal = fetch as ReturnType<typeof vi.fn>;
+const mockUploadImages = uploadImages as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   mockListMedia.mockReset();
-  mockFetchGlobal.mockReset();
+  mockUploadImages.mockReset();
 });
 
 describe("ImagePickerModal — initial render (loading state)", () => {
@@ -194,7 +196,7 @@ describe("ImagePickerModal — direct upload (P32)", () => {
     expect(html).toContain("Upload images");
   });
 
-  it("client-side: file input change posts to /api/upload and refreshes the list", async () => {
+  it("client-side: file input change uploads and auto-selects the new images", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
@@ -203,14 +205,15 @@ describe("ImagePickerModal — direct upload (P32)", () => {
     // uploaded file (with the public URL).
     mockListMedia
       .mockResolvedValueOnce([]) // initial fetch in useEffect
-      .mockResolvedValueOnce([
-        { name: "1700000000-abc.jpg", url: "https://cdn.example.com/1700000000-abc.jpg" },
+      .mockResolvedValue([
+        { name: "1700000000-abc.webp", url: "https://cdn.example.com/1700000000-abc.webp" },
       ]);
 
-    mockFetchGlobal.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ uploaded: ["1700000000-abc.jpg"], errors: [] }),
+    mockUploadImages.mockResolvedValueOnce({
+      uploaded: [
+        { name: "1700000000-abc.webp", url: "https://cdn.example.com/1700000000-abc.webp" },
+      ],
+      errors: [],
     });
 
     const onSelect = vi.fn();
@@ -242,12 +245,11 @@ describe("ImagePickerModal — direct upload (P32)", () => {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    // fetch was called with the upload endpoint and FormData
-    expect(mockFetchGlobal).toHaveBeenCalledTimes(1);
-    const [url, opts] = mockFetchGlobal.mock.calls[0];
-    expect(url).toBe("/api/upload");
-    expect(opts.method).toBe("POST");
-    expect(opts.body).toBeInstanceOf(FormData);
+    // The client upload helper was called with the selected file
+    expect(mockUploadImages).toHaveBeenCalledTimes(1);
+    const [filesArg] = mockUploadImages.mock.calls[0];
+    expect(Array.isArray(filesArg)).toBe(true);
+    expect(filesArg[0]).toBe(file);
 
     // After the upload resolves, listMedia is called again to
     // refresh the list. Wait for the microtask queue to drain.
@@ -271,15 +273,14 @@ describe("ImagePickerModal — direct upload (P32)", () => {
     // TS narrowing edge case with the dynamic-import root type.
   });
 
-  it("client-side: shows an error message when /api/upload returns a non-OK status", async () => {
+  it("client-side: shows an error message when the upload helper reports errors", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
 
     mockListMedia.mockResolvedValueOnce([]); // initial
-    mockFetchGlobal.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      json: async () => ({ error: "internal error" }),
+    mockUploadImages.mockResolvedValueOnce({
+      uploaded: [],
+      errors: ["bad.png: not a readable image"],
     });
 
     type RootLike = { render: (node: ReactNode) => void; unmount: () => void };
@@ -312,7 +313,7 @@ describe("ImagePickerModal — direct upload (P32)", () => {
     });
 
     expect(container.querySelector('[data-testid="image-picker-upload-error"]')).toBeTruthy();
-    expect(container.textContent).toMatch(/internal error|Upload failed/);
+    expect(container.textContent).toMatch(/not a readable image/);
 
     container.remove();
     // root.unmount() not called — see the note in the test above.

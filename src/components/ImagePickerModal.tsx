@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { listMedia, type MediaFile } from "@/app/(admin)/media/actions";
+import { uploadImages } from "@/lib/supabase/upload-client";
 
 type Props = {
   selectedUrls: string[];
@@ -69,37 +70,19 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
     setUploading(true);
     setUploadError(null);
     try {
-      const fd = new FormData();
-      for (const f of Array.from(fileList)) {
-        fd.append("files", f);
-      }
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({} as { uploaded?: string[]; message?: string; error?: string }));
-      if (!res.ok && res.status !== 207) {
-        throw new Error(data?.error || data?.message || `Upload failed (${res.status})`);
-      }
-      // Refresh the file list from the storage bucket. New files are
-      // returned with their public URLs.
-      const fresh = await listMedia();
-      setFiles(fresh);
-      // Auto-select the freshly uploaded files. The /api/upload
-      // response includes the *fileName* (storage key), not the public
-      // URL — so we look up each uploaded name in the refreshed list
-      // to get the public URL.
-      const uploadedNames = new Set<string>(data?.uploaded ?? []);
-      const newUrls = fresh
-        .filter((f) => uploadedNames.has(f.name))
-        .map((f) => f.url);
-      if (newUrls.length > 0) {
+      const { uploaded, errors } = await uploadImages(Array.from(fileList));
+      if (uploaded.length > 0) {
+        await refresh();
+        // Auto-select the freshly uploaded files so they show up in the
+        // "Add Selected" count and the parent form's image list.
         setPicked((prev) => {
           const next = new Set(prev);
-          for (const url of newUrls) next.add(url);
+          for (const u of uploaded) next.add(u.url);
           return next;
         });
       }
-      if (data?.message) {
-        // Partial-success path (207 Multi-Status)
-        setUploadError(data.message);
+      if (errors.length > 0) {
+        setUploadError(errors.join("; "));
       }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
