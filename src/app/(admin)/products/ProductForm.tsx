@@ -44,6 +44,7 @@ type ProductVariant = {
   mrp: number;
   price: number;
   stock: number;
+  low_stock_threshold?: number | null;
   variant_attributes: Record<string, unknown> | null;
 };
 

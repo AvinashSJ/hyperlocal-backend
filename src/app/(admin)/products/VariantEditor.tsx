@@ -11,6 +11,7 @@ type Variant = {
   mrp: number;
   price: number;
   stock: number;
+  low_stock_threshold?: number | null;
   variant_attributes: Record<string, unknown> | null;
 };
 
@@ -31,6 +32,7 @@ export default function VariantEditor({
         mrp: 0,
         price: 0,
         stock: 0,
+        low_stock_threshold: null,
         variant_attributes: {},
       },
     ]);
@@ -43,7 +45,7 @@ export default function VariantEditor({
   const updateVariant = (
     id: string,
     field: keyof Variant,
-    value: string | number,
+    value: string | number | null,
   ) => {
     onChange(
       variants.map((v) => (v.id === id ? { ...v, [field]: value } : v)),
@@ -113,6 +115,14 @@ export default function VariantEditor({
                   data-testid="variant-header-stock"
                 >
                   Stock
+                </th>
+                <th
+                  scope="col"
+                  style={{ width: "100px", fontWeight: 600, fontSize: "0.75rem", textTransform: "uppercase", letterSpacing: "0.05em" }}
+                  data-testid="variant-header-low-stock"
+                  title="Alert when this variant's stock is at or below this level. Blank inherits the product threshold (default 10)."
+                >
+                  Low Stock
                 </th>
                 <th
                   scope="col"
@@ -199,6 +209,24 @@ export default function VariantEditor({
                         updateVariant(variant.id, "stock", Number(e.target.value))
                       }
                       data-testid="variant-stock-input"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      className="form-control form-control-sm"
+                      placeholder="Low stock"
+                      value={variant.low_stock_threshold ?? ""}
+                      onChange={(e) =>
+                        updateVariant(
+                          variant.id,
+                          "low_stock_threshold",
+                          e.target.value === "" ? null : Number(e.target.value),
+                        )
+                      }
+                      data-testid="variant-low-stock-input"
                     />
                   </td>
                   <td>

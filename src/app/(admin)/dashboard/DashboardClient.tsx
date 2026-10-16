@@ -11,8 +11,9 @@ const ApexChart = dynamic(() => import("react-apexcharts"), { ssr: false });
 type MonthlyData = { month: string; total: number };
 
 type LowStockItem = {
-  id: string; name: string; sku: string | null;
-  stock_quantity: number; low_stock_threshold: number | null;
+  id: string; variant_id: string | null; name: string;
+  variant_name: string | null; sku: string | null;
+  stock_quantity: number; low_stock_threshold: number;
 };
 
 type RecentOrder = {
@@ -201,9 +202,14 @@ export default function DashboardClient({ stats }: { stats: Stats }) {
               {stats.lowStock.length > 0 ? (
                 <div style={{ maxHeight: 240, overflowY: "auto" }}>
                   {stats.lowStock.map((item) => (
-                    <div key={item.id} className="d-flex justify-content-between align-items-center py-2 border-bottom" style={{ fontSize: "0.85rem" }}>
+                    <div key={`${item.id}:${item.variant_id ?? "base"}`} className="d-flex justify-content-between align-items-center py-2 border-bottom" style={{ fontSize: "0.85rem" }}>
                       <div>
-                        <div className="fw-medium">{item.name}</div>
+                        <div className="fw-medium">
+                          {item.name}
+                          {item.variant_name ? (
+                            <span className="text-muted fw-normal"> · {item.variant_name}</span>
+                          ) : null}
+                        </div>
                         <small className="text-muted">SKU: {item.sku ?? "N/A"}</small>
                       </div>
                       <span className="badge bg-danger-subtle text-danger">{item.stock_quantity} left</span>

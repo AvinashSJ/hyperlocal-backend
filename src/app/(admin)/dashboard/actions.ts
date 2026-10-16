@@ -1,15 +1,78 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { lowStockThreshold } from "@/lib/low-stock";
 
 export type MonthlyData = { month: string; total: number };
 export type LowStockItem = {
+  id: string;
+  variant_id: string | null;
+  name: string;
+  variant_name: string | null;
+  sku: string | null;
+  stock_quantity: number;
+  low_stock_threshold: number;
+};
+
+type LowStockRow = {
   id: string;
   name: string;
   sku: string | null;
   stock_quantity: number;
   low_stock_threshold: number | null;
+  product_variants?: {
+    id: string;
+    name: string | null;
+    sku: string | null;
+    stock: number;
+    low_stock_threshold: number | null;
+  }[] | null;
 };
+
+/**
+ * Flattens products (+ their variants) into a ranked list of low-stock
+ * alerts, lowest stock first, capped at 5. Variants are alerted individually
+ * (a single critical variant must surface even when the product's summed
+ * stock looks healthy). Threshold resolution:
+ *   variant.low_stock_threshold ?? product.low_stock_threshold ?? 10.
+ */
+function buildLowStockAlerts(products: LowStockRow[]): LowStockItem[] {
+  const alerts: LowStockItem[] = [];
+  for (const p of products) {
+    const variants = p.product_variants ?? [];
+    if (variants.length > 0) {
+      for (const v of variants) {
+        const threshold = lowStockThreshold(v.low_stock_threshold, p.low_stock_threshold);
+        if (Number(v.stock ?? 0) <= threshold) {
+          alerts.push({
+            id: p.id,
+            variant_id: v.id,
+            name: p.name,
+            variant_name: v.name ?? null,
+            sku: v.sku ?? p.sku,
+            stock_quantity: Number(v.stock ?? 0),
+            low_stock_threshold: threshold,
+          });
+        }
+      }
+    } else {
+      const threshold = lowStockThreshold(p.low_stock_threshold);
+      if (Number(p.stock_quantity ?? 0) <= threshold) {
+        alerts.push({
+          id: p.id,
+          variant_id: null,
+          name: p.name,
+          variant_name: null,
+          sku: p.sku,
+          stock_quantity: Number(p.stock_quantity ?? 0),
+          low_stock_threshold: threshold,
+        });
+      }
+    }
+  }
+  alerts.sort((a, b) => a.stock_quantity - b.stock_quantity);
+  return alerts.slice(0, 5);
+}
 export type RecentOrder = {
   id: string;
   order_number: string;
@@ -45,7 +108,7 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
   let todayRevenueQ = supabase.from("orders").select("total_amount").eq("payment_status", "paid").gte("created_at", todayStart.toISOString());
   let recentQ = supabase.from("orders").select("id, order_number, status, total_amount, payment_status, placed_at, profiles(full_name)").order("placed_at", { ascending: false }).limit(5);
   let statusQ = supabase.from("orders").select("status").not("status", "is", null);
-  let lowStockQ = supabase.from("products").select("id, name, sku, stock_quantity, low_stock_threshold").lt("stock_quantity", 10).order("stock_quantity", { ascending: true }).limit(5);
+  let lowStockQ = supabase.from("products").select("id, name, sku, stock_quantity, low_stock_threshold, product_variants(id, name, sku, stock, low_stock_threshold)").order("stock_quantity", { ascending: true });
 
   if (storeId) {
     productQ = productQ.eq("store_id", storeId);
@@ -62,7 +125,7 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
     { count: productCount },
     { count: orderCount },
     { data: revenueData },
-    { data: lowStock },
+    { data: lowStockRows },
     { count: todayOrders },
     { data: todayRevenueData },
     { data: recentOrders },
@@ -135,7 +198,7 @@ export async function getDashboardStats(storeId?: string | null): Promise<Dashbo
     customerCount: customerCount ?? 0,
     totalRevenue,
     monthlyData: monthlyData ?? [],
-    lowStock: lowStock ?? [],
+    lowStock: buildLowStockAlerts((lowStockRows ?? []) as LowStockRow[]),
     todayOrders: todayOrders ?? 0,
     todayRevenue,
     recentOrders: (recentOrders ?? []) as unknown as RecentOrder[],

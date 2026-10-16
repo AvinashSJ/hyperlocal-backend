@@ -77,6 +77,9 @@ export type ProductVariant = {
   sku: string | null;
   price: number;
   stock: number;
+  // Optional per-variant low-stock threshold. NULL means "inherit" the
+  // parent product's threshold, then the default of 10.
+  low_stock_threshold: number | null;
   variant_attributes: Record<string, unknown> | null;
   created_at: string;
 };
