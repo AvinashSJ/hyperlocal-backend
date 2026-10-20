@@ -13,6 +13,17 @@ export type MediaFile = {
   size: number;
 };
 
+// Signed upload target handed to the browser so the file bytes go
+// straight to Supabase Storage instead of through the SSR host. Amplify
+// Web Compute caps request/response bodies (~4-6 MB) and returns empty
+// responses over the limit, which surfaced as the client-side
+// "Unexpected end of JSON input" error on large uploads.
+export type UploadTarget = {
+  path: string;
+  token: string;
+  publicUrl: string;
+};
+
 async function ensureBucket(supabase: ReturnType<typeof createAdminClient>) {
   const { data: buckets } = await supabase.storage.listBuckets();
   if (buckets?.some((b) => b.name === BUCKET)) return;
@@ -51,54 +62,32 @@ export async function listMedia(): Promise<MediaFile[]> {
   }));
 }
 
-export async function uploadMedia(formData: FormData) {
-  await assertPermission("media", "create");
+// Issues a single-file signed upload target. The browser compresses the
+// image and PUTs it directly to Storage, so the bytes bypass the SSR host
+// entirely. Gated on the `media:upload` permission (the action name in
+// PERMISSION_MODULES.media — this module has no `create` action).
+export async function createUploadUrl(): Promise<UploadTarget> {
+  await assertPermission("media", "upload");
   const supabase = createAdminClient();
 
   await ensureBucket(supabase);
 
-  const files = formData.getAll("files") as File[];
-  if (files.length === 0) throw new Error("No files provided");
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
-  const errors: string[] = [];
-  const uploaded: string[] = [];
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUploadUrl(path);
 
-  for (const file of files) {
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-
-    const mimeMap: Record<string, string> = {
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      webp: "image/webp",
-    };
-    const mime = mimeMap[ext.toLowerCase()] || file.type || "image/jpeg";
-
-    const bytes = Buffer.from(new Uint8Array(await file.arrayBuffer()));
-
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(fileName, bytes, {
-        contentType: mime,
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (error) {
-      errors.push(`${file.name}: ${error.message}`);
-    } else {
-      uploaded.push(fileName);
-    }
+  if (error || !data) {
+    throw new Error(error?.message ?? "Failed to create upload URL");
   }
 
-  revalidatePath("/media");
+  const baseUrl = supabase.storage
+    .from(BUCKET)
+    .getPublicUrl("")
+    .data.publicUrl.replace(/\/$/, "");
 
-  if (errors.length > 0) {
-    throw new Error(
-      `Uploaded ${uploaded.length} file(s). Errors: ${errors.join("; ")}`,
-    );
-  }
+  return { path, token: data.token, publicUrl: `${baseUrl}/${path}` };
 }
 
 export async function deleteMedia(fileName: string) {

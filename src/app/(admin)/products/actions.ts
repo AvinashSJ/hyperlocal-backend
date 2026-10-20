@@ -7,6 +7,7 @@ import { assertPermission } from "@/lib/require-permission";
 import { getStoreScope } from "@/lib/store-scope";
 import { computeDiscountPercent } from "./discount";
 import { logActivity } from "@/lib/activity-log";
+import { isLowStock } from "@/lib/low-stock";
 import type { Product } from "@/lib/types/supabase";
 
 const VALID_UNITS = ["kg", "gram", "ml", "ltr", "pcs", "pack", "dozen", "box", "bundle", "pouch", "unit", "tin"] as const;
@@ -19,6 +20,7 @@ type VariantInput = {
   mrp: number;
   price: number;
   stock: number;
+  low_stock_threshold?: number | null;
   variant_attributes: Record<string, unknown>;
 };
 
@@ -122,6 +124,8 @@ export async function createProduct(formData: FormData) {
       mrp: Number(v.mrp) || 0,
       price: v.price,
       stock: v.stock,
+      low_stock_threshold:
+        v.low_stock_threshold == null ? null : Number(v.low_stock_threshold),
       variant_attributes: v.variant_attributes,
     }));
 
@@ -241,6 +245,8 @@ export async function updateProduct(id: string, formData: FormData) {
       mrp: Number(v.mrp) || 0,
       price: v.price,
       stock: v.stock,
+      low_stock_threshold:
+        v.low_stock_threshold == null ? null : Number(v.low_stock_threshold),
       variant_attributes: v.variant_attributes,
     }));
 
@@ -677,12 +683,16 @@ export async function getProducts(
     // PostgREST on this instance does NOT resolve column-reference filter
     // values (e.g. `stock_quantity=lte.low_stock_threshold` → 22P02), so the
     // low-stock set can't be computed in a single DB query. Fetch a narrow
-    // projection (id/stock/threshold) for the filtered products, compute the
+    // projection of the filtered products plus their variants, compute the
     // low-stock ids in JS, then paginate those ids.
+    //
+    // Low-stock rule (shared with the dashboard via @/lib/low-stock):
+    //   * variant product → low when ANY variant's stock is at/below
+    //     (variant threshold ?? product threshold ?? 10);
+    //   * plain product → stock_quantity <= (product threshold ?? 10).
     let lowStockQuery = supabase
       .from("products")
       .select("id, stock_quantity, low_stock_threshold")
-      .not("low_stock_threshold", "is", null)
       .order("created_at", { ascending: false });
     if (storeId) lowStockQuery = lowStockQuery.eq("store_id", storeId);
     if (search) lowStockQuery = lowStockQuery.ilike("name", `%${search}%`);
@@ -692,12 +702,43 @@ export async function getProducts(
     if (status) lowStockQuery = lowStockQuery.eq("status", status);
 
     const { data: rows } = await lowStockQuery;
-    const lowStockIds = ((rows ?? []) as {
+    const projections = (rows ?? []) as {
       id: string;
       stock_quantity: number;
-      low_stock_threshold: number;
-    }[])
-      .filter((r) => r.stock_quantity <= r.low_stock_threshold)
+      low_stock_threshold: number | null;
+    }[];
+
+    const productIds = projections.map((r) => r.id);
+    const variantsByProduct = new Map<
+      string,
+      { stock: number; low_stock_threshold: number | null }[]
+    >();
+    if (productIds.length > 0) {
+      const { data: variantRows } = await supabase
+        .from("product_variants")
+        .select("product_id, stock, low_stock_threshold")
+        .in("product_id", productIds);
+      for (const v of (variantRows ?? []) as {
+        product_id: string;
+        stock: number;
+        low_stock_threshold: number | null;
+      }[]) {
+        const list = variantsByProduct.get(v.product_id) ?? [];
+        list.push({ stock: v.stock, low_stock_threshold: v.low_stock_threshold });
+        variantsByProduct.set(v.product_id, list);
+      }
+    }
+
+    const lowStockIds = projections
+      .filter((r) => {
+        const variants = variantsByProduct.get(r.id) ?? [];
+        if (variants.length > 0) {
+          return variants.some((v) =>
+            isLowStock(v.stock, v.low_stock_threshold, r.low_stock_threshold),
+          );
+        }
+        return isLowStock(r.stock_quantity, r.low_stock_threshold);
+      })
       .map((r) => r.id);
     const total = lowStockIds.length;
 

@@ -208,20 +208,21 @@ describe("getDashboardStats (no storeId — all stores)", () => {
     expect(limitCall!.args).toEqual([5]);
   });
 
-  it("filters low stock by stock_quantity < 10 ordered asc with limit 5", async () => {
+  it("queries low stock with an embedded variant projection, ordered asc, no hardcoded threshold or limit", async () => {
     const admin = getAdminClient();
     setStandardResponses(admin);
     await getDashboardStats();
 
     const productChains = admin.chainsForTable("products");
-    const lowStockChain = productChains.find((c) => c.some((cc) => cc.method === "lt"));
+    const lowStockChain = productChains.find((c) =>
+      c.some((cc) => cc.method === "select" && typeof cc.args[0] === "string" && cc.args[0].includes("product_variants")),
+    );
     expect(lowStockChain).toBeDefined();
-    const ltCall = lowStockChain!.find((c) => c.method === "lt");
-    expect(ltCall!.args).toEqual(["stock_quantity", 10]);
+    // No hardcoded `stock_quantity < 10` and no DB limit (ranking/limiting in JS).
+    expect(lowStockChain!.some((c) => c.method === "lt" && c.args[0] === "stock_quantity")).toBe(false);
+    expect(lowStockChain!.some((c) => c.method === "limit")).toBe(false);
     const orderCall = lowStockChain!.find((c) => c.method === "order");
     expect(orderCall!.args).toEqual(["stock_quantity", { ascending: true }]);
-    const limitCall = lowStockChain!.find((c) => c.method === "limit");
-    expect(limitCall!.args).toEqual([5]);
   });
 
   it("filters status breakdown with .not(\"status\", \"is\", null)", async () => {
@@ -380,5 +381,81 @@ describe("P24: customer count data-leak fix", () => {
     const profilesChains = admin.chainsForTable("profiles");
     expect(profilesChains).toHaveLength(1);
     expect(profilesChains[0].find((c) => c.method === "eq" && c.args[0] === "role")?.args).toEqual(["role", "customer"]);
+  });
+});
+
+describe("getDashboardStats — variant-aware low stock", () => {
+  it("flags an individual variant below threshold even when the summed product stock is healthy", async () => {
+    const admin = getAdminClient();
+    setStandardResponses(admin, {
+      lowStock: [
+        {
+          id: "p-rice", name: "Rice", sku: "R-0", stock_quantity: 502, low_stock_threshold: 10,
+          product_variants: [
+            { id: "v-1", name: "1kg", sku: "R-1", stock: 500, low_stock_threshold: 10 },
+            { id: "v-2", name: "5kg", sku: "R-5", stock: 2, low_stock_threshold: 10 },
+          ],
+        },
+      ],
+    });
+
+    const stats = await getDashboardStats();
+    expect(stats.lowStock).toHaveLength(1);
+    expect(stats.lowStock[0]).toMatchObject({
+      id: "p-rice", variant_id: "v-2", variant_name: "5kg", sku: "R-5",
+      stock_quantity: 2, low_stock_threshold: 10,
+    });
+  });
+
+  it("lets a variant threshold override the product threshold, and inherits the product threshold when unset", async () => {
+    const admin = getAdminClient();
+    setStandardResponses(admin, {
+      lowStock: [
+        {
+          id: "p-mix", name: "Mixed", sku: null, stock_quantity: 105, low_stock_threshold: 50,
+          product_variants: [
+            // variant threshold 5 overrides product's 50 → 4 <= 5 → flagged
+            { id: "v-a", name: "A", sku: null, stock: 4, low_stock_threshold: 5 },
+            // no variant threshold → inherits product 50 → 60 > 50 → not flagged
+            { id: "v-b", name: "B", sku: null, stock: 60, low_stock_threshold: null },
+          ],
+        },
+      ],
+    });
+
+    const stats = await getDashboardStats();
+    expect(stats.lowStock).toHaveLength(1);
+    expect(stats.lowStock[0].variant_id).toBe("v-a");
+  });
+
+  it("defaults a plain product with no threshold to 10", async () => {
+    const admin = getAdminClient();
+    setStandardResponses(admin, {
+      lowStock: [{ id: "p-plain", name: "Soap", sku: "S-1", stock_quantity: 8, low_stock_threshold: null }],
+    });
+
+    const stats = await getDashboardStats();
+    expect(stats.lowStock).toHaveLength(1);
+    expect(stats.lowStock[0]).toMatchObject({
+      id: "p-plain", variant_id: null, stock_quantity: 8, low_stock_threshold: 10,
+    });
+  });
+
+  it("ranks by lowest stock and caps the list at 5", async () => {
+    const admin = getAdminClient();
+    setStandardResponses(admin, {
+      lowStock: [
+        { id: "p-1", name: "P1", sku: null, stock_quantity: 9, low_stock_threshold: 10 },
+        { id: "p-2", name: "P2", sku: null, stock_quantity: 1, low_stock_threshold: 10 },
+        { id: "p-3", name: "P3", sku: null, stock_quantity: 7, low_stock_threshold: 10 },
+        { id: "p-4", name: "P4", sku: null, stock_quantity: 3, low_stock_threshold: 10 },
+        { id: "p-5", name: "P5", sku: null, stock_quantity: 5, low_stock_threshold: 10 },
+        { id: "p-6", name: "P6", sku: null, stock_quantity: 2, low_stock_threshold: 10 },
+      ],
+    });
+
+    const stats = await getDashboardStats();
+    expect(stats.lowStock).toHaveLength(5);
+    expect(stats.lowStock.map((i) => i.id)).toEqual(["p-2", "p-6", "p-4", "p-5", "p-3"]);
   });
 });

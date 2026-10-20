@@ -1665,7 +1665,9 @@ describe("P49: getProducts (exported for use by other modules)", () => {
       ],
       error: null,
     });
-    // Chain 2: full rows for the low-stock page slice.
+    // Chain 2: variant projection for the filtered products (none here).
+    admin.enqueueResponse({ data: [], error: null });
+    // Chain 3: full rows for the low-stock page slice.
     admin.enqueueResponse({
       data: [makeProduct({ id: "p-1" })],
       error: null,
@@ -1685,15 +1687,86 @@ describe("P49: getProducts (exported for use by other modules)", () => {
     expect(result.total).toBe(1);
 
     const chains = admin.chainsForTable("products");
-    // Base filters + not-null threshold live on the projection query.
+    // Base filters live on the projection query. No threshold not-null filter:
+    // products without a threshold default to 10.
     const projection = chains[0];
     expect(projection.some((c) => c.method === "select" && c.args[0] === "id, stock_quantity, low_stock_threshold")).toBe(true);
-    expect(projection.some((c) => c.method === "not" && c.args[0] === "low_stock_threshold" && c.args[1] === "is" && c.args[2] === null)).toBe(true);
+    expect(projection.some((c) => c.method === "not")).toBe(false);
     expect(projection.some((c) => c.method === "ilike" && c.args[0] === "name" && c.args[1] === "%rice%")).toBe(true);
     expect(projection.some((c) => c.method === "in" && c.args[0] === "category_id" && JSON.stringify(c.args[1]) === JSON.stringify(["cat-1", "cat-1-child"]))).toBe(true);
     expect(projection.some((c) => c.method === "eq" && c.args[0] === "status" && c.args[1] === "active")).toBe(true);
+    // Variants are fetched for the filtered products.
+    const variantChain = admin.chainsForTable("product_variants")[0];
+    expect(variantChain.some((c) => c.method === "select" && c.args[0] === "product_id, stock, low_stock_threshold")).toBe(true);
+    expect(variantChain.some((c) => c.method === "in" && c.args[0] === "product_id" && JSON.stringify(c.args[1]) === JSON.stringify(["p-1", "p-2"]))).toBe(true);
     // Only low-stock ids are re-fetched, in order.
     const fetch = chains[1];
     expect(fetch.some((c) => c.method === "in" && c.args[0] === "id" && JSON.stringify(c.args[1]) === JSON.stringify(["p-1"]))).toBe(true);
+  });
+
+  it("flags a variant product when ANY variant is low, even if the summed stock is healthy", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "p-v", stock_quantity: 502, low_stock_threshold: 10 }], error: null },
+      {
+        data: [
+          { product_id: "p-v", stock: 500, low_stock_threshold: 10 },
+          { product_id: "p-v", stock: 2, low_stock_threshold: 10 },
+        ],
+        error: null,
+      },
+      { data: [makeProduct({ id: "p-v" })], error: null },
+    );
+
+    const result = await getProducts({ lowStockOnly: true, page: 1, pageSize: 20 });
+    expect(result.total).toBe(1);
+    expect(result.products[0].id).toBe("p-v");
+  });
+
+  it("does NOT flag a variant product whose variants are all healthy", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "p-ok", stock_quantity: 12, low_stock_threshold: 10 }], error: null },
+      {
+        data: [
+          { product_id: "p-ok", stock: 6, low_stock_threshold: 5 },
+          { product_id: "p-ok", stock: 6, low_stock_threshold: 5 },
+        ],
+        error: null,
+      },
+    );
+
+    const result = await getProducts({ lowStockOnly: true, page: 1, pageSize: 20 });
+    expect(result.total).toBe(0);
+    expect(result.products).toHaveLength(0);
+  });
+
+  it("uses the variant's own threshold over the product threshold", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "p-v", stock_quantity: 5, low_stock_threshold: 10 }], error: null },
+      { data: [{ product_id: "p-v", stock: 5, low_stock_threshold: 2 }], error: null },
+    );
+
+    // Variant stock 5 > variant threshold 2 → healthy (product threshold 10 ignored).
+    const result = await getProducts({ lowStockOnly: true, page: 1, pageSize: 20 });
+    expect(result.total).toBe(0);
+  });
+
+  it("defaults a plain product with no threshold to 10", async () => {
+    asAdmin({ products: ["view"] });
+    const admin = getAdminClient();
+    admin.setResponses(
+      { data: [{ id: "p-d", stock_quantity: 6, low_stock_threshold: null }], error: null },
+      { data: [], error: null },
+      { data: [makeProduct({ id: "p-d" })], error: null },
+    );
+
+    const result = await getProducts({ lowStockOnly: true, page: 1, pageSize: 20 });
+    expect(result.total).toBe(1);
+    expect(result.products[0].id).toBe("p-d");
   });
 });

@@ -27,6 +27,7 @@ type Variant = {
   mrp: number;
   price: number;
   stock: number;
+  low_stock_threshold?: number | null;
   variant_attributes: Record<string, unknown> | null;
 };
 
@@ -101,15 +102,18 @@ describe("VariantEditor — render count invariants", () => {
 });
 
 describe("VariantEditor — column headers", () => {
-  it("renders a <thead> with all 6 column headers (index, name, sku, price, stock, action)", () => {
+  it("renders a <thead> with all 7 column headers (index, name, sku, mrp, price, discount, stock, low stock, action)", () => {
     const html = renderToString(
       <VariantEditor variants={baseVariants} onChange={() => {}} />,
     );
     expect(html).toContain('data-testid="variant-header-index"');
     expect(html).toContain('data-testid="variant-header-name"');
     expect(html).toContain('data-testid="variant-header-sku"');
+    expect(html).toContain('data-testid="variant-header-mrp"');
     expect(html).toContain('data-testid="variant-header-price"');
+    expect(html).toContain('data-testid="variant-header-discount"');
     expect(html).toContain('data-testid="variant-header-stock"');
+    expect(html).toContain('data-testid="variant-header-low-stock"');
     expect(html).toContain('data-testid="variant-header-action"');
   });
 
@@ -517,6 +521,101 @@ describe("VariantEditor — MRP and Discount columns (P17)", () => {
     expect(newVariants[0].mrp).toBe(0); // forced to 0 per P17 design
     expect(newVariants[0].price).toBe(0);
     expect(newVariants[0].name).toBe("");
+
+    unmount();
+  });
+});
+
+describe("VariantEditor — per-variant low stock threshold", () => {
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+  });
+
+  it("renders one low-stock input per variant and the header", () => {
+    const html = renderToString(
+      <VariantEditor variants={baseVariants} onChange={() => {}} />,
+    );
+    expect(html).toContain('data-testid="variant-header-low-stock"');
+    const inputs = (html.match(/data-testid="variant-low-stock-input"/g) ?? []).length;
+    expect(inputs).toBe(3);
+  });
+
+  it("addVariant initialises low_stock_threshold to null (inherit)", () => {
+    const onChange = vi.fn();
+    act(() => {
+      root = createRoot(container);
+      root.render(<VariantEditor variants={[]} onChange={onChange} />);
+    });
+
+    const addButton = container.querySelector(
+      '[data-testid="variant-add-button"]',
+    ) as HTMLButtonElement;
+    act(() => {
+      addButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const newVariants = onChange.mock.calls[0][0] as Variant[];
+    expect(newVariants[0].low_stock_threshold).toBeNull();
+
+    unmount();
+  });
+
+  it("typing a number sets that variant's low_stock_threshold", () => {
+    const onChange = vi.fn();
+    act(() => {
+      root = createRoot(container);
+      root.render(<VariantEditor variants={baseVariants} onChange={onChange} />);
+    });
+
+    const inputs = container.querySelectorAll(
+      '[data-testid="variant-low-stock-input"]',
+    );
+    const secondInput = inputs[1] as HTMLInputElement;
+
+    act(() => {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      nativeInputValueSetter?.call(secondInput, "5");
+      secondInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const newVariants = onChange.mock.calls[0][0] as Variant[];
+    expect(newVariants[1].low_stock_threshold).toBe(5);
+    expect(newVariants[0].low_stock_threshold).toBeUndefined();
+
+    unmount();
+  });
+
+  it("clearing the field resets the threshold to null", () => {
+    const onChange = vi.fn();
+    act(() => {
+      root = createRoot(container);
+      root.render(
+        <VariantEditor
+          variants={[{ ...baseVariants[0], low_stock_threshold: 5 }]}
+          onChange={onChange}
+        />,
+      );
+    });
+
+    const input = container.querySelector(
+      '[data-testid="variant-low-stock-input"]',
+    ) as HTMLInputElement;
+
+    act(() => {
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value",
+      )?.set;
+      nativeInputValueSetter?.call(input, "");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    const newVariants = onChange.mock.calls[0][0] as Variant[];
+    expect(newVariants[0].low_stock_threshold).toBeNull();
 
     unmount();
   });

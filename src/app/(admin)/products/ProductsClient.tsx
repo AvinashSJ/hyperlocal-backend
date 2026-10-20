@@ -12,6 +12,7 @@ import {
   type ProductActivityTrail,
 } from "./actions";
 import BulkImportModal from "./BulkImportModal";
+import { isLowStock as isLowStockAt } from "@/lib/low-stock";
 // P63: client-side date renderer. Avoids hydration mismatches caused
 // by server/client timezone divergence in toLocaleDateString.
 import ClientDate from "@/components/ClientDate";
@@ -89,7 +90,7 @@ export default function ProductsClient({
   const [deleting2, setDeleting2] = useState(false);
 
   const isLowStock = (p: Product) =>
-    p.low_stock_threshold != null && p.stock_quantity <= p.low_stock_threshold;
+    isLowStockAt(p.stock_quantity, p.low_stock_threshold);
 
   // Build a URL for the given filter/page overrides. Any value passed in
   // `overrides` wins; everything else is carried over from the current URL.

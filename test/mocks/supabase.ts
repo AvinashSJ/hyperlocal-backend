@@ -247,6 +247,24 @@ export function createMockSupabase(): MockSupabaseHandle {
             fromCalls.push({ method: `storage[${bucket}].list`, args: [path, opts] });
             return { data: filesByBucket[bucket] ?? [], error: null };
           },
+          async createSignedUploadUrl(path: string) {
+            fromCalls.push({ method: `storage[${bucket}].createSignedUploadUrl`, args: [path] });
+            return {
+              data: {
+                signedUrl: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/upload/sign/${bucket}/${path}?token=test-token`,
+                token: `test-token-${path}`,
+                path,
+              },
+              error: null,
+            };
+          },
+          async uploadToSignedUrl(path: string, token: string, file: unknown, opts?: unknown) {
+            fromCalls.push({
+              method: `storage[${bucket}].uploadToSignedUrl`,
+              args: [path, token, file, opts],
+            });
+            return { data: { path }, error: null };
+          },
           async remove(paths: string[]) {
             fromCalls.push({ method: `storage[${bucket}].remove`, args: [paths] });
             return { data: null, error: null };
