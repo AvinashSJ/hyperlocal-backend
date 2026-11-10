@@ -9,6 +9,7 @@ import { createProduct, updateProduct } from "./actions";
 import { formatDiscountLabel } from "./discount";
 import VariantEditor from "./VariantEditor";
 import ImagePickerModal from "@/components/ImagePickerModal";
+import type { MediaFile } from "@/app/(admin)/media/actions";
 
 type Product = {
   id: string;
@@ -51,6 +52,7 @@ type ProductVariant = {
 type ProductImage = {
   id: string;
   image_url: string;
+  thumbnail_url?: string | null;
   is_primary: boolean;
   sort_order: number;
 };
@@ -136,13 +138,14 @@ export default function ProductForm({
     }
   };
 
-  const handleImageSelect = (urls: string[]) => {
+  const handleImageSelect = (selectedFiles: MediaFile[]) => {
     const existing = new Set(images.map((i) => i.image_url));
-    const newImages = urls
-      .filter((url) => !existing.has(url))
-      .map((url, i) => ({
+    const newImages = selectedFiles
+      .filter((file) => !existing.has(file.url))
+      .map((file, i) => ({
         id: `new_${Date.now()}_${i}`,
-        image_url: url,
+        image_url: file.url,
+        thumbnail_url: file.thumbnail_url,
         is_primary: images.length === 0 && i === 0,
         sort_order: images.length + i,
       }));
@@ -550,7 +553,7 @@ export default function ProductForm({
                           style={{ background: "#f8f9fa" }}
                         >
                           <img
-                            src={img.image_url}
+                            src={img.thumbnail_url || img.image_url}
                             alt=""
                             style={{
                               width: 48,

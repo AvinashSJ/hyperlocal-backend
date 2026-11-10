@@ -46,9 +46,9 @@ describe("listMedia", () => {
     expect((createBucketCalls[0].args[1] as { public: boolean }).public).toBe(true);
 
     const listCalls = admin.calls.filter((c) => c.method === `storage[${BUCKET}].list`);
-    expect(listCalls.length).toBe(1);
-    expect(listCalls[0].args[0]).toBe("");
-    expect((listCalls[0].args[1] as { sortBy: { column: string; order: string } }).sortBy).toEqual({
+    expect(listCalls.length).toBe(2);
+    const rootListCall = listCalls.find((call) => call.args[0] === "")!;
+    expect((rootListCall.args[1] as { sortBy: { column: string; order: string } }).sortBy).toEqual({
       column: "created_at",
       order: "desc",
     });
@@ -91,6 +91,39 @@ describe("listMedia", () => {
     const files = await listMedia();
     expect(files[0].updated_at).toBe("2025-05-05T10:00:00Z");
     expect(files[0].size).toBe(9999);
+  });
+
+  it("returns the original URL unchanged and an explicit thumbnail URL only when its variant exists", async () => {
+    const admin = getAdminClient();
+    admin.setBuckets([{ name: BUCKET }]);
+    admin.setFiles(BUCKET, [
+      {
+        name: "photo.webp",
+        updated_at: "2025-01-01T00:00:00Z",
+        metadata: { size: 200 },
+      },
+      {
+        name: "__variants/v1/photo.webp.webp",
+        updated_at: "2025-01-01T00:00:00Z",
+        metadata: { size: 50 },
+      },
+      {
+        name: "without-thumb.webp",
+        updated_at: "2025-01-01T00:00:00Z",
+        metadata: { size: 200 },
+      },
+    ]);
+
+    const files = await listMedia();
+    const photo = files.find((file) => file.name === "photo.webp")!;
+    const withoutThumb = files.find((file) => file.name === "without-thumb.webp")!;
+
+    expect(photo.url).toMatch(/\/product-images\/photo\.webp$/);
+    expect(photo.thumbnail_url).toMatch(
+      /\/product-images\/__variants\/v1\/photo\.webp\.webp$/,
+    );
+    expect(withoutThumb.thumbnail_url).toBeNull();
+    expect(files).toHaveLength(2);
   });
 
   it("defaults updated_at to '' when missing, size to 0 when metadata missing", async () => {
@@ -139,13 +172,17 @@ describe("createUploadUrl", () => {
     const signCalls = admin.calls.filter(
       (c) => c.method === `storage[${BUCKET}].createSignedUploadUrl`,
     );
-    expect(signCalls.length).toBe(1);
+    expect(signCalls.length).toBe(2);
     expect(target.path).toMatch(/^\d+-[a-z0-9]{6}\.webp$/);
     expect(signCalls[0].args[0]).toBe(target.path);
+    expect(target.thumbnail_path).toBe(`__variants/v1/${target.path}.webp`);
+    expect(signCalls[1].args[0]).toBe(target.thumbnail_path);
     expect(target.token).toBe(`test-token-${target.path}`);
-    // publicUrl = baseUrl + '/' + path, with the bucket trailing slash stripped
     expect(target.publicUrl).toMatch(
       /\/storage\/v1\/object\/public\/product-images\/\d+-[a-z0-9]{6}\.webp$/,
+    );
+    expect(target.thumbnail_url).toMatch(
+      /\/storage\/v1\/object\/public\/product-images\/__variants\/v1\/\d+-[a-z0-9]{6}\.webp\.webp$/,
     );
     expect(target.publicUrl).not.toMatch(/[^:]\/\/[^/]/);
   });
@@ -197,7 +234,10 @@ describe("deleteMedia", () => {
 
     const removeCalls = admin.calls.filter((c) => c.method === `storage[${BUCKET}].remove`);
     expect(removeCalls.length).toBe(1);
-    expect(removeCalls[0].args[0]).toEqual(["a.png"]);
+    expect(removeCalls[0].args[0]).toEqual([
+      "a.png",
+      "__variants/v1/a.png.webp",
+    ]);
     expect(revalidatePathMock).toHaveBeenCalledWith("/media");
   });
 

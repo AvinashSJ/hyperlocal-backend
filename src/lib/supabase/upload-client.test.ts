@@ -30,6 +30,9 @@ const TARGET = {
   path: "1700000000-abc123.webp",
   token: "tok-123",
   publicUrl: "https://cdn.example.com/product-images/1700000000-abc123.webp",
+  thumbnail_path: "__variants/v1/1700000000-abc123.webp.webp",
+  thumbnail_token: "thumb-tok-123",
+  thumbnail_url: "https://cdn.example.com/product-images/__variants/v1/1700000000-abc123.webp.webp",
 };
 
 let createImageBitmapMock: ReturnType<typeof vi.fn>;
@@ -95,11 +98,13 @@ describe("compressImage", () => {
     const result = await compressImage(makeFile());
 
     expect(createImageBitmapMock).toHaveBeenCalledTimes(1);
-    expect(blobs).toHaveLength(1);
+    expect(blobs).toHaveLength(2);
     // 3200x1600 → scale 0.5 → 1600x800
     expect(blobs[0].width).toBe(1600);
     expect(blobs[0].height).toBe(800);
     expect(drawImageMock).toHaveBeenCalledWith(expect.anything(), 0, 0, 1600, 800);
+    expect(blobs[1].width).toBe(400);
+    expect(blobs[1].height).toBe(200);
     expect(result.type).toBe("image/webp");
     expect(closeBitmap).toHaveBeenCalledTimes(1);
 
@@ -153,14 +158,24 @@ describe("uploadImage", () => {
   it("compresses, PUTs to the signed target, and returns the name + public URL", async () => {
     const result = await uploadImage(makeFile("photo.png"));
 
-    expect(uploadToSignedUrl).toHaveBeenCalledTimes(1);
+    expect(uploadToSignedUrl).toHaveBeenCalledTimes(2);
     const [path, token, body, opts] = uploadToSignedUrl.mock.calls[0];
     expect(path).toBe(TARGET.path);
     expect(token).toBe(TARGET.token);
     expect(body).toBeInstanceOf(Blob);
     expect((opts as { contentType: string }).contentType).toBe("image/webp");
     expect((opts as { cacheControl: string }).cacheControl).toBe("31536000");
-    expect(result).toEqual({ name: TARGET.path, url: TARGET.publicUrl });
+    const [thumbnailPath, thumbnailToken, thumbnailBody, thumbnailOpts] =
+      uploadToSignedUrl.mock.calls[1];
+    expect(thumbnailPath).toBe(TARGET.thumbnail_path);
+    expect(thumbnailToken).toBe(TARGET.thumbnail_token);
+    expect(thumbnailBody).toBeInstanceOf(Blob);
+    expect((thumbnailOpts as { cacheControl: string }).cacheControl).toBe("31536000");
+    expect(result).toEqual({
+      name: TARGET.path,
+      url: TARGET.publicUrl,
+      thumbnail_url: TARGET.thumbnail_url,
+    });
   });
 
   it("throws a file-scoped error when storage rejects the upload", async () => {
@@ -190,10 +205,14 @@ describe("uploadImages", () => {
     const result = await uploadImages([makeFile("one.png"), makeFile("two.png")]);
 
     expect(result.uploaded).toEqual([
-      { name: "one.webp", url: "https://cdn/one.webp" },
+      {
+        name: "one.webp",
+        url: "https://cdn/one.webp",
+        thumbnail_url: TARGET.thumbnail_url,
+      },
     ]);
     expect(result.errors).toEqual(["Permission denied: upload on media"]);
-    expect(uploadToSignedUrl).toHaveBeenCalledTimes(1);
+    expect(uploadToSignedUrl).toHaveBeenCalledTimes(2);
   });
 
   it("records a generic message for non-Error failures", async () => {

@@ -162,7 +162,12 @@ describe("createProduct", () => {
     admin.enqueueResponse({ data: null, error: null });
 
     const images = JSON.stringify([
-      { image_url: "https://x/a.jpg", is_primary: true, sort_order: 0 },
+      {
+        image_url: "https://x/a.jpg",
+        thumbnail_url: "https://x/a-thumb.webp",
+        is_primary: true,
+        sort_order: 0,
+      },
       { image_url: "https://x/b.jpg", is_primary: false, sort_order: 1 },
     ]);
     const fd = buildFormData({
@@ -176,6 +181,11 @@ describe("createProduct", () => {
     expect(imageInserts).toHaveLength(1);
     const rows = imageInserts[0].find((c) => c.method === "insert")!.args[0] as any[];
     expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      image_url: "https://x/a.jpg",
+      thumbnail_url: "https://x/a-thumb.webp",
+    });
+    expect(rows[1].thumbnail_url).toBeNull();
   });
 
   it("ignores malformed variants JSON", async () => {
@@ -422,7 +432,12 @@ describe("updateProduct", () => {
     admin.enqueueResponse({ data: null, error: null });
 
     const variants = JSON.stringify([{ name: "New", sku: "X", mrp: 15, price: 10, stock: 1, variant_attributes: {} }]);
-    const images = JSON.stringify([{ image_url: "https://x/a.jpg", is_primary: true, sort_order: 0 }]);
+    const images = JSON.stringify([{
+      image_url: "https://x/a.jpg",
+      thumbnail_url: "https://x/a-thumb.webp",
+      is_primary: true,
+      sort_order: 0,
+    }]);
     const fd = buildFormData({
       name: "Updated",
       mrp: 100,
@@ -457,6 +472,7 @@ describe("updateProduct", () => {
     const imageInsert = admin.chainsForTable("product_images")[1]
       .find((c) => c.method === "insert")!.args[0] as any[];
     expect(imageInsert[0].image_url).toBe("https://x/a.jpg");
+    expect(imageInsert[0].thumbnail_url).toBe("https://x/a-thumb.webp");
   });
 
   it("revalidates /products", async () => {
