@@ -245,7 +245,16 @@ export function createMockSupabase(): MockSupabaseHandle {
           },
           async list(path: string, opts: unknown) {
             fromCalls.push({ method: `storage[${bucket}].list`, args: [path, opts] });
-            return { data: filesByBucket[bucket] ?? [], error: null };
+            const prefix = path ? `${path}/` : "";
+            const data = (filesByBucket[bucket] ?? []).flatMap((file) => {
+              if (!path) return file.name.includes("/") ? [] : [file];
+              if (!file.name.startsWith(prefix)) return [];
+              const relativeName = file.name.slice(prefix.length);
+              return relativeName.includes("/")
+                ? []
+                : [{ ...file, name: relativeName }];
+            });
+            return { data, error: null };
           },
           async createSignedUploadUrl(path: string) {
             fromCalls.push({ method: `storage[${bucket}].createSignedUploadUrl`, args: [path] });

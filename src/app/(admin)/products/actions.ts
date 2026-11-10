@@ -137,13 +137,19 @@ export async function createProduct(formData: FormData) {
   }
 
   const imagesRaw = String(formData.get("images") ?? "[]");
-  let images: { image_url: string; is_primary: boolean; sort_order: number }[] = [];
+  let images: {
+    image_url: string;
+    thumbnail_url?: string | null;
+    is_primary: boolean;
+    sort_order: number;
+  }[] = [];
   try { images = JSON.parse(imagesRaw); } catch { /* no images */ }
 
   if (images.length > 0) {
     const imageRows = images.map((img) => ({
       product_id: product.id,
       image_url: img.image_url,
+      thumbnail_url: img.thumbnail_url ?? null,
       is_primary: img.is_primary,
       sort_order: img.sort_order,
     }));
@@ -264,13 +270,19 @@ export async function updateProduct(id: string, formData: FormData) {
   if (imageDeleteError) throw new Error(imageDeleteError.message);
 
   const imagesRaw = String(formData.get("images") ?? "[]");
-  let images: { image_url: string; is_primary: boolean; sort_order: number }[] = [];
+  let images: {
+    image_url: string;
+    thumbnail_url?: string | null;
+    is_primary: boolean;
+    sort_order: number;
+  }[] = [];
   try { images = JSON.parse(imagesRaw); } catch { /* no images */ }
 
   if (images.length > 0) {
     const imageRows = images.map((img) => ({
       product_id: id,
       image_url: img.image_url,
+      thumbnail_url: img.thumbnail_url ?? null,
       is_primary: img.is_primary,
       sort_order: img.sort_order,
     }));

@@ -860,6 +860,40 @@ Server actions are `"use server"` functions called from the Next.js admin panel.
 | `deleteProduct(id)` | `id: string` | Delete product (cascades to variants, images) |
 | `bulkImportProducts(rows)` | `rows: CSV row[]` | Bulk import from CSV |
 
+#### Product image variants
+
+`product_images.image_url` remains the original detail/gallery image. The nullable
+`product_images.thumbnail_url` field contains the public 400px WebP variant used
+for grids, search results, and compact previews. Clients should use
+`thumbnail_url ?? image_url` for previews and keep `image_url` for detail views.
+Existing rows may have a null thumbnail until the backfill is run.
+
+Originals stay as root-level objects in the public `product-images` bucket. Their
+immutable thumbnails use the deterministic `__variants/v1/<original-name>.webp`
+path. For example, `1700000000-abc123.webp` maps to
+`__variants/v1/1700000000-abc123.webp.webp`. The reserved directory prevents
+collisions with original filenames; `v1` is the cache/version boundary. Do not
+overwrite a generated variant. If the encoding or dimensions change, introduce a
+new version directory and update the producer and backfill together.
+
+New admin uploads create both WebP files and store the explicit thumbnail URL on
+`product_images`. To backfill existing rows, first run a dry-run:
+
+```powershell
+npm run backfill:product-image-thumbnails -- --limit=50
+```
+
+The script loads local Next.js environment files and requires
+`NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Review the report,
+then run with `--apply` (optionally with `--limit=50`) to generate variants and
+link their URLs. Apply the `add_product_image_thumbnail_url` migration before
+running the script. For bounded runs, pass the returned `nextAfterId` to
+`--after-id=<uuid>` to continue past failures; rerun without a cursor later to
+retry failed rows. It skips existing variant objects, never overwrites
+originals, reports per-image failures, and exits nonzero if any fail.
+Successful rows are skipped, and an uploaded variant left unlinked by an
+interrupted run is linked rather than uploaded again.
+
 ### 7.6 Other Admin Actions
 
 | Module | Key Functions | Notes |

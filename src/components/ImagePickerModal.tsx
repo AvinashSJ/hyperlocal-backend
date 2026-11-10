@@ -7,7 +7,7 @@ import { uploadImages } from "@/lib/supabase/upload-client";
 
 type Props = {
   selectedUrls: string[];
-  onSelect: (urls: string[]) => void;
+  onSelect: (files: MediaFile[]) => void;
   onClose: () => void;
 };
 
@@ -182,7 +182,7 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
                         }}
                       >
                         <img
-                          src={f.url}
+                          src={f.thumbnail_url || f.url}
                           alt={f.name}
                           className="w-100 h-100"
                           style={{ objectFit: "cover" }}
@@ -211,7 +211,13 @@ export default function ImagePickerModal({ selectedUrls, onSelect, onClose }: Pr
             <button
               type="button"
               className="btn btn-primary"
-              onClick={() => onSelect(Array.from(picked))}
+              onClick={() =>
+                onSelect(
+                  Array.from(picked)
+                    .map((url) => files.find((file) => file.url === url))
+                    .filter((file): file is MediaFile => file !== undefined),
+                )
+              }
             >
               Add Selected ({picked.size})
             </button>

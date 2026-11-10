@@ -69,6 +69,7 @@
       "getCustomers",
       "CustomerAddress",
       "CustomerUser",
+      "AuthUserRecord",
       "CustomersClient",
       "async"
     ],
@@ -77,6 +78,7 @@
       "getDashboardStats",
       "MonthlyData",
       "LowStockItem",
+      "LowStockRow",
       "RecentOrder",
       "DashboardStats",
       "DashboardClient",
@@ -158,12 +160,12 @@
       "async"
     ],
     "16": [
-      "when",
-      "is",
+      "actions.test",
       "listMedia",
-      "uploadMedia",
+      "createUploadUrl",
       "deleteMedia",
       "MediaFile",
+      "UploadTarget",
       "MediaClient",
       "async"
     ],
@@ -306,7 +308,8 @@
       "async",
       "Root",
       "StoreDetailClient",
-      "ActionPermissions"
+      "ActionPermissions",
+      "AssignableManager"
     ],
     "29": [
       "actions.test",
@@ -384,41 +387,39 @@
       "POST"
     ],
     "39": [
-      "POST"
-    ],
-    "40": [
       "actions.test",
       "signIn",
       "signOut",
       "updateOwnPassword"
     ],
-    "41": [
+    "40": [
+      "route.test",
       "POST"
     ],
-    "42": [
+    "41": [
       "LoginForm",
       "async",
       "LoginPageProps"
     ],
-    "43": [
+    "42": [
       "async",
       "ResetPasswordForm"
     ],
-    "44": [
+    "43": [
       "RootLayout",
       "async",
       "StoreProvider"
     ],
-    "45": [
+    "44": [
       "MaintenanceView",
       "MaintenanceValue",
       "async",
       "Reason"
     ],
-    "46": [
+    "45": [
       "UnauthorizedPage"
     ],
-    "47": [
+    "46": [
       "BootstrapClient",
       "Root",
       "ClientDate",
@@ -441,7 +442,7 @@
       "PlaceholderPage",
       "Sensitive"
     ],
-    "48": [
+    "47": [
       "activity-log.test",
       "logActivity",
       "getEntityActivityLog",
@@ -462,6 +463,11 @@
       "ResolvedCategory",
       "RawCategoryJoin",
       "EnrichCategory",
+      "character",
+      "chunkIds",
+      "selectByIn",
+      "lowStockThreshold",
+      "isLowStock",
       "LatLng",
       "OlaDistanceMatrixRow",
       "OlaDistanceMatrixResponse",
@@ -488,29 +494,46 @@
       "withStoreScope",
       "StoreScope"
     ],
-    "49": [
+    "48": [
       "baseApi"
     ],
-    "50": [
+    "49": [
       "hooks",
       "AppStore",
       "RootState",
       "AppDispatch"
     ],
-    "51": [
+    "50": [
       "admin.test",
       "createAdminClient",
       "client.test",
       "createClient",
+      "getTransformedImageUrl",
       "AuthError",
       "GetUserResult",
       "GetUserBehaviour",
       "updateSession",
       "NextRequest",
+      "product-image-backfill.test",
+      "backfillProductImageThumbnails",
+      "ProductImageBackfillRow",
+      "ProductImageBackfillPort",
+      "ProductImageBackfillFailure",
+      "ProductImageBackfillResult",
+      "product-image-variants.test",
+      "getProductImageThumbnailPath",
+      "getProductImageObjectName",
       "CookieRecord",
-      "safeGetUser"
+      "safeGetUser",
+      "not",
+      "formatBytesLimit",
+      "compressImageVariants",
+      "compressImage",
+      "uploadImage",
+      "uploadImages",
+      "UploadedImage"
     ],
-    "52": [
+    "51": [
       "Profile",
       "Store",
       "Category",
